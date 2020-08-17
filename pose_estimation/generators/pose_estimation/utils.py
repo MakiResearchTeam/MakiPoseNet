@@ -22,6 +22,10 @@ def check_bounds(keypoints, image_size):
 
 
 def add_z_dim(x):
+    """
+    Add additional dimension filled in with ones
+
+    """
     return tf.concat(
         [
             x,
@@ -32,6 +36,10 @@ def add_z_dim(x):
 
 
 def get_rotate_matrix(image, angle):
+    """
+    Get rotation matrix for image with certain angle
+
+    """
     shift_x = image.get_shape()[1].value // 2
     shift_y = image.get_shape()[0].value // 2
 
@@ -50,12 +58,21 @@ def get_rotate_matrix(image, angle):
     return full_matrix
 
 def get_rotate_matrix_batched(images, angle_batched):
+    """
+    Get rotation matrix for every image in the batch with certain angle in the angle_batched array
+
+    """
     return tf.stack(
         [get_rotate_matrix(images[i], angle_batched[i]) for i in range(images.get_shape().as_list()[0])]
     )
 
 
 def get_shift_matrix(dx, dy):
+    """
+    Get shift matrix with certain dx and dy shifts by certain axis (x and y)
+
+    """
+    
     return tf.stack([
         [1.0, 0.0, 0.0],
         [0.0, 1.0, 0.0],
@@ -64,6 +81,10 @@ def get_shift_matrix(dx, dy):
 
 
 def get_shift_matrix_batched(dx_batched, dy_batched):
+    """
+    Get batched shift matrix with certain dx and dy in dx_batched and dy_batched array
+
+    """
     assert dx_batched.get_shape().as_list()[0] == dy_batched.get_shape().as_list()[0]
 
     return tf.stack(
@@ -72,6 +93,10 @@ def get_shift_matrix_batched(dx_batched, dy_batched):
 
 
 def get_zoom_matrix(zoom):
+    """
+    Get zoom matrix with certain scale `zoom`
+
+    """
     return tf.stack([
         [zoom, 0.0,  0.0],
         [0.0,  zoom, 0.0],
@@ -80,6 +105,10 @@ def get_zoom_matrix(zoom):
 
 
 def get_zoom_matrix_batched(zoom_batched):
+    """
+    Get batched zoom matrix for every scale in the `zoom_batched` array
+
+    """
     return tf.stack(
         [get_zoom_matrix(zoom_batched[i]) for i in range(zoom_batched.get_shape().as_list()[0])]
     )
@@ -96,6 +125,17 @@ def apply_transformation(
         use_zoom=False,
         zoom_scale=None
 ):
+    """
+    Apply transformation to an image and keypoints
+
+    Returns
+    -------
+    tf.Tensor
+        Batch of the transformed image
+    tf.Tensor
+        Batch of the transformed keypoints
+
+    """
     image = tf.convert_to_tensor(image, dtype=tf.float32)
 
     zoom_matrix = None
@@ -160,6 +200,17 @@ def apply_transformation_batched(
         use_zoom=False,
         zoom_scale_batched=None
 ):
+    """
+    Apply transformation to images and keypoints in certain batch (i.e. batch size)
+
+    Returns
+    -------
+    tf.Tensor
+        Batch of transformed images
+    tf.Tensor
+        Batch of transformed keypoints
+
+    """
     images = tf.convert_to_tensor(images, dtype=tf.float32)
     N = images.get_shape().as_list()[0]
 

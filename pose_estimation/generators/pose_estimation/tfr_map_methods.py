@@ -28,8 +28,22 @@ class LoadDataMethod(TFRMapMethod):
 
         Parameters
         ----------
+        shape_keypoints : list
+            Shape of keypoints in tfrecords [n_people, number_of_keypoints]
+            For example: [10, 17]
+        shape_image_properties : list
+            Shape of image properties in tfrecords,
+            By default equal to [3]
+        image_dtype : tf.dtype
+            Type of the image in tfrecords
+        keypoints_dtype : tf.dtype
+            Type of keypoints in tfrecords
+        keypoints_mask_dtype : tf.dtype
+            Type of the keypoints mask in tfrecords
+        image_properties_dtype : tf.dtype
+            Type of image properties in tfrecords
         """
-        self.shape_keypoints = shape_keypoints
+        self.shape_keypoints = shape_keypoints + [2]
         self.shape_image_properties = shape_image_properties
         self.shape_keypoints_mask = shape_keypoints[:-1] + [1]
 
