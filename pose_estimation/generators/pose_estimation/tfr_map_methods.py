@@ -1,6 +1,6 @@
 from ..pipeline.tfr.tfr_map_method import TFRMapMethod, TFRPostMapMethod
 from .data_preparation import IMAGE_FNAME, KEYPOINTS_FNAME, KEYPOINTS_MASK_FNAME, IMAGE_PROPERTIES_FNAME
-from .utils import check_bounds
+from .utils import check_bounds, apply_transformation
 
 import tensorflow as tf
 import numpy as np
@@ -72,7 +72,7 @@ class LoadDataMethod(TFRMapMethod):
 
 class RandomCropMethod(TFRPostMapMethod):
 
-    def __init__(self, crop_w: int, crop_h: int):
+    def __init__(self, crop_w: int, crop_h: int, image_last_dimension=3):
         """
         Perform random crop of the input images and their corresponding uvmaps.
         Parameters
@@ -81,18 +81,21 @@ class RandomCropMethod(TFRPostMapMethod):
             Width of the crop.
         crop_h : int
             Height of the crop.
+        image_last_dimension : int
+            Number of channels of images, by default equal to 3
         """
         super().__init__()
         self._crop_w = crop_w
         self._crop_h = crop_h
-        self._image_crop_size = [crop_h, crop_w, 3]
-        self._image_crop_size_tf = tf.constant(np.array([crop_h, crop_w, 3], dtype=np.int32))
+        self._image_crop_size = [crop_h, crop_w, image_last_dimension]
+        self._image_crop_size_tf = tf.constant(np.array([crop_h, crop_w, image_last_dimension], dtype=np.int32))
 
     def read_record(self, serialized_example) -> dict:
         element = self._parent_method.read_record(serialized_example)
         image = element[RIterator.IMAGE]
         keypoints = element[RIterator.KEYPOINTS]
         keypoints_mask = element[RIterator.KEYPOINTS_MASK]
+
         # This is an adapted code from the original TensorFlow's `random_crop` method
         limit = tf.shape(image) - self._image_crop_size_tf + 1
         offset = tf.random_uniform(
@@ -108,9 +111,157 @@ class RandomCropMethod(TFRPostMapMethod):
         # We can't use tf.Tensors for setting shape because they are note iterable what causes errors.
         cropped_image.set_shape(self._image_crop_size)
 
+        # Check which keypoints are beyond the image
+        correct_keypoints_mask = keypoints_mask * check_bounds(cropped_keypoints, self._image_crop_size_tf)
+
         element[RIterator.IMAGE] = cropped_image
         element[RIterator.KEYPOINTS] = cropped_keypoints
-        element[RIterator.KEYPOINTS_MASK] = keypoints_mask * check_bounds(cropped_keypoints, self._image_crop_size_tf)
+        element[RIterator.KEYPOINTS_MASK] = correct_keypoints_mask
+        return element
+
+
+class AugmentationPostMethod(TFRPostMapMethod):
+    
+    def __init__(self,
+        use_rotation=False,
+        angle_min=None,
+        angle_max=None,
+        use_shift=False,
+        dx_min=None,
+        dx_max=None,
+        dy_min=None,
+        dy_max=None,
+        use_zoom=False,
+        zoom_min=None,
+        zoom_max=None
+    ):
+        """
+        Perform augmentation of images (rotation, shift, zoom)
+
+        Parameters
+        ----------
+        use_rotation : bool
+            If equal to True, will be performed rotation to image
+        angle_min : float
+            Minimum angle of the random rotation
+        angle_max : float
+            Maximum angle of the random rotation
+        use_shift : bool
+            If equal to True, will be performed shift to image
+        dx_min : float
+            Minimum shift by x axis of the random shift
+        dx_max : float
+            Maximum shift by x axis of the random shift
+        dy_min : float
+            Minimum shift by y axis of the random shift
+        dy_max : float
+            Maximum shift by y axis of the random shift
+        use_zoom : bool
+            If equal to True, will be performed zoom to image
+        zoom_min : float
+            Minimum zoom coeff of the random zoom
+        zoom_max : float
+            Maximum zoom of the random zoom
+
+        """
+
+        self.use_rotation = use_rotation
+        if use_rotation and (angle_max is None or angle_min is None):
+            raise ValueError(
+                'Parameters angle_max and angle_min are should be not None values' + \
+                'If `use_rotation` equal to True'
+            )
+        
+        if use_rotation and angle_max < angle_min:
+            raise ValueError(
+                'Parameter angle_max should be bigger that angle_min, but ' + \
+                f'angle_max = {angle_max} and angle_min = {angle_min} were given'
+            )
+
+        self.angle_min = angle_min
+        self.angle_max = angle_max
+
+        self.use_shift = use_shift
+        if use_shift and (dx_min is None or dx_max is None or dy_min is None or dy_max is None):
+            raise ValueError(
+                'Parameters dx_min, dx_max, dy_min and dy_max are should be not None values' + \
+                'If use_shift equal to True'
+            )
+
+        if use_shift and dx_max < dx_min:
+            raise ValueError(
+                'Parameter dx_max should be bigger that dx_min, but ' + \
+                f'dx_max = {dx_max} and dx_min = {dx_min} were given'
+            )
+        
+        self.dx_min = dx_min
+        self.dx_max = dx_max
+
+        if use_shift and dy_max < dy_min:
+            raise ValueError(
+                'Parameter dy_max should be bigger that dy_min, but ' + \
+                f'dy_max = {dy_max} and dy_min = {dy_min} were given'
+            )
+        
+        self.dy_min = dy_min
+        self.dy_max = dy_max
+        
+        self.use_zoom = use_zoom
+        if use_zoom and (zoom_min is None or zoom_max is None):
+            raise ValueError(
+                'Parameters zoom_min and zoom_max are should be not None values' + \
+                'If use_zoom equal to True'
+            )
+        
+        if use_shift and zoom_max < zoom_min:
+            raise ValueError(
+                'Parameter zoom_max should be bigger that zoom_min, but ' + \
+                f'zoom_max = {zoom_max} and zoom_min = {zoom_min} were given'
+            )
+        
+        self.zoom_min = zoom_min
+        self.zoom_max = zoom_max
+
+    def read_record(self, serialized_example) -> dict:
+        element = self._parent_method.read_record(serialized_example)
+        image = element[RIterator.IMAGE]
+        keypoints = element[RIterator.KEYPOINTS]
+        keypoints_mask = element[RIterator.KEYPOINTS_MASK]
+
+        image_shape = image.get_shape().as_list()
+        angle = None
+        dy = None
+        dx = None
+        zoom = None
+
+        if self.use_rotation:
+            angle = tf.random.uniform([], minval=self.angle_min, maxval=self.angle_max, dtype='float32')
+        
+        if self.use_shift:
+            dy = tf.random.uniform([], minval=self.dy_min, maxval=self.dy_max, dtype='float32')
+            dx = tf.random.uniform([], minval=self.dx_min, maxval=self.dx_max, dtype='float32')
+
+        if self.use_zoom:
+            zoom = tf.random.uniform([], minval=self.zoom_min, maxval=self.zoom_max, dtype='float32')
+
+        transformed_image, transformed_keypoints = apply_transformation(
+            image,
+            keypoints,
+            use_rotation=self.use_rotation,
+            angle=angle,
+            use_shift=self.use_shift,
+            dx=dx,
+            dy=dy,
+            use_zoom=self.use_zoom,
+            zoom_scale=zoom
+        )
+
+        # Check which keypoints are beyond the image
+        correct_keypoints_mask = keypoints_mask * check_bounds(transformed_keypoints, image_shape)
+
+        element[RIterator.IMAGE] = transformed_image
+        element[RIterator.KEYPOINTS] = transformed_keypoints
+        element[RIterator.KEYPOINTS_MASK] = correct_keypoints_mask
         return element
 
 
