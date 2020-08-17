@@ -1,6 +1,6 @@
 from ..pipeline.tfr.tfr_map_method import TFRMapMethod, TFRPostMapMethod
 from .data_preparation import IMAGE_FNAME, KEYPOINTS_FNAME, KEYPOINTS_MASK_FNAME, IMAGE_PROPERTIES_FNAME
-from .utils import check_bounds, apply_transformation
+from .utils import check_bounds, apply_transformation, apply_transformation_batched
 
 import tensorflow as tf
 import numpy as np
@@ -45,7 +45,7 @@ class LoadDataMethod(TFRMapMethod):
         """
         self.shape_keypoints = shape_keypoints + [2]
         self.shape_image_properties = shape_image_properties
-        self.shape_keypoints_mask = shape_keypoints[:-1] + [1]
+        self.shape_keypoints_mask = shape_keypoints + [1]
 
         self.image_dtype = image_dtype
         self.keypoints_dtype = keypoints_dtype
@@ -178,7 +178,7 @@ class AugmentationPostMethod(TFRPostMapMethod):
             Maximum zoom of the random zoom
 
         """
-
+        super().__init__()
         self.use_rotation = use_rotation
         if use_rotation and (angle_max is None or angle_min is None):
             raise ValueError(
@@ -237,7 +237,10 @@ class AugmentationPostMethod(TFRPostMapMethod):
         self.zoom_max = zoom_max
 
     def read_record(self, serialized_example) -> dict:
-        element = self._parent_method.read_record(serialized_example)
+        if self._parent_method is not None:
+            element = self._parent_method.read_record(serialized_example)
+        else:
+            element = serialized_example
         image = element[RIterator.IMAGE]
         keypoints = element[RIterator.KEYPOINTS]
         keypoints_mask = element[RIterator.KEYPOINTS_MASK]
@@ -248,30 +251,56 @@ class AugmentationPostMethod(TFRPostMapMethod):
         dx = None
         zoom = None
 
-        if self.use_rotation:
-            angle = tf.random.uniform([], minval=self.angle_min, maxval=self.angle_max, dtype='float32')
-        
-        if self.use_shift:
-            dy = tf.random.uniform([], minval=self.dy_min, maxval=self.dy_max, dtype='float32')
-            dx = tf.random.uniform([], minval=self.dx_min, maxval=self.dx_max, dtype='float32')
+        if len(image_shape) == 3:
+            if self.use_rotation:
+                angle = tf.random.uniform([], minval=self.angle_min, maxval=self.angle_max, dtype='float32')
+            
+            if self.use_shift:
+                dy = tf.random.uniform([], minval=self.dy_min, maxval=self.dy_max, dtype='float32')
+                dx = tf.random.uniform([], minval=self.dx_min, maxval=self.dx_max, dtype='float32')
 
-        if self.use_zoom:
-            zoom = tf.random.uniform([], minval=self.zoom_min, maxval=self.zoom_max, dtype='float32')
+            if self.use_zoom:
+                zoom = tf.random.uniform([], minval=self.zoom_min, maxval=self.zoom_max, dtype='float32')
 
-        transformed_image, transformed_keypoints = apply_transformation(
-            image,
-            keypoints,
-            use_rotation=self.use_rotation,
-            angle=angle,
-            use_shift=self.use_shift,
-            dx=dx,
-            dy=dy,
-            use_zoom=self.use_zoom,
-            zoom_scale=zoom
-        )
+            transformed_image, transformed_keypoints = apply_transformation(
+                image,
+                keypoints,
+                use_rotation=self.use_rotation,
+                angle=angle,
+                use_shift=self.use_shift,
+                dx=dx,
+                dy=dy,
+                use_zoom=self.use_zoom,
+                zoom_scale=zoom
+            )
+            # Check which keypoints are beyond the image
+            correct_keypoints_mask = keypoints_mask * check_bounds(transformed_keypoints, image_shape)
+        else:
+            # Batched
+            N = image_shape[0]
+            if self.use_rotation:
+                angle = tf.random.uniform([N], minval=self.angle_min, maxval=self.angle_max, dtype='float32')
+            
+            if self.use_shift:
+                dy = tf.random.uniform([N], minval=self.dy_min, maxval=self.dy_max, dtype='float32')
+                dx = tf.random.uniform([N], minval=self.dx_min, maxval=self.dx_max, dtype='float32')
 
-        # Check which keypoints are beyond the image
-        correct_keypoints_mask = keypoints_mask * check_bounds(transformed_keypoints, image_shape)
+            if self.use_zoom:
+                zoom = tf.random.uniform([N], minval=self.zoom_min, maxval=self.zoom_max, dtype='float32')
+
+            transformed_image, transformed_keypoints = apply_transformation_batched(
+                image,
+                keypoints,
+                use_rotation=self.use_rotation,
+                angle_batched=angle,
+                use_shift=self.use_shift,
+                dx_batched=dx,
+                dy_batched=dy,
+                use_zoom=self.use_zoom,
+                zoom_scale_batched=zoom
+            )
+            # Check which keypoints are beyond the image
+            correct_keypoints_mask = keypoints_mask * check_bounds(transformed_keypoints, image_shape[1:])
 
         element[RIterator.IMAGE] = transformed_image
         element[RIterator.KEYPOINTS] = transformed_keypoints
