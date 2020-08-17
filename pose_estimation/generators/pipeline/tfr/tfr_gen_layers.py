@@ -97,6 +97,10 @@ class InputGenLayerV2(GenLayer):
         # would be None. Example: [None, 1024, 1024, 3]
         dataset = dataset.batch(self.batch_size, drop_remainder=True)
         dataset = dataset.prefetch(self.prefetch_size)
+        
+        if self.shuffle:
+            dataset = dataset.shuffle(buffer_size=self.buffer_size)
+        
         iterator = dataset.make_one_shot_iterator()
         return iterator.get_next()
 
@@ -175,14 +179,15 @@ class InputGenLayerV2Batched(GenLayer):
             block_length=self.block_length,
         )
 
-        if self.shuffle:
-            dataset = dataset.shuffle(buffer_size=self.buffer_size)
-
         dataset = dataset.map(map_func=operation_before_batched.read_record, num_parallel_calls=num_parallel_calls)
         # Set `drop_remainder` to True since otherwise the batch dimension
         # would be None. Example: [None, 1024, 1024, 3]
         dataset = dataset.batch(self.batch_size, drop_remainder=True)
         dataset = dataset.prefetch(self.prefetch_size)
+
+        if self.shuffle:
+            dataset = dataset.shuffle(buffer_size=self.buffer_size)
+
         dataset = dataset.map(map_func=map_operation.read_record, num_parallel_calls=num_parallel_calls)
 
         iterator = dataset.make_one_shot_iterator()
