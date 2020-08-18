@@ -137,17 +137,17 @@ class RandomCropMethod(TFRPostMapMethod):
 class AugmentationPostMethod(TFRPostMapMethod):
     
     def __init__(self,
-        use_rotation=False,
-        angle_min=None,
-        angle_max=None,
+        use_rotation=True,
+        angle_min=-30.0,
+        angle_max=30.0,
         use_shift=False,
         dx_min=None,
         dx_max=None,
         dy_min=None,
         dy_max=None,
-        use_zoom=False,
-        zoom_min=None,
-        zoom_max=None
+        use_zoom=True,
+        zoom_min=0.9,
+        zoom_max=1.1
     ):
         """
         Perform augmentation of images (rotation, shift, zoom)
