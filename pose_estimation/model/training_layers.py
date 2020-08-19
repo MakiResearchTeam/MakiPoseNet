@@ -1,4 +1,5 @@
 from makiflow.layers.sf_layer import SimpleForwardLayer
+from makiflow.base.maki_entities.maki_layer import MakiRestorable
 import tensorflow as tf
 import numpy as np
 
@@ -6,8 +7,8 @@ import numpy as np
 class BinaryHeatmapLayer(SimpleForwardLayer):
     def __init__(self, im_size, radius, map_dtype=tf.int32, vectorize=False, name='BinaryHeatmapLayer'):
         """
-        Generates hard keypoint maps using highly optimized vectorization. May cause OOM error due to high
-        memory consumption.
+        Generates hard keypoint maps using highly optimized vectorization.
+        
         Parameters
         ----------
         im_size : 2d tuple
@@ -17,6 +18,9 @@ class BinaryHeatmapLayer(SimpleForwardLayer):
         map_dtype : tf.dtype
             Dtype of the generated map. Use tf.int32 for binary classification and tf.float32 for
             regression.
+        vectorize : bool
+            Set to True if you want to vectorize the computation along the batch dimension. May cause
+            the OOM error due to high memory consumption.
         """
         super().__init__(name, params=[], regularize_params=[], named_params_dict={})
         self.im_size = im_size
@@ -28,10 +32,11 @@ class BinaryHeatmapLayer(SimpleForwardLayer):
         xy_grid = np.stack([x_grid, y_grid], axis=-1)
         self.xy_grid = tf.convert_to_tensor(xy_grid, dtype=tf.float32)
 
-
-    def _forward(self, x):
-        keypoints = x
-        maps = self.__build_heatmap_batch(keypoints, self.xy_grid, self.radius)
+    def _forward(self, x, computation_mode=MakiRestorable.TRAINING_MODE):
+        with tf.name_scope(computation_mode):
+            with tf.name_scope(self.get_name()):
+                keypoints = x
+                maps = self.__build_heatmap_batch(keypoints, self.xy_grid, self.radius)
         return maps
 
     def _training_forward(self, x):
@@ -73,20 +78,18 @@ class BinaryHeatmapLayer(SimpleForwardLayer):
         # Decide whether to perform calucalation in a batch dimension.
         # May be faster, but requires more memory.
         if len(kp.get_shape()) == 4 and self.vectorize:            # [b, c, p, 2]
-            print('Using vectorization.')
+            print('Using vectorized_map.')
             return fn_b(kp, xy_grid, radius)
         elif len(kp.get_shape()) == 4 and not self.vectorize: 
             # Requires less memory, but runs slower
-            print('Using while_loop.')
+            print('Using map_fn.')
             fn = lambda kp_: fn_c(kp_, xy_grid, radius)
             return tf.map_fn(
                 fn,
                 kp
             )
-        elif len(kp.get_shape()) == 3:          # [c, h, w]
-            return fn_c(kp, xy_grid, radius)
         else:
-            message = f'Expected keypoints dimensionality to be 3 or 4, but got {len(kp.get_shape())}.' + \
+            message = f'Expected keypoints dimensionality to be 4, but got {len(kp.get_shape())}.' + \
                 f'Keypoints shape: {kp.get_shape()}'
             raise Exception(message)
 

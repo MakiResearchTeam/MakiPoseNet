@@ -187,7 +187,7 @@ class InputGenLayerV2Batched(GenLayer):
 
         if self.shuffle:
             dataset = dataset.shuffle(buffer_size=self.buffer_size)
-
+        
         dataset = dataset.map(map_func=map_operation.read_record, num_parallel_calls=num_parallel_calls)
 
         iterator = dataset.make_one_shot_iterator()
