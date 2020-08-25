@@ -9,7 +9,6 @@ from ..generators.pose_estimation.data_preparation import record_mp_pose_estimat
 
 
 import tensorflow as tf
-tf.compat.v1.enable_eager_execution()
 
 
 CONNECT_INDEXES = [
@@ -65,6 +64,9 @@ class CocoPreparator:
             This criteria is using in default method for checking number of keypoints on the image,
             All images with a lower relations will be thrown
         """
+        # For saving records, enable eager execution
+        tf.compat.v1.enable_eager_execution()
+
         self._coco = COCO(coco_annotations)
 
         self._image_folder_path = image_folder_path
@@ -108,7 +110,7 @@ class CocoPreparator:
         plt.imshow(I)
         plt.show()
     
-    def save_records(self, prefix, images_pr, criteria=None):
+    def save_records(self, prefix, images_pr, criteria=None, stop_after_part=None):
         """
         Parameters
         ----------
@@ -121,7 +123,10 @@ class CocoPreparator:
         criteria : python function
             A function which takes keypoints masks and return a boolean. If True, the image
             is included. If `criteria` is set to None, a default criteria is taken.
-        
+        stop_after_part : int
+            Generation of the tfrecords will be stopped after certain part,
+            This parameters is usually used for creation a smaller tfrecord dataset
+            (for example, for testing)
         """
 
         if criteria is None:
@@ -168,7 +173,9 @@ class CocoPreparator:
             # Skip image if it's not suitable by critetia function
             if criteria is not None and not criteria(all_kp[..., -1:]):
                 continue
-            
+            if len(image.shape) != 3:
+                # Assume that is gray-scale image, so convert it to rgb
+                image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
             image, all_kp = self.__rescale_image(image, all_kp)
 
             keypoints_tensors.append(all_kp[..., :2].astype(np.float32))
@@ -197,6 +204,9 @@ class CocoPreparator:
                 image_properties_tensors = []
                 counter = 0
                 counter_saved += 1
+
+            if stop_after_part is not None and counter_saved == stop_after_part:
+                break
 
         # Save remaining data
         if counter > 0:
