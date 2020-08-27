@@ -1,11 +1,13 @@
 from makiflow.layers.sf_layer import SimpleForwardLayer
 from makiflow.base.maki_entities.maki_layer import MakiRestorable
+from makiflow.base import MakiLayer, MakiTensor
 import tensorflow as tf
 import numpy as np
+from copy import copy
 
 
 class BinaryHeatmapLayer(SimpleForwardLayer):
-
+    
     def __init__(self, im_size, radius, map_dtype=tf.int32, vectorize=False, name='BinaryHeatmapLayer'):
         """
         Generates hard keypoint maps using highly optimized vectorization.
@@ -136,7 +138,7 @@ class BinaryHeatmapLayer(SimpleForwardLayer):
         return heatmap * bool_location_map
 
 
-class PAFLayer(SimpleForwardLayer):
+class PAFLayer(MakiLayer):
     # 90 degrees rotation matrix. Used for generation of orthogonal vector. 
     ROT90_MAT = tf.convert_to_tensor(
         np.array([
@@ -145,6 +147,27 @@ class PAFLayer(SimpleForwardLayer):
         ]),
         dtype=tf.float32
     )
+
+    def __call__(self, x):
+        kp, masks = x
+        paf_dt = self._forward([
+            kp.get_data_tensor(),
+            masks.get_data_tensor()
+        ])
+
+        parent_tensor_names = [kp.get_name(), masks.get_name()]
+        previous_tensors = copy(kp.get_previous_tensors())
+        previous_tensors.update(kp.get_self_pair())
+        previous_tensors.update(masks.get_self_pair())
+        previous_tensors.update(masks.get_previous_tensors())
+        maki_tensor = MakiTensor(
+            data_tensor=paf_dt,
+            parent_layer=self,
+            parent_tensor_names=parent_tensor_names,
+            previous_tensors=previous_tensors,
+        )
+        return maki_tensor
+
 
     def __init__(self, im_size, sigma, skeleton, vectorize=False, name='PAFLayer'):
         """
@@ -176,8 +199,8 @@ class PAFLayer(SimpleForwardLayer):
     def _forward(self, x, computation_mode=MakiRestorable.TRAINING_MODE):
         with tf.name_scope(computation_mode):
             with tf.name_scope(self.get_name()):
-                keypoints = x
-                pafs = self.__build_paf_batch(keypoints)
+                keypoints, masks = x
+                pafs = self.__build_paf_batch(keypoints, masks)
         return pafs
 
     def _training_forward(self, x):
@@ -186,68 +209,78 @@ class PAFLayer(SimpleForwardLayer):
     def to_dict(self):
         return {}   
 
-    def __build_paf_batch(self, kp):
+    def __build_paf_batch(self, kp, masks):
         """
         Generates PAF for the given keypoints.
 
         Parameters
         ----------
-        kp : tf.Tensor of shape [batch, n_people, c, 2]
+        kp : tf.Tensor of shape [batch, c, n_people, 2]
             Tensor of keypoints coordinates.
-        
+        masks : tf.Tensor of shape [batch, c, n_people, 1]
         Returns
         -------
         tf.Tensor of shape [batch, n_pairs, h, w]
             Tensor of PAFs.
         """
+        print('paf kp', kp.get_shape())
         # Gather points along the axis of classes of points.
-        # [b, p, n_pairs, 2, 2]
-        kp_p = tf.gather(kp, indices=self.skeleton, axis=2)
-        print(kp.get_shape())
-        # [b, n_pairs, p, 2, 2]
-        kp_p = tf.transpose(kp_p, perm=[0, 2, 1, 3, 4])
+        # [b, n_pairs, 2, p, 2]
+        kp_p = tf.gather(kp, indices=self.skeleton, axis=1)
         # This is needed for proper matrix multiplication during paf generation.
+        kp_p = tf.transpose(kp_p, perm=[0, 1, 3, 2, 4])
+        print('paf pairs', kp_p.get_shape())
         kp_p = tf.expand_dims(kp_p, axis=-1)
-        print(kp_p.get_shape())
+        print('paf pairs t', kp_p.get_shape())
+        # [b, n_pairs, p, 2, 2, 1]
         assert len(kp_p.get_shape()) == 6, f'Expected keypoint pairs dimensionality to be 6, but got {len(kp_p.get_shape())}.' + \
                 f'Keypoints shape: {kp_p.get_shape()}'
 
+        # Select masks for corresponding points.
+        # [b, n_pairs, 2, p, 1]
+        masks_p = tf.gather(masks, indices=self.skeleton, axis=1)
+        masks_p = tf.transpose(masks_p, perm=[0, 1, 3, 2, 4])
+        print('paf masks_p t', masks_p.get_shape())
         # [h, w, 2]
-        fn_p = lambda kp: tf.reduce_mean(
+        fn_p = lambda kp, masks: tf.reduce_sum(
             PAFLayer.__build_paf_mp(
-                kp, 
+                kp, masks,
                 destination_call=self.__build_paf
             ),
             axis=0
         )
 
         # [n_pairs, h, w, 2]
-        fn_np = lambda kp: PAFLayer.__build_paf_mp(
-                kp, 
+        fn_np = lambda kp, masks: PAFLayer.__build_paf_mp(
+                kp, masks,
                 destination_call=fn_p
         )
 
         # [b, n_pairs, h, w, 2]
-        fn_b = lambda kp: PAFLayer.__build_paf_mp(
-                kp, 
+        fn_b = lambda kp, masks: PAFLayer.__build_paf_mp(
+                kp, masks,
                 destination_call=fn_np
         )
-        # Decide whether to perform calucalation in a batch dimension.
+        # Decide whether to perform calculation in a batch dimension.
         # May be faster, but requires more memory.
         if self.vectorize:            # [b, c, p, 2]
             print('Using vectorized_map.')
-            return fn_b(kp_p)
+            return fn_b(kp_p, masks_p)
         else: 
             # Requires less memory, but runs slower
             print('Using map_fn.')
-            fn = lambda kp_: fn_np(kp_)
-            return tf.map_fn(
+            # The map_fn function passes in a list of unpacked tensors
+            # along the first dimension. Therefore, we need to take those tensors
+            # out of the list.
+            fn = lambda kp_masks: [fn_np(kp_masks[0], kp_masks[1]), 0]
+            pafs, _, = tf.map_fn(
                 fn,
-                kp_p
+                [kp_p, masks_p]
             )
+            return pafs
 
     @staticmethod
-    def __build_paf_mp(kp, destination_call):
+    def __build_paf_mp(kp, masks, destination_call):
         """
         The hetmaps generation is factorized down to single keypoint heatmap generation.
         Nested calls of this method allow for highly optimized vectorized computation of multiple maps.
@@ -263,12 +296,16 @@ class PAFLayer(SimpleForwardLayer):
         destination_call : method pointer
             Used for nested calling to increase the dimensionality of the computation.
         """
-        print('mp', kp.get_shape())
-        fn = lambda _kp: destination_call(_kp)
-        maps = tf.vectorized_map(fn, kp)
+        print('paf mf kp', kp.get_shape())
+        print('paf mf masks', kp.get_shape())
+        # Vectorized map unpackes tensors from the input sequence (list in this case) along their
+        # first dimension, but passes a list of unpacked tensors. Therefore, we need to take them
+        # out from the list.
+        fn = lambda _kp_masks: destination_call(_kp_masks[0], _kp_masks[1])
+        maps = tf.vectorized_map(fn, [kp, masks])
         return maps
 
-    def __build_paf(self, p1p2):
+    def __build_paf(self, p1p2, points_mask):
         """
         Build PAF for the given 2 points `p1p2` on the `xy_grid`.
         
@@ -277,24 +314,23 @@ class PAFLayer(SimpleForwardLayer):
         p1p2 : tf.Tensor of shape [2, 2, 1]
             Points between which to generate the field. Vectors will points from
             p1 to p2.
-        sigma : tf.float32
-            Width of the field.
-        xy_grid : tf.Tensor of shape [h, w, 2]
-            A coordinate grid of the image plane.
+        point_mask : tf.Tensor of shape [2, 1]
+            A mask determining whether the keypoints are labeled. 0 - no label, 1 - there is a label.
         
         Returns
         -------
         tf.Tensor of shape [h, w, 2]
             The generated PAF.
         """
-        print(p1p2.get_shape())
+        print('paf p1p2', p1p2.get_shape())
+        print('paf points_mask', points_mask.get_shape())
         # Define the required variables.
         p1 = p1p2[0]
         p2 = p1p2[1]
         h, w, _ = self.xy_grid.get_shape()
         # Flatten the field. It is needed for the later matrix multiplication.
         xy_flat = tf.reshape(self.xy_grid, [-1, 2])
-        l = tf.linalg.norm(p2 - p1)
+        l = tf.maximum(tf.linalg.norm(p2 - p1), 1e-10)
         v = (p2 - p1) / l
         v_orth = tf.matmul(PAFLayer.ROT90_MAT, v)
         # Generate a mask for the points between `p1` and `p2`.
@@ -312,4 +348,4 @@ class PAFLayer(SimpleForwardLayer):
         cf = cf_l * cf_sigma
         # Mutiply the mask with the direction vector.
         paf = tf.expand_dims(cf, axis=-1) * v[:, 0]
-        return paf
+        return paf * tf.reduce_min(points_mask)
