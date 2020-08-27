@@ -6,7 +6,27 @@ import numpy as np
 from copy import copy
 
 
-class BinaryHeatmapLayer(SimpleForwardLayer):
+class BinaryHeatmapLayer(MakiLayer):
+
+    def __call__(self, x):
+        kp, masks = x
+        paf_dt = self._forward([
+            kp.get_data_tensor(),
+            masks.get_data_tensor()
+        ])
+
+        parent_tensor_names = [kp.get_name(), masks.get_name()]
+        previous_tensors = copy(kp.get_previous_tensors())
+        previous_tensors.update(kp.get_self_pair())
+        previous_tensors.update(masks.get_self_pair())
+        previous_tensors.update(masks.get_previous_tensors())
+        maki_tensor = MakiTensor(
+            data_tensor=paf_dt,
+            parent_layer=self,
+            parent_tensor_names=parent_tensor_names,
+            previous_tensors=previous_tensors,
+        )
+        return maki_tensor
     
     def __init__(self, im_size, radius, map_dtype=tf.int32, vectorize=False, name='BinaryHeatmapLayer'):
         """
@@ -38,8 +58,8 @@ class BinaryHeatmapLayer(SimpleForwardLayer):
     def _forward(self, x, computation_mode=MakiRestorable.TRAINING_MODE):
         with tf.name_scope(computation_mode):
             with tf.name_scope(self.get_name()):
-                keypoints = x
-                maps = self.__build_heatmap_batch(keypoints, self.xy_grid, self.radius)
+                keypoints, masks = x
+                maps = self.__build_heatmap_batch(keypoints, masks, self.radius)
         return maps
 
     def _training_forward(self, x):
@@ -48,14 +68,14 @@ class BinaryHeatmapLayer(SimpleForwardLayer):
     def to_dict(self):
         return {}
 
-    def __build_heatmap_batch(self, kp, xy_grid, radius):
+    def __build_heatmap_batch(self, kp, masks, radius):
         # Build maps for keypoints of the same class for multiple people
         # and then aggregate generated maps.
         # [h, w]
-        fn_p = lambda kp, xy_grid, radius: tf.reduce_max(
+        fn_p = lambda kp, masks, radius: tf.reduce_max(
             BinaryHeatmapLayer.__build_heatmap_mp(
-                kp, 
-                xy_grid, 
+                kp,
+                masks, 
                 radius, 
                 destination_call=self.__build_heatmap
             ),
@@ -63,17 +83,17 @@ class BinaryHeatmapLayer(SimpleForwardLayer):
         )
         # Build maps for keypoints of multiple classes.
         # [c, h, w]
-        fn_c = lambda kp, xy_grid, radius: BinaryHeatmapLayer.__build_heatmap_mp(
-            kp, 
-            xy_grid, 
+        fn_c = lambda kp, masks, radius: BinaryHeatmapLayer.__build_heatmap_mp(
+            kp,
+            masks, 
             radius, 
             destination_call=fn_p
         )
         # Build a batch of maps.
         # [b, c, h, w]
-        fn_b = lambda kp, xy_grid, radius: BinaryHeatmapLayer.__build_heatmap_mp(
-            kp, 
-            xy_grid, 
+        fn_b = lambda kp, masks, radius: BinaryHeatmapLayer.__build_heatmap_mp(
+            kp,
+            masks, 
             radius, 
             destination_call=fn_c
         )
@@ -82,22 +102,23 @@ class BinaryHeatmapLayer(SimpleForwardLayer):
         # May be faster, but requires more memory.
         if len(kp.get_shape()) == 4 and self.vectorize:            # [b, c, p, 2]
             print('Using vectorized_map.')
-            return fn_b(kp, xy_grid, radius)
+            return fn_b(kp, masks, radius)
         elif len(kp.get_shape()) == 4 and not self.vectorize: 
             # Requires less memory, but runs slower
             print('Using map_fn.')
-            fn = lambda kp_: fn_c(kp_, xy_grid, radius)
-            return tf.map_fn(
+            fn = lambda kp_masks: [fn_c(kp_masks[0], kp_masks[1], radius), 0]
+            heatmaps, _ = tf.map_fn(
                 fn,
-                kp
+                [kp, masks]
             )
+            return heatmaps
         else:
             message = f'Expected keypoints dimensionality to be 4, but got {len(kp.get_shape())}.' + \
                 f'Keypoints shape: {kp.get_shape()}'
             raise Exception(message)
 
     @staticmethod
-    def __build_heatmap_mp(kp, xy_grid, radius, destination_call):
+    def __build_heatmap_mp(kp, masks, radius, destination_call):
         """
         The hetmaps generation is factorized down to single keypoint heatmap generation.
         Nested calls of this method allow for highly optimized vectorized computation of multiple maps.
@@ -113,29 +134,35 @@ class BinaryHeatmapLayer(SimpleForwardLayer):
         destination_call : method pointer
             Used for nested calling to increase the dimensionality of the computation.
         """
-        fn = lambda _kp: destination_call(_kp, xy_grid, radius)
-        maps = tf.vectorized_map(fn, kp)
+        fn = lambda _kp_masks: destination_call(_kp_masks[0], _kp_masks[1], radius)
+        maps = tf.vectorized_map(
+            fn, 
+            [kp, masks]
+        )
         return maps
 
-    def __build_heatmap(self, kp, xy_grid, radius):
+    def __build_heatmap(self, kp, masks, radius):
         """
         Builds a hard classification heatmap for a single keypoint `kp`.
         Parameters
         ----------
         kp : tf.Tensor of shape [2]
             A keypoint (x, y) for which to build the heatmap.
+        masks : tf.Tensor of shape [2, 1]
         xy_grid : tf.Tensor of shape [h, w, 2]
             A coordinate grid for the image tensor.
         radius : tf.float32
             Radius of the classification (heat) region.
         """
+        xy_grid = self.xy_grid
         print(kp.get_shape())
         grid_size = xy_grid.get_shape()[:2]
         heatmap = tf.ones((grid_size[0], grid_size[1]), dtype=self.map_dtype)
 
         bool_location_map = (xy_grid[..., 0] - kp[0])**2 + (xy_grid[..., 1] - kp[1])**2 < radius**2
         bool_location_map = tf.cast(bool_location_map, dtype=self.map_dtype)
-        return heatmap * bool_location_map
+        masks = tf.cast(masks, dtype=self.map_dtype)
+        return heatmap * bool_location_map * tf.reduce_min(masks)
 
 
 class PAFLayer(MakiLayer):
