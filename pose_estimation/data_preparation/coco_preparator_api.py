@@ -310,7 +310,7 @@ class CocoPreparator:
 
         if number_vis_points >= 3:
             # The point is visible
-            avg_body_p = np.zeros(2).astype(np.float32)
+            avg_body_p = np.zeros(3).astype(np.float32)
             div = 0
             for i in range(len(s_p_imp)):
                 if s_p_imp[i][-1] > CocoPreparator.EPSILON and s_p_imp[i][-1] > CocoPreparator.EPSILON:
@@ -318,6 +318,7 @@ class CocoPreparator:
                     avg_body_p += s_p_imp[i]
 
             avg_body_p_v1 = avg_body_p / div
+            avg_body_p_v1[-1] = 1.0
         else:
             # Otherwise the point is not visible
             avg_body_p_v1 = np.zeros(3).astype(np.float32)
