@@ -295,17 +295,22 @@ class CocoPreparator:
             chest_p = (single_anns[5] + single_anns[6]) / 2.0
 
             face_p = np.zeros(3).astype(np.float32)
+            # Calculate average points position on the face using know points on it
             div = 0
             for i in range(len(single_anns[:5])):
                 if single_anns[i][-1] > CocoPreparator.EPSILON and single_anns[i][-1] > CocoPreparator.EPSILON:
                     div += 1
                     face_p += single_anns[i]
 
-            face_p = face_p / div
+            # Check whether there points on the face, ignore if there is 2 or less points
+            if div > 2:
+                face_p = face_p / div
 
-            neck = (face_p + chest_p) / 2.0
-            # Set visibility to 1.0 (i. e. visible)
-            neck[-1] = 1.0
+                neck = (face_p + chest_p) / 2.0
+                # Set visibility to 1.0 (i. e. visible)
+                neck[-1] = 1.0
+            else:
+                neck = np.zeros(3).astype(np.float32)
         else:
             neck = np.zeros(3).astype(np.float32)
 
