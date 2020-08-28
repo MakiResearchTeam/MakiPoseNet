@@ -86,7 +86,7 @@ class CocoPreparator:
 
         self.__criteria_throw = criteria_throw
     
-    def show_annot(self, image_id, fig_size=[8, 8]):
+    def show_annot(self, image_id, fig_size=[8, 8], color_limbs='b', color_skelet='b'):
         """
         Show image and skeletons on it according to `image_id`
 
@@ -97,6 +97,18 @@ class CocoPreparator:
         fig_size : list
             Size of the matplotlib.pyplot figure,
             By default equal to [8, 8] which is enough for most cases
+        color_limbs : str
+            Color of points on certain limbs,
+            'b' - blue,
+            'r' - red,
+            etc...
+            For more details, check matplotlib color
+        color_skelet : str
+            Color of the skelet connection,
+            'b' - blue,
+            'r' - red,
+            etc...
+            For more details, check matplotlib color
         """
 
         plt.figure(figsize=fig_size)    
@@ -105,15 +117,17 @@ class CocoPreparator:
         img = self._coco.loadImgs(image_id)[0]
 
         for z in range(len(anns)):
+            # Method return shape (n_keypoints, 1, 3)
             all_kp = self.__take_default_skelet(anns[z])[:, 0]
 
             for i in range(len(CONNECT_INDEXES)):
                 single = CONNECT_INDEXES[i]
                 p_1 = all_kp[single[0]]
                 p_2 = all_kp[single[1]]
-                if p_1[0] != 0.0 and p_1[1] != 0.0 and p_2[0] != 0.0 and p_2[1] != 0:
-                    plt.plot([p_1[0], p_2[0]], [p_1[1], p_2[1]], color='r')
-                    plt.scatter([p_1[0], p_2[0]], [p_1[1], p_2[1]], color='b')
+                if p_1[-1] > CocoPreparator.EPSILON and p_1[-1] > CocoPreparator.EPSILON and \
+                   p_2[-1] > CocoPreparator.EPSILON and p_2[-1] > CocoPreparator.EPSILON:
+                    plt.plot([p_1[0], p_2[0]], [p_1[1], p_2[1]], color=color_skelet)
+                    plt.scatter([p_1[0], p_2[0]], [p_1[1], p_2[1]], color=color_limbs)
         
         I = io.imread(os.path.join(self._image_folder_path, img['file_name']))
         plt.axis('off')
