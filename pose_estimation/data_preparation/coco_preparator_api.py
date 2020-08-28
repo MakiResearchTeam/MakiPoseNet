@@ -5,34 +5,44 @@ import skimage.io as io
 import matplotlib.pyplot as plt
 import os
 import cv2
+import tensorflow as tf
+
 from ..generators.pose_estimation.data_preparation import record_mp_pose_estimation_train_data
 
 
-import tensorflow as tf
-
-
-CONNECT_INDEXES = [
-    [0, 1],
-    [0, 2],
-    [0, 4],
-    [4, 6],
-    [6, 8],
-    [8, 17],
-    [8, 18],
-    [0, 3],
+CONNECT_INDEXES =  [
+    # head
+    [1, 2],
+    [2, 4],
+    [1, 3],
     [3, 5],
-    [5, 7],
-    [7, 15],
-    [7, 16],
-    
-    [0, 9],
+    # body
+    # left
+    [1, 7],
+    [7, 9],
     [9, 11],
-    [11, 13],
-    [13, 19],
-    [0, 10],
-    [10, 12],
+    [11, 22],
+    [11, 23],
+    # right
+    [1, 6],
+    [6, 8],
+    [8, 10],
+    [10, 20],
+    [10, 21],
+    # center
+    [1, 0],
+    [0, 12],
+    [0, 13],
+    # legs
+    # left
+    [13, 15],
+    [15, 17],
+    [17, 19],
+    # right
     [12, 14],
-    [14, 20],
+    [14, 16],
+    [16, 18]
+
 ]
 
 
@@ -241,24 +251,18 @@ class CocoPreparator:
 
     def __take_default_skelet(self, single_human_anns):
         """
-        Take default skelet with 21 keypoints for full body
+        Take default skelet with 24 keypoints for full body
 
         Returns
         -------
         np.ndarray
-            Array of the keypoints with shape - (21, 1, 3)
+            Array of the keypoints with shape - (24, 1, 3)
 
         """
         single_anns = np.array(single_human_anns['keypoints']).reshape(17, 3)
         single_anns_hand_left = np.array(single_human_anns['lefthand_kpts']).reshape(21, 3)
         single_anns_hand_right = np.array(single_human_anns['righthand_kpts']).reshape(21, 3)
         single_anns_foot = np.array(single_human_anns['foot_kpts']).reshape(6, 3)
-
-        # Check neck
-        if single_anns[5][-1] > CocoPreparator.EPSILON and single_anns[6][-1] > CocoPreparator.EPSILON:
-            neck = (single_anns[5] + single_anns[6]) / 2.0
-        else:
-            neck = np.zeros(3).astype(np.float32)
 
         # Check visibility of foots
         # One
@@ -272,24 +276,70 @@ class CocoPreparator:
         else:
             foot_two = np.zeros(3).astype(np.float32)
 
+        # Check neck
+        if single_anns[5][-1] > CocoPreparator.EPSILON and single_anns[6][-1] > CocoPreparator.EPSILON:
+            chest_p = (single_anns[5] + single_anns[6]) / 2.0
+
+            face_p = np.zeros(3).astype(np.float32)
+            div = 0
+            for i in range(len(single_anns[:5])):
+                if single_anns[i][-1] > CocoPreparator.EPSILON and single_anns[i][-1] > CocoPreparator.EPSILON:
+                    div += 1
+                    face_p += single_anns[i]
+
+            face_p = face_p / div
+
+            neck = (face_p + chest_p) / 2.0
+            # Set visibility to 1.0 (i. e. visible)
+            neck[-1] = 1.0
+        else:
+            neck = np.zeros(3).astype(np.float32)
+
+        # Middle points of the body
+        # Calculate avg points between 4 body points
+        s_p_imp = np.stack([
+            single_anns[5],
+            single_anns[6],
+            single_anns[11],
+            single_anns[12]
+        ])
+
+        s_p_imp[..., -1:] = s_p_imp[..., -1:] > CocoPreparator.EPSILON
+        # For middle points, we must have more than 2 visible points for its calculation
+        number_vis_points = np.sum(s_p_imp[..., -1:])
+
+        if number_vis_points >= 3:
+            # The point is visible
+            avg_body_p = np.zeros(2).astype(np.float32)
+            div = 0
+            for i in range(len(s_p_imp)):
+                if s_p_imp[i][-1] > CocoPreparator.EPSILON and s_p_imp[i][-1] > CocoPreparator.EPSILON:
+                    div += 1
+                    avg_body_p += s_p_imp[i]
+
+            avg_body_p_v1 = avg_body_p / div
+        else:
+            # Otherwise the point is not visible
+            avg_body_p_v1 = np.zeros(3).astype(np.float32)
+
         all_kp_single = np.stack([
+            avg_body_p_v1,
             neck,
-            single_anns[1],
-            single_anns[2],
+            *list(single_anns[1:5]),
             *list(single_anns[5:]),
-            # hands
-            single_anns_hand_left[0],
-            single_anns_hand_left[-1],
-            single_anns_hand_right[0],
-            single_anns_hand_right[-1],
             # foot
             foot_one,
             foot_two,
-        ]).astype(np.float32)
+            # hands
+            single_anns_hand_left[4],
+            single_anns_hand_left[-1],
+            single_anns_hand_right[4],
+            single_anns_hand_right[-1],
+        ])
         
         # Create bool mask for visibility of keypoints
         all_kp_single[..., -1:] = (all_kp_single[..., -1:] > CocoPreparator.EPSILON).astype(np.float32)
-        # all_kp - (21, 3) ---> (21, 1, 3)
+        # all_kp - (24, 3) ---> (24, 1, 3)
         all_kp_single = np.expand_dims(all_kp_single, axis=1)
 
         return all_kp_single
