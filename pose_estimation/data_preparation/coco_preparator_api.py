@@ -37,11 +37,11 @@ CONNECT_INDEXES =  [
     # left
     [13, 15],
     [15, 17],
-    [17, 19],
+    [17, 18],
     # right
     [12, 14],
     [14, 16],
-    [16, 18]
+    [16, 19]
 
 ]
 
@@ -302,11 +302,13 @@ class CocoPreparator:
                     div += 1
                     face_p += single_anns[i]
 
-            # Check whether there points on the face, ignore if there is 2 or less points
-            if div > 2:
+            # Check whether there points on the face, ignore if there is 3 or less points
+            if div > 3:
                 face_p = face_p / div
 
-                neck = (face_p + chest_p) / 2.0
+                # Calculate point which is on vector from points `chest_p` to `face_p`,
+                # We take points at the end of this vector on 1/3 of its length
+                neck = (face_p - chest_p) / 3.0 + chest_p
                 # Set visibility to 1.0 (i. e. visible)
                 neck[-1] = 1.0
             else:
@@ -359,7 +361,7 @@ class CocoPreparator:
         
         # Create bool mask for visibility of keypoints
         all_kp_single[..., -1:] = (all_kp_single[..., -1:] > CocoPreparator.EPSILON).astype(np.float32)
-        # all_kp - (24, 3) ---> (24, 1, 3)
+        # all_kp - shape (24, 3) ---> (24, 1, 3)
         all_kp_single = np.expand_dims(all_kp_single, axis=1)
 
         return all_kp_single
