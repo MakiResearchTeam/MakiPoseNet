@@ -188,15 +188,16 @@ class CocoPreparator:
                 # all_kp - (n_keypoints, n_people, 3), concatenate by n_people axis
                 all_kp = np.concatenate([all_kp, all_kp_single], axis=1)
 
+            # Skip image if it's not suitable by critetia function
+            if criteria is not None and not criteria(all_kp[..., -1:]):
+                continue
+
             # Fill dimension n_people to maximum value according to self._max_people 
             # By placing zeros in other additional dimensions
             not_enougth = self._max_people - len(anns)
             zeros_arr = np.zeros([all_kp.shape[0], not_enougth, all_kp.shape[-1]]).astype(np.float32)
             all_kp = np.concatenate([all_kp, zeros_arr], axis=1)
 
-            # Skip image if it's not suitable by critetia function
-            if criteria is not None and not criteria(all_kp[..., -1:]):
-                continue
             if len(image.shape) != 3:
                 # Assume that is gray-scale image, so convert it to rgb
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
@@ -282,11 +283,15 @@ class CocoPreparator:
         # One
         if single_anns_foot[0][-1] > CocoPreparator.EPSILON and single_anns_foot[1][-1] > CocoPreparator.EPSILON:
             foot_one = (single_anns_foot[0] + single_anns_foot[1]) / 2.0
+            # Set visibility to True (i.e. 1.0)
+            foot_one[-1] = 1.0
         else:
             foot_one = np.zeros(3).astype(np.float32)
         # Two
         if single_anns_foot[3][-1] > CocoPreparator.EPSILON and single_anns_foot[4][-1] > CocoPreparator.EPSILON:
             foot_two = (single_anns_foot[3] + single_anns_foot[4]) / 2.0
+            # Set visibility to True (i.e. 1.0)
+            foot_two[-1] = 1.0
         else:
             foot_two = np.zeros(3).astype(np.float32)
 
@@ -309,7 +314,7 @@ class CocoPreparator:
                 # Calculate point which is on vector from points `chest_p` to `face_p`,
                 # We take points at the end of this vector on 1/3 of its length
                 neck = (face_p - chest_p) / 3.0 + chest_p
-                # Set visibility to 1.0 (i. e. visible)
+                # Set visibility to True (i.e. 1.0)
                 neck[-1] = 1.0
             else:
                 neck = np.zeros(3).astype(np.float32)
@@ -324,7 +329,7 @@ class CocoPreparator:
             single_anns[11],
             single_anns[12]
         ])
-
+        # Making binary values on visibility dimension to calculate visible points
         s_p_imp[..., -1:] = s_p_imp[..., -1:] > CocoPreparator.EPSILON
         # For middle points, we must have more than 2 visible points for its calculation
         number_vis_points = np.sum(s_p_imp[..., -1:])
@@ -338,14 +343,14 @@ class CocoPreparator:
                     div += 1
                     avg_body_p += s_p_imp[i]
 
-            avg_body_p_v1 = avg_body_p / div
-            avg_body_p_v1[-1] = 1.0
+            avg_body_p = avg_body_p / div
+            avg_body_p[-1] = 1.0
         else:
             # Otherwise the point is not visible
-            avg_body_p_v1 = np.zeros(3).astype(np.float32)
+            avg_body_p = np.zeros(3).astype(np.float32)
 
         all_kp_single = np.stack([
-            avg_body_p_v1,
+            avg_body_p,
             neck,
             *list(single_anns[1:5]),
             *list(single_anns[5:]),
@@ -366,7 +371,6 @@ class CocoPreparator:
 
         return all_kp_single
 
-
     def __default_criteria(self, keypoints_masks):
         """
         This criteria checking number of keypoints on the image and their relation to the number of all keypoints,
@@ -376,11 +380,14 @@ class CocoPreparator:
         # keypoints_masks - (n_keypoints, n_people, 1)
         check_ans = False
         n_keypoints = keypoints_masks.shape[0]
+        # Transpose - (n_keypoints, n_people, 1) --> (n_people, n_keypoints, 1)
         keypoints_masks = np.transpose(keypoints_masks, axes=[1, 0, 2])
-        # keypoints_masks - (n_people, n_keypoints, 1)
-        check = np.max(np.sum(keypoints_masks > CocoPreparator.EPSILON, axis=1) / n_keypoints)
+        # Calculate number of maximum visible points of `n_people`
+        num_vis_points = np.sum(keypoints_masks > CocoPreparator.EPSILON, axis=(1, 2))
+        # num_vis_points_percent - (n_people, 1) - which is shows number of visible points (in percent)
+        num_vis_points_percent = np.max(num_vis_points) / n_keypoints
 
-        if check > self.__criteria_throw:
+        if num_vis_points_percent > self.__criteria_throw:
             check_ans = True
         
         return check_ans
