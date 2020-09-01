@@ -82,14 +82,14 @@ class PEModel(MakiCore):
         Return tf.Tensor of paf calculation
 
         """
-        return self._outputs[0]
+        return self._output_data_tensors[0]
 
     def get_heatmap_tensor(self):
         """
         Return tf.Tensor of heatmap calculation
 
         """
-        return self._outputs[1]
+        return self._output_data_tensors[1]
 
     def get_training_vars(self):
         """
