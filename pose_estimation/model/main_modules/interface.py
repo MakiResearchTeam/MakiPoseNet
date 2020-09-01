@@ -4,7 +4,11 @@ from makiflow.base.maki_entities.maki_core import MakiCore
 
 class PoseEstimatorInterface(MakiCore, ABC):
     @abstractmethod
+<<<<<<< HEAD
     def get_paff_tensor(self):
+=======
+    def get_paf_tensor(self):
+>>>>>>> origin/master
         pass
 
     @abstractmethod
