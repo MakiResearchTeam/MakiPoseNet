@@ -35,6 +35,7 @@ class HardTrainer:
         self._paf_scale = 1.0
         self._heatmap_scale = 1.0
         self._loss_is_built = False
+        self._optimizer = None
         self._sess = model.get_session()
         assert self._sess is not None
         self._tb_writer = None
