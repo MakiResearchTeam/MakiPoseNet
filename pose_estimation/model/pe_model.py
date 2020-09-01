@@ -113,7 +113,7 @@ class PEModel(PoseEstimatorInterface):
 
     def build_final_loss(self, loss):
 
-        final_loss = self.build_final_loss(loss)
+        final_loss = self._build_final_loss(loss)
 
         return final_loss
 
