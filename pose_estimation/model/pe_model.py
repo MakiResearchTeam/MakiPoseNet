@@ -9,7 +9,7 @@ class PEModel(PoseEstimatorInterface):
 
     INPUT_MT = 'input_mt'
     OUTPUT_HEATMAP_MT = 'output_heatmap_mt'
-    OUTPUT_PAFF_MT = 'output_paff_mt'
+    OUTPUT_PAF_MT = 'output_paf_mt'
     NAME = 'name'
 
     @staticmethod
@@ -27,20 +27,20 @@ class PEModel(PoseEstimatorInterface):
 
         # Take model information
         output_heatmap_mt_name = json_info[MakiCore.MODEL_INFO][PEModel.OUTPUT_HEATMAP_MT]
-        output_paff_mt_name = json_info[MakiCore.MODEL_INFO][PEModel.OUTPUT_PAFF_MT]
+        output_paf_mt_name = json_info[MakiCore.MODEL_INFO][PEModel.OUTPUT_PAF_MT]
         input_mt_name = json_info[MakiCore.MODEL_INFO][PEModel.INPUT_MT]
         model_name = json_info[MakiCore.MODEL_INFO][PEModel.NAME]
         graph_info = json_info[MakiCore.GRAPH_INFO]
 
         # Restore all graph variables of saved model
         inputs_and_outputs = MakiCore.restore_graph(
-            [output_heatmap_mt_name, output_paff_mt_name],
+            [output_heatmap_mt_name, output_paf_mt_name],
             graph_info
         )
 
         input_x = inputs_and_outputs[input_mt_name]
 
-        output_paf = inputs_and_outputs[output_paff_mt_name]
+        output_paf = inputs_and_outputs[output_paf_mt_name]
         output_heatmap = inputs_and_outputs[output_heatmap_mt_name]
 
         print('Model is restored!')
@@ -90,9 +90,9 @@ class PEModel(PoseEstimatorInterface):
         """
         return self._session
 
-    def get_paff_tensor(self):
+    def get_paf_tensor(self):
         """
-        Return tf.Tensor of paf calculation
+        Return tf.Tensor of paf (party affinity fields) calculation
 
         """
         return self._outputs[0]
@@ -124,12 +124,12 @@ class PEModel(PoseEstimatorInterface):
         """
         input_mt = self._inputs[0]
         output_heatmap_mt = self.get_heatmap_tensor()
-        output_paff_mt = self.get_paff_tensor()
+        output_paf_mt = self.get_paf_tensor()
 
         return {
             PEModel.INPUT_MT: input_mt.get_name(),
             PEModel.OUTPUT_HEATMAP_MT: output_heatmap_mt.get_name(),
-            PEModel.OUTPUT_PAFF_MT: output_paff_mt.get_name(),
+            PEModel.OUTPUT_PAF_MT: output_paf_mt.get_name(),
             PEModel.NAME: self.name
         }
 
