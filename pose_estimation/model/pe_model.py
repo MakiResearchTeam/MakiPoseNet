@@ -1,10 +1,11 @@
 import json
 
+from .main_modules import PoseEstimatorInterface
 from makiflow.base.maki_entities import MakiCore
 from makiflow.base.maki_entities import MakiTensor
 
 
-class PEModel(MakiCore):
+class PEModel(PoseEstimatorInterface):
 
     INPUT_MT = 'input_mt'
     OUTPUT_HEATMAP_MT = 'output_heatmap_mt'
@@ -17,18 +18,21 @@ class PEModel(MakiCore):
         Creates and returns PEModel from json file contains its architecture
 
         """
+        # Read architecture from file
         json_file = open(path_to_model)
         json_value = json_file.read()
+        json_file.close()
+
         json_info = json.loads(json_value)
 
+        # Take model information
         output_heatmap_mt_name = json_info[MakiCore.MODEL_INFO][PEModel.OUTPUT_HEATMAP_MT]
         output_paff_mt_name = json_info[MakiCore.MODEL_INFO][PEModel.OUTPUT_PAFF_MT]
-
         input_mt_name = json_info[MakiCore.MODEL_INFO][PEModel.INPUT_MT]
         model_name = json_info[MakiCore.MODEL_INFO][PEModel.NAME]
-
         graph_info = json_info[MakiCore.GRAPH_INFO]
 
+        # Restore all graph variables of saved model
         inputs_and_outputs = MakiCore.restore_graph(
             [output_heatmap_mt_name, output_paff_mt_name],
             graph_info
@@ -40,6 +44,7 @@ class PEModel(MakiCore):
         output_heatmap = inputs_and_outputs[output_heatmap_mt_name]
 
         print('Model is restored!')
+
         return PEModel(
             input_x=input_x,
             output_heatmap=output_heatmap,
