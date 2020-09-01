@@ -19,3 +19,9 @@ class PoseEstimatorInterface(MakiCore, ABC):
     @abstractmethod
     def build_final_loss(self, loss):
         pass
+
+    @abstractmethod
+    def get_session(self):
+        # TODO: Move this method into MakiModel
+        pass
+

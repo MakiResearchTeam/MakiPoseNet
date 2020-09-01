@@ -82,6 +82,14 @@ class PEModel(PoseEstimatorInterface):
         graph_tensors.update(output_heatmap.get_self_pair())
         super().__init__(graph_tensors, outputs=[output_paf, output_heatmap], inputs=[input_x])
 
+    def get_session(self):
+        """
+        TODO: Move this method into MakiModel
+        Return tf.Session that is set for this model
+
+        """
+        return self._session
+
     def get_paff_tensor(self):
         """
         Return tf.Tensor of paf calculation
@@ -124,3 +132,4 @@ class PEModel(PoseEstimatorInterface):
             PEModel.OUTPUT_PAFF_MT: output_paff_mt.get_name(),
             PEModel.NAME: self.name
         }
+
