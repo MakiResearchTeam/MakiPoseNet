@@ -39,6 +39,8 @@ class HardTrainer:
         self._sess = model.get_session()
         assert self._sess is not None
         self._tb_writer = None
+        # Counter for total number of training iterations.
+        self._tb_counter = 0
 
     def set_tensorboard_logdir(self, logdir_path):
         """
@@ -135,8 +137,7 @@ class HardTrainer:
         total_losses = []
         heatmap_losses = []
         paf_losses = []
-        # Counter for total number of training iterations.
-        total_it = 0
+        
         for i in range(epochs):
             it = tqdm(range(iter))
             total_loss = 0
@@ -158,7 +159,9 @@ class HardTrainer:
                         (HardTrainer.HEATMAP_LOSS, heatmap_loss)
                     )
                     if self._tb_writer is not None:
-                        self._tb_writer.add_summary(summary, total_it)
+                        self._tb_writer.add_summary(summary, self._tb_counter)
+                        self._tb_counter += 1
+
             total_losses.append(total_loss)
             heatmap_losses.append(heatmap_loss)
             paf_losses.append(paf_loss)
