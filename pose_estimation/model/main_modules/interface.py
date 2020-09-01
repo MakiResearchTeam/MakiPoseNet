@@ -24,4 +24,3 @@ class PoseEstimatorInterface(MakiCore, ABC):
     def get_session(self):
         # TODO: Move this method into MakiModel
         pass
-
