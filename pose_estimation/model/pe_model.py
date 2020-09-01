@@ -111,6 +111,13 @@ class PEModel(PoseEstimatorInterface):
         """
         return self._trainable_vars
 
+    def training_on(self):
+        """
+        Init variables for training
+
+        """
+        self._setup_for_training()
+
     def build_final_loss(self, loss):
 
         final_loss = self._build_final_loss(loss)
