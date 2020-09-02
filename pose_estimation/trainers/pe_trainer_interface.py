@@ -1,18 +1,5 @@
 from abc import ABC, abstractmethod
 
-import json
-import os
-import tensorflow as tf
-import numpy as np
-import traceback
-import cv2
-import glob
-import copy
-from scipy.stats import skew, kurtosis
-import pandas as pd
-
-from makiflow.trainers.utils.optimizer_builder import OptimizerBuilder
-from makiflow.tools.test_visualizer import TestVisualizer
 
 """
 EXAMPLE OF THE TEST PARAMETERS:
