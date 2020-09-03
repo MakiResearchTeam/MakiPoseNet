@@ -102,7 +102,9 @@ class BinaryHeatmapLayer(MakiLayer):
         # May be faster, but requires more memory.
         if len(kp.get_shape()) == 4 and self.vectorize:            # [b, c, p, 2]
             print('Using vectorized_map.')
-            return fn_b(kp, masks, radius)
+            heatmaps = fn_b(kp, masks, radius)
+            heatmaps = tf.transpose(heatmaps, perm=[0, 2, 3, 1])
+            return heatmaps
         elif len(kp.get_shape()) == 4 and not self.vectorize: 
             # Requires less memory, but runs slower
             print('Using map_fn.')
@@ -111,6 +113,7 @@ class BinaryHeatmapLayer(MakiLayer):
                 fn,
                 [kp, masks]
             )
+            heatmaps = tf.transpose(heatmaps, perm=[0, 2, 3, 1])
             return heatmaps
         else:
             message = f'Expected keypoints dimensionality to be 4, but got {len(kp.get_shape())}.' + \
@@ -250,15 +253,12 @@ class PAFLayer(MakiLayer):
         tf.Tensor of shape [batch, n_pairs, h, w]
             Tensor of PAFs.
         """
-        print('paf kp', kp.get_shape())
         # Gather points along the axis of classes of points.
         # [b, n_pairs, 2, p, 2]
         kp_p = tf.gather(kp, indices=self.skeleton, axis=1)
         # This is needed for proper matrix multiplication during paf generation.
         kp_p = tf.transpose(kp_p, perm=[0, 1, 3, 2, 4])
-        print('paf pairs', kp_p.get_shape())
         kp_p = tf.expand_dims(kp_p, axis=-1)
-        print('paf pairs t', kp_p.get_shape())
         # [b, n_pairs, p, 2, 2, 1]
         assert len(kp_p.get_shape()) == 6, f'Expected keypoint pairs dimensionality to be 6, but got {len(kp_p.get_shape())}.' + \
                 f'Keypoints shape: {kp_p.get_shape()}'
@@ -267,7 +267,6 @@ class PAFLayer(MakiLayer):
         # [b, n_pairs, 2, p, 1]
         masks_p = tf.gather(masks, indices=self.skeleton, axis=1)
         masks_p = tf.transpose(masks_p, perm=[0, 1, 3, 2, 4])
-        print('paf masks_p t', masks_p.get_shape())
         # [h, w, 2]
         fn_p = lambda kp, masks: tf.reduce_sum(
             PAFLayer.__build_paf_mp(
@@ -292,7 +291,9 @@ class PAFLayer(MakiLayer):
         # May be faster, but requires more memory.
         if self.vectorize:            # [b, c, p, 2]
             print('Using vectorized_map.')
-            return fn_b(kp_p, masks_p)
+            pafs = fn_b(kp_p, masks_p)
+            pafs = tf.transpose(pafs, perm=[0, 2, 3, 1, 4])
+            return pafs
         else: 
             # Requires less memory, but runs slower
             print('Using map_fn.')
@@ -304,6 +305,7 @@ class PAFLayer(MakiLayer):
                 fn,
                 [kp_p, masks_p]
             )
+            pafs = tf.transpose(pafs, perm=[0, 2, 3, 1, 4])
             return pafs
 
     @staticmethod
@@ -323,8 +325,6 @@ class PAFLayer(MakiLayer):
         destination_call : method pointer
             Used for nested calling to increase the dimensionality of the computation.
         """
-        print('paf mf kp', kp.get_shape())
-        print('paf mf masks', kp.get_shape())
         # Vectorized map unpackes tensors from the input sequence (list in this case) along their
         # first dimension, but passes a list of unpacked tensors. Therefore, we need to take them
         # out from the list.
@@ -349,8 +349,6 @@ class PAFLayer(MakiLayer):
         tf.Tensor of shape [h, w, 2]
             The generated PAF.
         """
-        print('paf p1p2', p1p2.get_shape())
-        print('paf points_mask', points_mask.get_shape())
         # Define the required variables.
         p1 = p1p2[0]
         p2 = p1p2[1]
