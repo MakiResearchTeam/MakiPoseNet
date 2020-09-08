@@ -3,6 +3,7 @@ import json
 from .main_modules import PoseEstimatorInterface
 from makiflow.base.maki_entities import MakiCore
 from makiflow.base.maki_entities import MakiTensor
+from makiflow.base.maki_entities import InputMakiLayer
 
 
 class PEModel(PoseEstimatorInterface):
@@ -13,7 +14,7 @@ class PEModel(PoseEstimatorInterface):
     NAME = 'name'
 
     @staticmethod
-    def from_json(path_to_model: str):
+    def from_json(path_to_model: str, input_tensor: MakiTensor):
         """
         Creates and returns PEModel from json file contains its architecture
 
@@ -35,7 +36,8 @@ class PEModel(PoseEstimatorInterface):
         # Restore all graph variables of saved model
         inputs_and_outputs = MakiCore.restore_graph(
             [output_heatmap_mt_name, output_paf_mt_name],
-            graph_info
+            graph_info,
+            input_layer=input_tensor
         )
 
         input_x = inputs_and_outputs[input_mt_name]
