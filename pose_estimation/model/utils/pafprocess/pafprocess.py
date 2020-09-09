@@ -4,7 +4,7 @@
 # Do not make changes to this file unless you know what you are doing--modify
 # the SWIG interface file instead.
 
-PATH_TO_SO_FILE = 'MakiPoseNet/pose_estimation/model/utils/pafprocess/_pafprocess'
+PATH_TO_SO_FILE = '_pafprocess'
 
 from sys import version_info as _swig_python_version_info
 if _swig_python_version_info >= (2, 7, 0):
