@@ -1,12 +1,4 @@
-frp,
-
-
-class ModelAssembler:
-    def __init__(self, config):
-        pass
-
-    def assemble(self, gen_layer):
-        pass
+from ..model import PAFLayer, BinaryHeatmapLayer, PEModel
 
 
 class Experiment:
