@@ -4,16 +4,15 @@
 # Do not make changes to this file unless you know what you are doing--modify
 # the SWIG interface file instead.
 
-PATH_TO_SO_FILE = 'pose_estimation/model/utils/pafprocess/_pafprocess'
-import os
+PATH_TO_SO_FILE = 'MakiPoseNet/pose_estimation/model/utils/pafprocess/_pafprocess'
+
 from sys import version_info as _swig_python_version_info
 if _swig_python_version_info >= (2, 7, 0):
     def swig_import_helper():
         import importlib
         pkg = __name__.rpartition('.')[0]
         mname = '.'.join((pkg, PATH_TO_SO_FILE)).lstrip('.')
-        print(mname)
-        mname = os.path.join(os.path.dirname(os.path.realpath(__file__)), '_pafprocess')
+        mname = PATH_TO_SO_FILE.replace('/', '.')
         try:
             return importlib.import_module(mname)
         except ImportError:
