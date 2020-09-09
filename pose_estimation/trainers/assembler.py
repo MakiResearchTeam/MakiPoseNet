@@ -1,6 +1,6 @@
 from makiflow.base import MakiTensor
 from ..generators.pose_estimation import RIterator
-from ..model.training_layers import BinaryHeatmapLayer,
+from ..model.training_layers import BinaryHeatmapLayer
 
 
 def to_makitensor(x, name):
@@ -28,4 +28,4 @@ class ModelAssembler:
 
     @staticmethod
     def assemble(config, gen_layer, architecture):
-
+        pass
