@@ -298,7 +298,8 @@ class GaussHeatmapLayer(MakiLayer):
         ----------
         kp : tf.Tensor of shape [2]
             A keypoint (x, y) for which to build the heatmap.
-        masks : tf.Tensor of shape [2, 1]
+        masks : tf.Tensor of shape [1]
+            Determines whether keypoint exists.
         xy_grid : tf.Tensor of shape [h, w, 2]
             A coordinate grid for the image tensor.
         radius : tf.float32
@@ -310,7 +311,7 @@ class GaussHeatmapLayer(MakiLayer):
         heatmap = tf.exp(
             -((xy_grid[..., 0] - kp[0])**2 + (xy_grid[..., 1] - kp[1])**2) / delta**2
         )
-        return heatmap * tf.reduce_min(masks)
+        return heatmap * masks
 
 
 class PAFLayer(MakiLayer):
