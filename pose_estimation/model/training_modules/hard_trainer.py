@@ -28,6 +28,7 @@ class HardTrainer:
             MakiTensor for training heatmaps.
         """
         self._model = model
+        model.training_on()
         self._paf = model.get_paf_tensor()
         self._heatmap = model.get_heatmap_tensor()
         self._training_paf = training_paf.get_data_tensor()
@@ -151,6 +152,7 @@ class HardTrainer:
                 paf_loss = moving_average(paf_loss, b_paf_loss, j)
                 heatmap_loss = moving_average(heatmap_loss, b_heatmap_loss, j)
 
+                self._tb_counter += 1
                 if (j + 1) % print_period == 0:
                     print_train_info(
                         i,
@@ -160,7 +162,8 @@ class HardTrainer:
                     )
                     if self._tb_writer is not None:
                         self._tb_writer.add_summary(summary, self._tb_counter)
-                        self._tb_counter += 1
+                        self._tb_writer.flush()
+                        
 
             total_losses.append(total_loss)
             heatmap_losses.append(heatmap_loss)

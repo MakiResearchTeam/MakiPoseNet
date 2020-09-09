@@ -8,6 +8,11 @@ from copy import copy
 
 class BinaryHeatmapLayer(MakiLayer):
 
+    @staticmethod
+    def build(params: dict):
+        pass
+
+
     def __call__(self, x):
         kp, masks = x
         paf_dt = self._forward([
@@ -27,6 +32,7 @@ class BinaryHeatmapLayer(MakiLayer):
             previous_tensors=previous_tensors,
         )
         return maki_tensor
+
     
     def __init__(self, im_size, radius, map_dtype=tf.int32, vectorize=False, name='BinaryHeatmapLayer'):
         """
@@ -102,7 +108,9 @@ class BinaryHeatmapLayer(MakiLayer):
         # May be faster, but requires more memory.
         if len(kp.get_shape()) == 4 and self.vectorize:            # [b, c, p, 2]
             print('Using vectorized_map.')
-            return fn_b(kp, masks, radius)
+            heatmaps = fn_b(kp, masks, radius)
+            heatmaps = tf.transpose(heatmaps, perm=[0, 2, 3, 1])
+            return heatmaps
         elif len(kp.get_shape()) == 4 and not self.vectorize: 
             # Requires less memory, but runs slower
             print('Using map_fn.')
@@ -111,6 +119,7 @@ class BinaryHeatmapLayer(MakiLayer):
                 fn,
                 [kp, masks]
             )
+            heatmaps = tf.transpose(heatmaps, perm=[0, 2, 3, 1])
             return heatmaps
         else:
             message = f'Expected keypoints dimensionality to be 4, but got {len(kp.get_shape())}.' + \
@@ -165,7 +174,151 @@ class BinaryHeatmapLayer(MakiLayer):
         return heatmap * bool_location_map * tf.reduce_min(masks)
 
 
+class GaussHeatmapLayer(MakiLayer):
+    @staticmethod
+    def build(params: dict):
+        raise Exception('Not implemented')
+
+    def __init__(self, im_size, delta, vectorize=False, name='GaussHeatmapLayer'):
+        """
+        Generates hard keypoint maps using highly optimized vectorization.
+
+        Parameters
+        ----------
+        im_size : 2d tuple
+            Contains width and height (w, h) of the image for which to generate the map.
+        radius : int
+            Defines the spreadout of the heat around the point.
+        vectorize : bool
+            Set to True if you want to vectorize the computation along the batch dimension. May cause
+            the OOM error due to high memory consumption.
+        """
+        super().__init__(name, params=[], regularize_params=[], named_params_dict={})
+        self.im_size = im_size
+        self.delta = tf.convert_to_tensor(delta, dtype=tf.float32)
+        self.vectorize = vectorize
+        # Prepare the grid.
+        x_grid, y_grid = np.meshgrid(np.arange(im_size[0]), np.arange(im_size[1]))
+        xy_grid = np.stack([x_grid, y_grid], axis=-1)
+        self.xy_grid = tf.convert_to_tensor(xy_grid, dtype=tf.float32)
+
+    def _forward(self, x, computation_mode=MakiRestorable.TRAINING_MODE):
+        with tf.name_scope(computation_mode):
+            with tf.name_scope(self.get_name()):
+                keypoints, masks = x
+                maps = self.__build_heatmap_batch(keypoints, masks, self.delta)
+        return maps
+
+    def _training_forward(self, x):
+        return self._forward(x)
+
+    def to_dict(self):
+        return {}
+
+    def __build_heatmap_batch(self, kp, masks, radius):
+        # Build maps for keypoints of the same class for multiple people
+        # and then aggregate generated maps.
+        # [h, w]
+        fn_p = lambda kp, masks, radius: tf.reduce_max(
+            GaussHeatmapLayer.__build_heatmap_mp(
+                kp,
+                masks, 
+                radius, 
+                destination_call=self.__build_heatmap
+            ),
+            axis=0
+        )
+        # Build maps for keypoints of multiple classes.
+        # [c, h, w]
+        fn_c = lambda kp, masks, radius: GaussHeatmapLayer.__build_heatmap_mp(
+            kp,
+            masks, 
+            radius, 
+            destination_call=fn_p
+        )
+        # Build a batch of maps.
+        # [b, c, h, w]
+        fn_b = lambda kp, masks, radius: GaussHeatmapLayer.__build_heatmap_mp(
+            kp,
+            masks, 
+            radius, 
+            destination_call=fn_c
+        )
+        
+        # Decide whether to perform calucalation in a batch dimension.
+        # May be faster, but requires more memory.
+        if len(kp.get_shape()) == 4 and self.vectorize:            # [b, c, p, 2]
+            print('Using vectorized_map.')
+            heatmaps = fn_b(kp, masks, radius)
+            heatmaps = tf.transpose(heatmaps, perm=[0, 2, 3, 1])
+            return heatmaps
+        elif len(kp.get_shape()) == 4 and not self.vectorize: 
+            # Requires less memory, but runs slower
+            print('Using map_fn.')
+            fn = lambda kp_masks: [fn_c(kp_masks[0], kp_masks[1], radius), 0]
+            heatmaps, _ = tf.map_fn(
+                fn,
+                [kp, masks]
+            )
+            heatmaps = tf.transpose(heatmaps, perm=[0, 2, 3, 1])
+            return heatmaps
+        else:
+            message = f'Expected keypoints dimensionality to be 4, but got {len(kp.get_shape())}.' + \
+                f'Keypoints shape: {kp.get_shape()}'
+            raise Exception(message)
+
+    @staticmethod
+    def __build_heatmap_mp(kp, masks, radius, destination_call):
+        """
+        The hetmaps generation is factorized down to single keypoint heatmap generation.
+        Nested calls of this method allow for highly optimized vectorized computation of multiple maps.
+
+        Parameters
+        ----------
+        kp : tf.Tensor of shape [..., 2]
+            A keypoint (x, y) for which to build the heatmap.
+        xy_grid : tf.Tensor of shape [h, w, 2]
+            A coordinate grid for the image tensor.
+        radius : tf.float32
+            Radius of the classification (heat) region.
+        destination_call : method pointer
+            Used for nested calling to increase the dimensionality of the computation.
+        """
+        fn = lambda _kp_masks: destination_call(_kp_masks[0], _kp_masks[1], radius)
+        maps = tf.vectorized_map(
+            fn, 
+            [kp, masks]
+        )
+        return maps
+
+    def __build_heatmap(self, kp, masks, delta):
+        """
+        Builds a hard classification heatmap for a single keypoint `kp`.
+        Parameters
+        ----------
+        kp : tf.Tensor of shape [2]
+            A keypoint (x, y) for which to build the heatmap.
+        masks : tf.Tensor of shape [1]
+            Determines whether keypoint exists.
+        xy_grid : tf.Tensor of shape [h, w, 2]
+            A coordinate grid for the image tensor.
+        radius : tf.float32
+            Radius of the classification (heat) region.
+        """
+        xy_grid = self.xy_grid
+        print(masks.get_shape())
+
+        heatmap = tf.exp(
+            -((xy_grid[..., 0] - kp[0])**2 + (xy_grid[..., 1] - kp[1])**2) / delta**2
+        )
+        return heatmap * masks
+
+
 class PAFLayer(MakiLayer):
+    @staticmethod
+    def build(params: dict):
+        pass
+
     # 90 degrees rotation matrix. Used for generation of orthogonal vector. 
     ROT90_MAT = tf.convert_to_tensor(
         np.array([
@@ -250,15 +403,12 @@ class PAFLayer(MakiLayer):
         tf.Tensor of shape [batch, n_pairs, h, w]
             Tensor of PAFs.
         """
-        print('paf kp', kp.get_shape())
         # Gather points along the axis of classes of points.
         # [b, n_pairs, 2, p, 2]
         kp_p = tf.gather(kp, indices=self.skeleton, axis=1)
         # This is needed for proper matrix multiplication during paf generation.
         kp_p = tf.transpose(kp_p, perm=[0, 1, 3, 2, 4])
-        print('paf pairs', kp_p.get_shape())
         kp_p = tf.expand_dims(kp_p, axis=-1)
-        print('paf pairs t', kp_p.get_shape())
         # [b, n_pairs, p, 2, 2, 1]
         assert len(kp_p.get_shape()) == 6, f'Expected keypoint pairs dimensionality to be 6, but got {len(kp_p.get_shape())}.' + \
                 f'Keypoints shape: {kp_p.get_shape()}'
@@ -267,7 +417,6 @@ class PAFLayer(MakiLayer):
         # [b, n_pairs, 2, p, 1]
         masks_p = tf.gather(masks, indices=self.skeleton, axis=1)
         masks_p = tf.transpose(masks_p, perm=[0, 1, 3, 2, 4])
-        print('paf masks_p t', masks_p.get_shape())
         # [h, w, 2]
         fn_p = lambda kp, masks: tf.reduce_sum(
             PAFLayer.__build_paf_mp(
@@ -292,7 +441,9 @@ class PAFLayer(MakiLayer):
         # May be faster, but requires more memory.
         if self.vectorize:            # [b, c, p, 2]
             print('Using vectorized_map.')
-            return fn_b(kp_p, masks_p)
+            pafs = fn_b(kp_p, masks_p)
+            pafs = tf.transpose(pafs, perm=[0, 2, 3, 1, 4])
+            return pafs
         else: 
             # Requires less memory, but runs slower
             print('Using map_fn.')
@@ -304,6 +455,7 @@ class PAFLayer(MakiLayer):
                 fn,
                 [kp_p, masks_p]
             )
+            pafs = tf.transpose(pafs, perm=[0, 2, 3, 1, 4])
             return pafs
 
     @staticmethod
@@ -323,8 +475,6 @@ class PAFLayer(MakiLayer):
         destination_call : method pointer
             Used for nested calling to increase the dimensionality of the computation.
         """
-        print('paf mf kp', kp.get_shape())
-        print('paf mf masks', kp.get_shape())
         # Vectorized map unpackes tensors from the input sequence (list in this case) along their
         # first dimension, but passes a list of unpacked tensors. Therefore, we need to take them
         # out from the list.
@@ -349,8 +499,6 @@ class PAFLayer(MakiLayer):
         tf.Tensor of shape [h, w, 2]
             The generated PAF.
         """
-        print('paf p1p2', p1p2.get_shape())
-        print('paf points_mask', points_mask.get_shape())
         # Define the required variables.
         p1 = p1p2[0]
         p2 = p1p2[1]
