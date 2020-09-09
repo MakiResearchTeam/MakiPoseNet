@@ -8,6 +8,11 @@ from copy import copy
 
 class BinaryHeatmapLayer(MakiLayer):
 
+    @staticmethod
+    def build(params: dict):
+        pass
+
+
     def __call__(self, x):
         kp, masks = x
         paf_dt = self._forward([
@@ -27,6 +32,7 @@ class BinaryHeatmapLayer(MakiLayer):
             previous_tensors=previous_tensors,
         )
         return maki_tensor
+
     
     def __init__(self, im_size, radius, map_dtype=tf.int32, vectorize=False, name='BinaryHeatmapLayer'):
         """
@@ -169,7 +175,11 @@ class BinaryHeatmapLayer(MakiLayer):
 
 
 class GaussHeatmapLayer(MakiLayer):
-    def __init__(self, im_size, radius, map_dtype=tf.int32, vectorize=False, name='BinaryHeatmapLayer'):
+    @staticmethod
+    def build(params: dict):
+        raise Exception('Not implemented')
+
+    def __init__(self, im_size, delta, vectorize=False, name='GaussHeatmapLayer'):
         """
         Generates hard keypoint maps using highly optimized vectorization.
 
@@ -178,10 +188,7 @@ class GaussHeatmapLayer(MakiLayer):
         im_size : 2d tuple
             Contains width and height (w, h) of the image for which to generate the map.
         radius : int
-            Radius of a label-circle around the keypoint.
-        map_dtype : tf.dtype
-            Dtype of the generated map. Use tf.int32 for binary classification and tf.float32 for
-            regression.
+            Defines the spreadout of the heat around the point.
         vectorize : bool
             Set to True if you want to vectorize the computation along the batch dimension. May cause
             the OOM error due to high memory consumption.
@@ -214,7 +221,7 @@ class GaussHeatmapLayer(MakiLayer):
         # and then aggregate generated maps.
         # [h, w]
         fn_p = lambda kp, masks, radius: tf.reduce_max(
-            BinaryHeatmapLayer.__build_heatmap_mp(
+            GaussHeatmapLayer.__build_heatmap_mp(
                 kp,
                 masks, 
                 radius, 
@@ -224,7 +231,7 @@ class GaussHeatmapLayer(MakiLayer):
         )
         # Build maps for keypoints of multiple classes.
         # [c, h, w]
-        fn_c = lambda kp, masks, radius: BinaryHeatmapLayer.__build_heatmap_mp(
+        fn_c = lambda kp, masks, radius: GaussHeatmapLayer.__build_heatmap_mp(
             kp,
             masks, 
             radius, 
@@ -232,7 +239,7 @@ class GaussHeatmapLayer(MakiLayer):
         )
         # Build a batch of maps.
         # [b, c, h, w]
-        fn_b = lambda kp, masks, radius: BinaryHeatmapLayer.__build_heatmap_mp(
+        fn_b = lambda kp, masks, radius: GaussHeatmapLayer.__build_heatmap_mp(
             kp,
             masks, 
             radius, 
@@ -302,12 +309,16 @@ class GaussHeatmapLayer(MakiLayer):
         print(masks.get_shape())
 
         heatmap = tf.exp(
-            ((xy_grid[..., 0] - kp[0])**2 + (xy_grid[..., 1] - kp[1])**2) / delta**2
+            -((xy_grid[..., 0] - kp[0])**2 + (xy_grid[..., 1] - kp[1])**2) / delta**2
         )
         return heatmap * tf.reduce_min(masks)
 
 
 class PAFLayer(MakiLayer):
+    @staticmethod
+    def build(params: dict):
+        pass
+
     # 90 degrees rotation matrix. Used for generation of orthogonal vector. 
     ROT90_MAT = tf.convert_to_tensor(
         np.array([
