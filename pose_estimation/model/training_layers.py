@@ -195,8 +195,7 @@ class GaussHeatmapLayer(MakiLayer):
         """
         super().__init__(name, params=[], regularize_params=[], named_params_dict={})
         self.im_size = im_size
-        self.radius = tf.convert_to_tensor(radius, dtype=tf.float32)
-        self.map_dtype = map_dtype
+        self.delta = tf.convert_to_tensor(delta, dtype=tf.float32)
         self.vectorize = vectorize
         # Prepare the grid.
         x_grid, y_grid = np.meshgrid(np.arange(im_size[0]), np.arange(im_size[1]))
@@ -207,7 +206,7 @@ class GaussHeatmapLayer(MakiLayer):
         with tf.name_scope(computation_mode):
             with tf.name_scope(self.get_name()):
                 keypoints, masks = x
-                maps = self.__build_heatmap_batch(keypoints, masks, self.radius)
+                maps = self.__build_heatmap_batch(keypoints, masks, self.delta)
         return maps
 
     def _training_forward(self, x):
