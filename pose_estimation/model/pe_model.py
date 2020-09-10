@@ -102,9 +102,14 @@ class PEModel(PoseEstimatorInterface):
         Returns
         -------
         list
-            List of dictionaries,
-                where key is number of skelet on image,
-                value is skelet
+            List of classes Human.
+            Human class store set of `body_parts` to each keypoints detected by neural network,
+            Set `body_parts` is set of classes BodyPart, set itself is store values from 0 to n
+            (n - number of keypoints on the skeleton)
+            which were detected by neural network (i.e. some of keypoints may not be present).
+            To get x and y coordinate, take one of the `body_parts` element (which is BodyPart class),
+            and get x or y by referring to the corresponding field.
+
         """
         # Take predictions
         batched_heatmap, batched_paff = self._session.run(

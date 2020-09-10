@@ -119,8 +119,8 @@ def estimate_paf(peaks, heat_mat, paf_mat):
             is_added = True
             human.body_parts[part_idx] = BodyPart(
                 '%d-%d' % (human_id, part_idx), part_idx,
-                float(pafprocess.get_part_x(c_idx)) / heat_mat.shape[1],
-                float(pafprocess.get_part_y(c_idx)) / heat_mat.shape[0],
+                float(pafprocess.get_part_x(c_idx)),
+                float(pafprocess.get_part_y(c_idx)),
                 pafprocess.get_part_score(c_idx)
             )
 
