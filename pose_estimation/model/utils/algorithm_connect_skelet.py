@@ -10,10 +10,6 @@ except ModuleNotFoundError as e:
     exit(-1)
 
 
-def _round(v):
-    return int(round(v))
-
-
 def _include_part(part_list, part_idx):
     for part in part_list:
         if part_idx == part.part_idx:
@@ -92,8 +88,24 @@ class BodyPart:
 
 
 def estimate_paf(peaks, heat_mat, paf_mat):
+    """
+    Estimate paff by using heatmap and peaks
+
+    Parameters
+    ----------
+    peaks : np.ndarray
+        Numpy array of the peaks which is product of the NMS (Non maximum suppresion) from the heatmap
+    heat_mat : np.ndarray
+        Numpy array of the heatmap which is usually prediction of the network
+    paf_mat : np.ndarray
+        Numpy array of the PAF (Party affinity fields) which is usually prediction of the network
+
+    Returns
+    -------
+    list
+        List of the Human which contains body keypoints
+    """
     pafprocess.process_paf(peaks, heat_mat, paf_mat)
-    print(pafprocess.get_num_humans())
     humans = []
     for human_id in range(pafprocess.get_num_humans()):
         human = Human([])
@@ -120,7 +132,7 @@ def estimate_paf(peaks, heat_mat, paf_mat):
     return humans
 
 
-def merge_similar_skelets(humans: list, th_hold=1.0):
+def merge_similar_skelets(humans: list, th_hold_x=0.04, th_hold_y=0.04):
     """
     Merge similar skelets into one skelet
 
@@ -128,14 +140,17 @@ def merge_similar_skelets(humans: list, th_hold=1.0):
     ----------
     humans : list
         List of the predicted skelets from `estimate_paf` script
-    th_hold : float
-        Threshold from what value do we count keypoints similar, measured in pixels,
-        By default equal to 1.0 (i.e. 1 pixel)
+    th_hold_x : float
+        Threshold from what value do we count keypoints similar by axis X,
+        By default equal to 0.04
+    th_hold_y : float
+        Threshold from what value do we count keypoints similar by axis Y,
+        By default equal to 0.04
 
     Returns
     -------
     dict
-        Dictionary where key - number of skelet, value - skelet
+        Dictionary where key is number of skelet, value is skelet
     """
     humans_dict = dict([(str(i), humans[i]) for i in range(len(humans))])
 
@@ -147,7 +162,7 @@ def merge_similar_skelets(humans: list, th_hold=1.0):
             for c1, c2 in itertools.product(humans_dict[str(h1)].body_parts, humans_dict[str(h2)].body_parts):
                 single_1 = humans[h1].body_parts[c1]
                 single_2 = humans[h2].body_parts[c2]
-                if abs(single_1.x - single_2.x) < th_hold and abs(single_1.y - single_2.y) < th_hold:
+                if abs(single_1.x - single_2.x) < th_hold_x and abs(single_1.y - single_2.y) < th_hold_y:
                     is_merge = True
                     humans_dict[str(h1)].body_parts.update(humans[h2].body_parts)
                     humans_dict.pop(str(h2))
