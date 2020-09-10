@@ -6,7 +6,7 @@ from makiflow.models.common.utils import new_optimizer_used, loss_is_built
 from tqdm import tqdm
 
 
-class HardTrainer:
+class MSETrainer:
     __MSG_LOSS_IS_BUILT = 'The loss tensor is already built. The next call of the fit method ' + \
                           'will rebuild it.'
 
@@ -70,7 +70,7 @@ class HardTrainer:
             Scale for the heatmap loss.
         """
         if self._loss_is_built:
-            print(HardTrainer.__MSG_LOSS_IS_BUILT)
+            print(MSETrainer.__MSG_LOSS_IS_BUILT)
             self._loss_is_built = False
 
         self._paf_scale = paf_scale
@@ -84,9 +84,9 @@ class HardTrainer:
         self._total_loss = self._model.build_final_loss(loss)
 
         # For Tensorboard
-        paf_loss_summary = tf.summary.scalar(HardTrainer.PAF_LOSS, self._paf_loss)
-        heatmap_loss_summary = tf.summary.scalar(HardTrainer.HEATMAP_LOSS, self._heatmap_loss)
-        total_loss_summary = tf.summary.scalar(HardTrainer.TOTAL_LOSS, self._total_loss)
+        paf_loss_summary = tf.summary.scalar(MSETrainer.PAF_LOSS, self._paf_loss)
+        heatmap_loss_summary = tf.summary.scalar(MSETrainer.HEATMAP_LOSS, self._heatmap_loss)
+        total_loss_summary = tf.summary.scalar(MSETrainer.TOTAL_LOSS, self._total_loss)
         self._summary = tf.summary.merge([
             paf_loss_summary,
             heatmap_loss_summary,
@@ -156,20 +156,19 @@ class HardTrainer:
                 if (j + 1) % print_period == 0:
                     print_train_info(
                         i,
-                        (HardTrainer.TOTAL_LOSS, total_loss),
-                        (HardTrainer.PAF_LOSS, paf_loss),
-                        (HardTrainer.HEATMAP_LOSS, heatmap_loss)
+                        (MSETrainer.TOTAL_LOSS, total_loss),
+                        (MSETrainer.PAF_LOSS, paf_loss),
+                        (MSETrainer.HEATMAP_LOSS, heatmap_loss)
                     )
                     if self._tb_writer is not None:
                         self._tb_writer.add_summary(summary, self._tb_counter)
                         self._tb_writer.flush()
-                        
 
             total_losses.append(total_loss)
             heatmap_losses.append(heatmap_loss)
             paf_losses.append(paf_loss)
         return {
-            HardTrainer.TOTAL_LOSS: total_losses,
-            HardTrainer.HEATMAP_LOSS: heatmap_losses,
-            HardTrainer.PAF_LOSS: paf_losses
+            MSETrainer.TOTAL_LOSS: total_losses,
+            MSETrainer.HEATMAP_LOSS: heatmap_losses,
+            MSETrainer.PAF_LOSS: paf_losses
         }
