@@ -134,7 +134,7 @@ def estimate_paf(peaks, heat_mat, paf_mat):
 
 def merge_similar_skelets(humans: list, th_hold_x=0.04, th_hold_y=0.04):
     """
-    Merge similar skelets into one skelet
+    Merge similar skeletons into one skelet
 
     Parameters
     ----------
@@ -150,7 +150,7 @@ def merge_similar_skelets(humans: list, th_hold_x=0.04, th_hold_y=0.04):
     Returns
     -------
     dict
-        Dictionary where key is number of skelet, value is skelet
+        Dictionary where key is number of skeleton, value is skeleton
     """
     humans_dict = dict([(str(i), humans[i]) for i in range(len(humans))])
 
@@ -159,10 +159,13 @@ def merge_similar_skelets(humans: list, th_hold_x=0.04, th_hold_y=0.04):
         for h1, h2 in itertools.combinations(list(range(len(humans_dict))), 2):
             if humans_dict.get(str(h1)) is None or humans_dict.get(str(h2)) is None:
                 continue
+
             for c1, c2 in itertools.product(humans_dict[str(h1)].body_parts, humans_dict[str(h2)].body_parts):
-                single_1 = humans[h1].body_parts[c1]
-                single_2 = humans[h2].body_parts[c2]
-                if abs(single_1.x - single_2.x) < th_hold_x and abs(single_1.y - single_2.y) < th_hold_y:
+                single_keypoints_1 = humans[h1].body_parts[c1]
+                single_keypoints_2 = humans[h2].body_parts[c2]
+                if (abs(single_keypoints_1.x - single_keypoints_2.x) < th_hold_x and
+                    abs(single_keypoints_1.y - single_keypoints_2.y) < th_hold_y
+                ):
                     is_merge = True
                     humans_dict[str(h1)].body_parts.update(humans[h2].body_parts)
                     humans_dict.pop(str(h2))

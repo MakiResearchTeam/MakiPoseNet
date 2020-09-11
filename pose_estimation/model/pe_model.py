@@ -1,13 +1,11 @@
 import json
+import numpy as np
+from scipy.ndimage.filters import maximum_filter
 
 from .main_modules import PoseEstimatorInterface
 from .utils.algorithm_connect_skelet import estimate_paf, merge_similar_skelets
 from makiflow.base.maki_entities import MakiCore
 from makiflow.base.maki_entities import MakiTensor
-
-import tensorflow as tf
-import numpy as np
-from scipy.ndimage.filters import maximum_filter
 
 
 class PEModel(PoseEstimatorInterface):
@@ -133,7 +131,9 @@ class PEModel(PoseEstimatorInterface):
             single_peaks = batched_peaks[i]
             single_heatmap = batched_heatmap[i]
             single_paff = batched_paff[i]
+            # Estimate
             humans = estimate_paf(single_peaks, single_heatmap, single_paff)
+            # Remove similar points, simple merge similar skeletons
             humans_dict = merge_similar_skelets(humans)
 
             batched_humans.append(humans_dict)
