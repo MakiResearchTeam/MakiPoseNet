@@ -316,9 +316,7 @@ class NormalizePostMethod(TFRPostMapMethod):
 
     def __init__(self, divider=127.5,
                  use_caffee_norm=True,
-                 use_float64=True,
-                 using_for_image_tensor=False,
-                 using_for_image_tensor_only=False):
+                 use_float64=True):
         """
         Normalizes the tensor by dividing it by the `divider`.
         Parameters
@@ -328,14 +326,11 @@ class NormalizePostMethod(TFRPostMapMethod):
         use_float64 : bool
             Set to True if you want the tensor to be converted to float64 during normalization.
             It is used for getting more accurate division result during normalization.
-        using_for_image_tensor : bool
-            If true, divider will be used on tensors for generator.
         """
         super().__init__()
         self.use_float64 = use_float64
         self.use_caffe_norm = use_caffee_norm
-        self.using_for_image_tensor = using_for_image_tensor
-        self.using_for_image_tensor_only = using_for_image_tensor_only
+
         if use_float64:
             self.divider = tf.constant(divider, dtype=tf.float64)
         else:
@@ -343,37 +338,21 @@ class NormalizePostMethod(TFRPostMapMethod):
 
     def read_record(self, serialized_example) -> dict:
         element = self._parent_method.read_record(serialized_example)
-        target = element[RIterator.KEYPOINTS]
-        if not self.using_for_image_tensor_only:
-            if self.use_float64:
-                target = tf.cast(target, dtype=tf.float64)
-                if self.use_caffe_norm:
-                    target = (target - self.divider) / self.divider
-                else:
-                    target = tf.divide(target, self.divider, name=NormalizePostMethod.NORMALIZE_KEYPOINTS)
-                target = tf.cast(target, dtype=tf.float32)
-            else:
-                if self.use_caffe_norm:
-                    target = (target - self.divider) / self.divider
-                else:
-                    target = tf.divide(target, self.divider, name=NormalizePostMethod.NORMALIZE_KEYPOINTS)
-            element[RIterator.KEYPOINTS] = target
 
-        if self.using_for_image_tensor:
-            image_tensor = element[RIterator.IMAGE]
-            if self.use_float64:
-                image_tensor = tf.cast(image_tensor, dtype=tf.float64)
-                if self.use_caffe_norm:
-                    image_tensor = (image_tensor - self.divider) / self.divider
-                else:
-                    image_tensor = tf.divide(image_tensor, self.divider, name=NormalizePostMethod.NORMALIZE_IMAGE)
-                image_tensor = tf.cast(image_tensor, dtype=tf.float32)
+        image_tensor = element[RIterator.IMAGE]
+        if self.use_float64:
+            image_tensor = tf.cast(image_tensor, dtype=tf.float64)
+            if self.use_caffe_norm:
+                image_tensor = (image_tensor - self.divider) / self.divider
             else:
-                if self.use_caffe_norm:
-                    image_tensor = (image_tensor - self.divider) / self.divider
-                else:
-                    image_tensor = tf.divide(image_tensor, self.divider, name=NormalizePostMethod.NORMALIZE_IMAGE)
-            element[RIterator.IMAGE] = image_tensor
+                image_tensor = tf.divide(image_tensor, self.divider, name=NormalizePostMethod.NORMALIZE_IMAGE)
+            image_tensor = tf.cast(image_tensor, dtype=tf.float32)
+        else:
+            if self.use_caffe_norm:
+                image_tensor = (image_tensor - self.divider) / self.divider
+            else:
+                image_tensor = tf.divide(image_tensor, self.divider, name=NormalizePostMethod.NORMALIZE_IMAGE)
+        element[RIterator.IMAGE] = image_tensor
 
         return element
 
