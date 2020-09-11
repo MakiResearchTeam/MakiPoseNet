@@ -99,33 +99,4 @@ class PEGym:
         self._model.save_weights(save_path)
 
 
-class CocoTester:
-    # Using in conjugation with trainer.
-    # After the model was trained for some time, call the evaluation
-    # method and all the info will recorded to the tensorboard.
-    TEST_CONFIG = 'test_config'
-    TB_FOLDER = 'tb_folder'  # folder for tensorboard to write data in
-    TEST_IMAGE = 'test_image'
 
-    def __init__(self, config, sess):
-        self._config = config[CocoTester.TEST_CONFIG]
-        self._tb_writer = tf.summary.FileWriter(config[CocoTester.TB_FOLDER])
-        self._sess = sess
-
-        self._image = tf.placeholder(dtype=tf.uint8, name='image')
-        self._image_summary = tf.summary.image('Test image', self._image)
-        test_image = cv2.imread(self._config[CocoTester.TEST_IMAGE])
-        im_shape = test_image.shape
-        self._test_image = test_image.reshape(1, *im_shape)
-
-    def _load_data(self):
-        pass
-
-    def evaluate(self, model, iteration):
-        image = self._sess.run(
-            self._image_summary,
-            feed_dict={
-                self._image: self._test_image
-            }
-        )
-        self._tb_writer.add_summary(image, global_step=iteration)
