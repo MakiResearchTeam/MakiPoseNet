@@ -5,6 +5,10 @@ from makiflow.base.maki_entities.maki_core import MakiCore
 class PoseEstimatorInterface(MakiCore, ABC):
 
     @abstractmethod
+    def predict(self, x: list):
+        pass
+
+    @abstractmethod
     def get_paf_tensor(self):
         pass
 

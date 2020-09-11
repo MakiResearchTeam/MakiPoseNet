@@ -1,6 +1,9 @@
 import json
+import numpy as np
+from scipy.ndimage.filters import maximum_filter
 
 from .main_modules import PoseEstimatorInterface
+from .utils.algorithm_connect_skelet import estimate_paf, merge_similar_skelets
 from makiflow.base.maki_entities import MakiCore
 from makiflow.base.maki_entities import MakiTensor
 
@@ -82,6 +85,61 @@ class PEModel(PoseEstimatorInterface):
         graph_tensors.update(output_heatmap.get_self_pair())
         super().__init__(graph_tensors, outputs=[output_paf, output_heatmap], inputs=[input_x])
 
+    def predict(self, x: list, pooling_window_size=(3, 3)):
+        """
+        Do pose estimation on certain input images
+
+        Parameters
+        ----------
+        x : list or np.ndarray
+            Input list/np.ndarray of the images
+        pooling_window_size : tuple
+            Size of the pooling window,
+            By default equal to (3, 3)
+
+        Returns
+        -------
+        list
+            List of classes Human.
+            Human class store set of `body_parts` to each keypoints detected by neural network,
+            Set `body_parts` is set of classes BodyPart, set itself is store values from 0 to n
+            (n - number of keypoints on the skeleton)
+            which were detected by neural network (i.e. some of keypoints may not be present).
+            To get x and y coordinate, take one of the `body_parts` element (which is BodyPart class),
+            and get x or y by referring to the corresponding field.
+
+        """
+        # Take predictions
+        batched_heatmap, batched_paff = self._session.run(
+            self.get_heatmap_tensor(), self.get_paf_tensor(),
+            feed_dict={self._input_data_tensors[0]: x}
+        )
+
+        # Apply NMS (Non maximum suppression)
+        batched_max_pool_heatmap = maximum_filter(
+            batched_heatmap,
+            # Footprint goes on shape (N, W, H, C), skip window for N and C dimensions
+            footprint=np.ones((1, pooling_window_size[0], pooling_window_size[1], 1))
+        )
+        # Take only "peaks" i. e. most probably keypoints on the image
+        batched_peaks = batched_heatmap * (batched_max_pool_heatmap == batched_heatmap)
+
+        # Connect skeletons by applying two algorithms
+        batched_humans = []
+
+        for i in range(len(batched_peaks)):
+            single_peaks = batched_peaks[i]
+            single_heatmap = batched_heatmap[i]
+            single_paff = batched_paff[i]
+            # Estimate
+            humans = estimate_paf(single_peaks, single_heatmap, single_paff)
+            # Remove similar points, simple merge similar skeletons
+            humans_dict = merge_similar_skelets(humans)
+
+            batched_humans.append(humans_dict)
+
+        return batched_humans
+
     def get_session(self):
         """
         TODO: Move this method into MakiModel
@@ -97,12 +155,26 @@ class PEModel(PoseEstimatorInterface):
         """
         return self._output_data_tensors[0]
 
+    def get_paf_makitensor(self):
+        """
+        Return mf.MakiTensor of the paf (party affinity fields) calculation tensor
+
+        """
+        return self._outputs[0]
+
     def get_heatmap_tensor(self):
         """
         Return tf.Tensor of heatmap calculation
 
         """
         return self._output_data_tensors[1]
+
+    def get_heatmap_makitensor(self):
+        """
+        Return mf.MakiTensor of the heatmap calculation tensor
+
+        """
+        return self._outputs[1]
 
     def get_training_vars(self):
         """
@@ -130,8 +202,8 @@ class PEModel(PoseEstimatorInterface):
 
         """
         input_mt = self._inputs[0]
-        output_heatmap_mt = self.get_heatmap_tensor()
-        output_paf_mt = self.get_paf_tensor()
+        output_heatmap_mt = self.get_heatmap_makitensor()
+        output_paf_mt = self.get_paf_makitensor()
 
         return {
             PEModel.INPUT_MT: input_mt.get_name(),

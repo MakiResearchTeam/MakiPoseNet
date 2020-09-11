@@ -17,7 +17,7 @@ class RIterator:
 class LoadDataMethod(TFRMapMethod):
     def __init__(
             self,
-            shape_keypoints,
+            shape_keypoints: list,
             shape_image_properties=[3],
             image_dtype=tf.float32,
             keypoints_dtype=tf.float32,
@@ -30,11 +30,11 @@ class LoadDataMethod(TFRMapMethod):
         Parameters
         ----------
         shape_keypoints : list
-            Shape of keypoints in tfrecords [n_people, number_of_keypoints]
-            For example: [10, 17]
+            Shape of keypoints in tfrecords [number_of_keypoints, n_people]
+            For example: [24, 2]
         shape_image_properties : list
             Shape of image properties in tfrecords,
-            By default equal to [3]
+            By default equal to [3], where 0th - Height, 1th - Width, 2th - number of channels of the image
         image_dtype : tf.dtype
             Type of the image in tfrecords
         keypoints_dtype : tf.dtype
