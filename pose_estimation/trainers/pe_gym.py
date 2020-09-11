@@ -5,6 +5,8 @@ import tensorflow as tf
 import cv2
 import os
 from makiflow.trainers.utils.optimizer_builder import OptimizerBuilder
+from .tester import Tester
+from .coco_tester import CocoTester
 
 
 class PEGym:
@@ -33,7 +35,6 @@ class PEGym:
         self._train_config = config[PEGym.TRAIN_CONFIG]
         self._gen_layer = gen_layer
         self._sess = sess
-
         self._setup_gym(config)
 
     def _setup_gym(self, config):
@@ -53,7 +54,7 @@ class PEGym:
             'tensorboard'
         )
         os.makedirs(tensorboard_path, exist_ok=True)
-        config[CocoTester.TB_FOLDER] = tensorboard_path
+        config[Tester.TB_FOLDER] = tensorboard_path
         self._tester = CocoTester(config, self._sess)
 
         # Create model, trainer and set the tensorboard folder
