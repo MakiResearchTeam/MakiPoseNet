@@ -162,7 +162,8 @@ class MSETrainer:
                     )
                     if self._tb_writer is not None:
                         self._tb_writer.add_summary(summary, self._tb_counter)
-                        self._tb_writer.flush()
+                        #self._tb_writer.flush()
+                        #print('OK!')
 
             total_losses.append(total_loss)
             heatmap_losses.append(heatmap_loss)

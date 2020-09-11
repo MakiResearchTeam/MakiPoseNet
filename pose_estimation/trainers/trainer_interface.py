@@ -21,6 +21,7 @@ class PEGym:
     ITERS = 'iters'
     TEST_PERIOD = 'test_period'
     SAVE_PERIOD = 'save_period'
+    PRINT_PERIOD = 'print_period'
     GYM_FOLDER = 'gym_folder'
     OPTIMIZER_INFO = 'optimizer_info'
 
@@ -53,7 +54,7 @@ class PEGym:
         )
         os.makedirs(tensorboard_path, exist_ok=True)
         config[CocoTester.TB_FOLDER] = tensorboard_path
-        self._tester = CocoTester(config[CocoTester.TEST_CONFIG])
+        self._tester = CocoTester(config, self._sess)
 
         # Create model, trainer and set the tensorboard folder
         self._trainer, self._model = ModelAssembler.assemble(config, self._gen_layer, self._sess)
@@ -70,6 +71,7 @@ class PEGym:
         iters = self._train_config[PEGym.ITERS]
         test_period = self._train_config[PEGym.TEST_PERIOD]
         save_period = self._train_config[PEGym.SAVE_PERIOD]
+        print_period = self._train_config[PEGym.PRINT_PERIOD]
 
         optimizer, global_step = OptimizerBuilder.build_optimizer(
             self._train_config[PEGym.OPTIMIZER_INFO]
@@ -78,7 +80,7 @@ class PEGym:
         it_counter = 0
         for i in range(1, epochs + 1):
             info = self._trainer.fit(
-                optimizer=optimizer, epochs=1, iter=iters, global_step=global_step
+                optimizer=optimizer, epochs=1, iter=iters, global_step=global_step, print_period=print_period
             )
             it_counter += iters
 
@@ -105,11 +107,14 @@ class CocoTester:
     TB_FOLDER = 'tb_folder'  # folder for tensorboard to write data in
     TEST_IMAGE = 'test_image'
 
-    def __init__(self, config):
+    def __init__(self, config, sess):
         self._config = config[CocoTester.TEST_CONFIG]
         self._tb_writer = tf.summary.FileWriter(config[CocoTester.TB_FOLDER])
+        self._sess = sess
 
-        test_image = cv2.imread(config[CocoTester.TEST_IMAGE])
+        self._image = tf.placeholder(dtype=tf.uint8, name='image')
+        self._image_summary = tf.summary.image('Test image', self._image)
+        test_image = cv2.imread(self._config[CocoTester.TEST_IMAGE])
         im_shape = test_image.shape
         self._test_image = test_image.reshape(1, *im_shape)
 
@@ -117,5 +122,10 @@ class CocoTester:
         pass
 
     def evaluate(self, model, iteration):
-        image = tf.summary.image('Test image', self._test_image)
+        image = self._sess.run(
+            self._image_summary,
+            feed_dict={
+                self._image: self._test_image
+            }
+        )
         self._tb_writer.add_summary(image, global_step=iteration)

@@ -8,30 +8,23 @@ from copy import copy
 
 class BinaryHeatmapLayer(MakiLayer):
 
+    IM_SIZE = 'im_size'
+    RADIUS = 'radius'
+    MAP_DTYPE = 'map_dtype'
+    VECTORIZE = 'vectorize'
+
+
     @staticmethod
     def build(params: dict):
-        pass
-
-
-    def __call__(self, x):
-        kp, masks = x
-        paf_dt = self._forward([
-            kp.get_data_tensor(),
-            masks.get_data_tensor()
-        ])
-
-        parent_tensor_names = [kp.get_name(), masks.get_name()]
-        previous_tensors = copy(kp.get_previous_tensors())
-        previous_tensors.update(kp.get_self_pair())
-        previous_tensors.update(masks.get_self_pair())
-        previous_tensors.update(masks.get_previous_tensors())
-        maki_tensor = MakiTensor(
-            data_tensor=paf_dt,
-            parent_layer=self,
-            parent_tensor_names=parent_tensor_names,
-            previous_tensors=previous_tensors,
+        return BinaryHeatmapLayer(
+            im_size=params[BinaryHeatmapLayer.IM_SIZE],
+            radius=params[BinaryHeatmapLayer.RADIUS],
+            map_dtype=params[BinaryHeatmapLayer.MAP_DTYPE],
+            vectorize=params[BinaryHeatmapLayer.VECTORIZE]
         )
-        return maki_tensor
+
+    def to_dict(self):
+        raise NotImplementedError()
 
     
     def __init__(self, im_size, radius, map_dtype=tf.int32, vectorize=False, name='BinaryHeatmapLayer'):
@@ -71,8 +64,7 @@ class BinaryHeatmapLayer(MakiLayer):
     def _training_forward(self, x):
         return self._forward(x)
 
-    def to_dict(self):
-        return {}
+    
 
     def __build_heatmap_batch(self, kp, masks, radius):
         # Build maps for keypoints of the same class for multiple people
@@ -175,9 +167,17 @@ class BinaryHeatmapLayer(MakiLayer):
 
 
 class GaussHeatmapLayer(MakiLayer):
+    IM_SIZE = 'im_size'
+    DELTA = 'delta'
+    VECTORIZE = 'vectorize'
+
     @staticmethod
     def build(params: dict):
-        raise Exception('Not implemented')
+        return GaussHeatmapLayer(
+            im_size=params[GaussHeatmapLayer.IM_SIZE],
+            delta=params[GaussHeatmapLayer.DELTA],
+            vectorize=params[GaussHeatmapLayer.VECTORIZE]
+        )
 
     def __init__(self, im_size, delta, vectorize=False, name='GaussHeatmapLayer'):
         """
@@ -213,7 +213,7 @@ class GaussHeatmapLayer(MakiLayer):
         return self._forward(x)
 
     def to_dict(self):
-        return {}
+        raise NotImplementedError()
 
     def __build_heatmap_batch(self, kp, masks, radius):
         # Build maps for keypoints of the same class for multiple people
@@ -315,9 +315,20 @@ class GaussHeatmapLayer(MakiLayer):
 
 
 class PAFLayer(MakiLayer):
+    IM_SIZE = 'im_size'
+    SIGMA = 'sigma'
+    SKELETON = 'skeleton'
+    VECTORIZE = 'vectorize'
+
+
     @staticmethod
     def build(params: dict):
-        pass
+        return PAFLayer(
+            im_size=params[PAFLayer.IM_SIZE],
+            sigma=params[PAFLayer.SIGMA],
+            skeleton=params[PAFLayer.SKELETON],
+            vectorize=params[PAFLayer.VECTORIZE]
+        )
 
     # 90 degrees rotation matrix. Used for generation of orthogonal vector. 
     ROT90_MAT = tf.convert_to_tensor(
@@ -327,27 +338,6 @@ class PAFLayer(MakiLayer):
         ]),
         dtype=tf.float32
     )
-
-    def __call__(self, x):
-        kp, masks = x
-        paf_dt = self._forward([
-            kp.get_data_tensor(),
-            masks.get_data_tensor()
-        ])
-
-        parent_tensor_names = [kp.get_name(), masks.get_name()]
-        previous_tensors = copy(kp.get_previous_tensors())
-        previous_tensors.update(kp.get_self_pair())
-        previous_tensors.update(masks.get_self_pair())
-        previous_tensors.update(masks.get_previous_tensors())
-        maki_tensor = MakiTensor(
-            data_tensor=paf_dt,
-            parent_layer=self,
-            parent_tensor_names=parent_tensor_names,
-            previous_tensors=previous_tensors,
-        )
-        return maki_tensor
-
 
     def __init__(self, im_size, sigma, skeleton, vectorize=False, name='PAFLayer'):
         """

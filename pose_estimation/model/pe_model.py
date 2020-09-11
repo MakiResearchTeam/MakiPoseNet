@@ -137,8 +137,8 @@ class PEModel(PoseEstimatorInterface):
 
         return {
             PEModel.INPUT_MT: input_mt.get_name(),
-            PEModel.OUTPUT_HEATMAP_MT: output_heatmap_mt.get_name(),
-            PEModel.OUTPUT_PAF_MT: output_paf_mt.get_name(),
+            PEModel.OUTPUT_HEATMAP_MT: self._outputs[1].get_name(),
+            PEModel.OUTPUT_PAF_MT: self._outputs[0].get_name(),
             PEModel.NAME: self.name
         }
 
