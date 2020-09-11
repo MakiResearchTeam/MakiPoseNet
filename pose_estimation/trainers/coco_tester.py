@@ -4,6 +4,7 @@ import cv2
 
 class CocoTester(Tester):
     TEST_IMAGE = 'test_image'
+    ITERATION_COUNTER = 'iteration_counter'
 
     def _init(self, config):
         test_image = cv2.imread(self._config[CocoTester.TEST_IMAGE])
@@ -12,9 +13,13 @@ class CocoTester(Tester):
         self._test_image = test_image.reshape(1, *im_shape)
         self.add_image(CocoTester.TEST_IMAGE)
 
+        self.add_scalar(CocoTester.ITERATION_COUNTER)
+
     def evaluate(self, model, iteration):
+        # Do here the fucking evaluation
         self.write_summaries(
             {
-                CocoTester.TEST_IMAGE: self._test_image
+                CocoTester.TEST_IMAGE: self._test_image,
+                CocoTester.ITERATION_COUNTER: iteration
             }
         )
