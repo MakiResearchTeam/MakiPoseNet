@@ -18,7 +18,7 @@
 import tensorflow as tf
 from makiflow.generators.pipeline.tfr.tfr_pathgenerator import TFRPathGenerator
 from .tfr_map_method import TFRMapMethod
-from makiflow.generators.pipeline.gen_base import GenLayer, PathGenerator
+from ..gen_base import GenLayer, PathGenerator
 
 
 class InputGenLayerV2(GenLayer):

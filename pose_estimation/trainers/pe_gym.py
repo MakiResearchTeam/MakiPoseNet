@@ -5,6 +5,8 @@ import tensorflow as tf
 import cv2
 import os
 from makiflow.trainers.utils.optimizer_builder import OptimizerBuilder
+from .tester import Tester
+from .coco_tester import CocoTester
 
 
 class PEGym:
@@ -21,6 +23,7 @@ class PEGym:
     ITERS = 'iters'
     TEST_PERIOD = 'test_period'
     SAVE_PERIOD = 'save_period'
+    PRINT_PERIOD = 'print_period'
     GYM_FOLDER = 'gym_folder'
     OPTIMIZER_INFO = 'optimizer_info'
 
@@ -32,7 +35,6 @@ class PEGym:
         self._train_config = config[PEGym.TRAIN_CONFIG]
         self._gen_layer = gen_layer
         self._sess = sess
-
         self._setup_gym(config)
 
     def _setup_gym(self, config):
@@ -52,12 +54,12 @@ class PEGym:
             'tensorboard'
         )
         os.makedirs(tensorboard_path, exist_ok=True)
-        config[CocoTester.TB_FOLDER] = tensorboard_path
-        self._tester = CocoTester(config[CocoTester.TEST_CONFIG])
+        config[Tester.TB_FOLDER] = tensorboard_path
+        self._tester = CocoTester(config, self._sess)
 
         # Create model, trainer and set the tensorboard folder
         self._trainer, self._model = ModelAssembler.assemble(config, self._gen_layer, self._sess)
-        self._trainer.set_tensorboard_logdir(tensorboard_path)
+        self._trainer.set_tensorboard_writer(self._tester.get_writer())
 
     def get_model(self):
         """
@@ -70,6 +72,7 @@ class PEGym:
         iters = self._train_config[PEGym.ITERS]
         test_period = self._train_config[PEGym.TEST_PERIOD]
         save_period = self._train_config[PEGym.SAVE_PERIOD]
+        print_period = self._train_config[PEGym.PRINT_PERIOD]
 
         optimizer, global_step = OptimizerBuilder.build_optimizer(
             self._train_config[PEGym.OPTIMIZER_INFO]
@@ -77,8 +80,8 @@ class PEGym:
 
         it_counter = 0
         for i in range(1, epochs + 1):
-            info = self._trainer.fit(
-                optimizer=optimizer, epochs=1, iter=iters, global_step=global_step
+            _ = self._trainer.fit(
+                optimizer=optimizer, epochs=1, iter=iters, global_step=global_step, print_period=print_period
             )
             it_counter += iters
 
@@ -87,6 +90,11 @@ class PEGym:
 
             if i % save_period == 0:
                 self._save_weights(i)
+
+        path_to_save = os.path.join(
+            self._last_w_folder_path, 'weights.ckpt'
+        )
+        self._model.save_weights(path_to_save)
 
     def _save_weights(self, epoch):
         gym_folder = self._train_config[PEGym.GYM_FOLDER]
@@ -97,25 +105,4 @@ class PEGym:
         self._model.save_weights(save_path)
 
 
-class CocoTester:
-    # Using in conjugation with trainer.
-    # After the model was trained for some time, call the evaluation
-    # method and all the info will recorded to the tensorboard.
-    TEST_CONFIG = 'test_config'
-    TB_FOLDER = 'tb_folder'  # folder for tensorboard to write data in
-    TEST_IMAGE = 'test_image'
 
-    def __init__(self, config):
-        self._config = config[CocoTester.TEST_CONFIG]
-        self._tb_writer = tf.summary.FileWriter(config[CocoTester.TB_FOLDER])
-
-        test_image = cv2.imread(config[CocoTester.TEST_IMAGE])
-        im_shape = test_image.shape
-        self._test_image = test_image.reshape(1, *im_shape)
-
-    def _load_data(self):
-        pass
-
-    def evaluate(self, model, iteration):
-        image = tf.summary.image('Test image', self._test_image)
-        self._tb_writer.add_summary(image, global_step=iteration)
