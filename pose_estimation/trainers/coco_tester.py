@@ -29,7 +29,7 @@ class CocoTester(Tester):
         # Do here the fucking evaluation
         self.write_summaries(
             summaries={
-                CocoTester.TEST_IMAGE: heatmap[:1][..., :1],
+                CocoTester.TEST_IMAGE: (heatmap[:1][..., :1] * 255.0).astype(np.uint8),
                 CocoTester.ITERATION_COUNTER: iteration
             },
             step=iteration
