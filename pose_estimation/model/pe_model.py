@@ -214,6 +214,13 @@ class PEModel(PoseEstimatorInterface):
 
         return final_loss
 
+    def get_batch_size(self):
+        """
+        Return batch size
+
+        """
+        return self._inputs[0].get_shape()[0]
+
     def _get_model_info(self):
         """
         Return information about model for saving architecture in JSON file
