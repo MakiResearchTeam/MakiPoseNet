@@ -16,10 +16,11 @@ class CocoTester(Tester):
         self.add_scalar(CocoTester.ITERATION_COUNTER)
 
     def evaluate(self, model, iteration):
+        peaks, heatmap, paf = model.predict(self._test_image, using_estimate_alg=False)
         # Do here the fucking evaluation
         self.write_summaries(
             summaries={
-                CocoTester.TEST_IMAGE: self._test_image,
+                CocoTester.TEST_IMAGE: heatmap[0][..., 0],
                 CocoTester.ITERATION_COUNTER: iteration
             },
             step=iteration
