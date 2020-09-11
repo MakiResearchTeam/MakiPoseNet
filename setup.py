@@ -4,6 +4,7 @@ import setuptools
 setup(
     name='MakiPoseNet',
     packages=setuptools.find_packages(),
+    package_data={'pose_estimation': ['model/utils/pafprocess/*.so']},
     version='0.5.0',
     description='A set of utilities for training pose estimation models',
     long_description='...',
