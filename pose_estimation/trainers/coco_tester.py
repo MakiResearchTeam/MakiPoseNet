@@ -15,14 +15,14 @@ class CocoTester(Tester):
             test_image = normalization_method(test_image)
 
         # The image has to have batch dimension
-        self._test_image = test_image.reshape(1, *im_shape).astype(np.float32)
+        self._test_image = test_image.reshape(self._batch_size, *im_shape).astype(np.float32)
         self.add_image(CocoTester.TEST_IMAGE)
 
         self.add_scalar(CocoTester.ITERATION_COUNTER)
 
     def evaluate(self, model, iteration):
         peaks, heatmap, paf = model.predict(
-            np.concatenate([self._test_image] * model.get_batch_size(), axis=0),
+            np.concatenate(self._test_image, axis=0),
             using_estimate_alg=False
         )
 

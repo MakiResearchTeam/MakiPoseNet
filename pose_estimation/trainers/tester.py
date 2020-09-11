@@ -9,10 +9,12 @@ class Tester(ABC):
     TEST_CONFIG = 'test_config'
     TB_FOLDER = 'tb_folder'  # folder for tensorboard to write data in
     TEST_IMAGE = 'test_image'
+    BATCH_SIZE = 'batch_size'
 
     def __init__(self, config, sess, normalization_method=None):
         self._config = config[Tester.TEST_CONFIG]
         self._tb_writer = tf.summary.FileWriter(config[Tester.TB_FOLDER])
+        self._batch_size = config[Tester.BATCH_SIZE]
         self._sess = sess
 
         # The summaries to write
