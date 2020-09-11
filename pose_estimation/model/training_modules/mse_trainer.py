@@ -43,7 +43,7 @@ class MSETrainer:
         # Counter for total number of training iterations.
         self._tb_counter = 0
 
-    def set_tensorboard_logdir(self, logdir_path):
+    def set_tensorboard_writer(self, writer):
         """
         Creates logging file for the Tensorboard in the given `logdir_path` directory.
         Parameters
@@ -51,7 +51,7 @@ class MSETrainer:
         logdir_path : str
             Path to the log directory.
         """
-        self._tb_writer = tf.summary.FileWriter(logdir_path)
+        self._tb_writer = writer
 
     def close_tensorboard(self):
         """

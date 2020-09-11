@@ -18,8 +18,9 @@ class CocoTester(Tester):
     def evaluate(self, model, iteration):
         # Do here the fucking evaluation
         self.write_summaries(
-            {
+            summaries={
                 CocoTester.TEST_IMAGE: self._test_image,
                 CocoTester.ITERATION_COUNTER: iteration
-            }
+            },
+            step=iteration
         )

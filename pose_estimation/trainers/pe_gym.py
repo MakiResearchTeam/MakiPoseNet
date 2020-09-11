@@ -59,7 +59,7 @@ class PEGym:
 
         # Create model, trainer and set the tensorboard folder
         self._trainer, self._model = ModelAssembler.assemble(config, self._gen_layer, self._sess)
-        self._trainer.set_tensorboard_logdir(tensorboard_path)
+        self._trainer.set_tensorboard_writer(self._tester.get_writer())
 
     def get_model(self):
         """
@@ -80,7 +80,7 @@ class PEGym:
 
         it_counter = 0
         for i in range(1, epochs + 1):
-            info = self._trainer.fit(
+            _ = self._trainer.fit(
                 optimizer=optimizer, epochs=1, iter=iters, global_step=global_step, print_period=print_period
             )
             it_counter += iters

@@ -85,8 +85,11 @@ class Tester(ABC):
                 }
             )
             self._tb_writer.add_summary(summary_tensor, global_step=step)
-        self._tb_writer.flush()
+        # self._tb_writer.flush()
 
     @abstractmethod
     def evaluate(self, model, iteration):
         pass
+
+    def get_writer(self):
+        return self._tb_writer
