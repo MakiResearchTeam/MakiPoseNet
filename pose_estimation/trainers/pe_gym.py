@@ -91,6 +91,11 @@ class PEGym:
             if i % save_period == 0:
                 self._save_weights(i)
 
+        path_to_save = os.path.join(
+            self._last_w_folder_path, 'weights.ckpt'
+        )
+        self._model.save_weights(path_to_save)
+
     def _save_weights(self, epoch):
         gym_folder = self._train_config[PEGym.GYM_FOLDER]
         save_path = os.path.join(
