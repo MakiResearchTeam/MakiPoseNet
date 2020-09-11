@@ -22,7 +22,7 @@ class CocoTester(Tester):
 
     def evaluate(self, model, iteration):
         peaks, heatmap, paf = model.predict(
-            np.concatenate(self._test_image, axis=0),
+            self._test_image,
             using_estimate_alg=False
         )
 
