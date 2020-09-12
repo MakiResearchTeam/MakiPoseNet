@@ -26,7 +26,7 @@ def visualize_paf(
 
                     color_iter += 1
 
-                    if len(colors) > color_iter:
+                    if color_iter > len(colors):
                         color_iter = 0
     return img
 
