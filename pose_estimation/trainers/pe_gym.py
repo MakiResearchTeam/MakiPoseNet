@@ -55,11 +55,15 @@ class PEGym:
         )
         os.makedirs(tensorboard_path, exist_ok=True)
         config[Tester.TB_FOLDER] = tensorboard_path
+        self._tb_path = tensorboard_path
         self._tester = CocoTester(config, self._sess)
 
         # Create model, trainer and set the tensorboard folder
         self._trainer, self._model = ModelAssembler.assemble(config, self._gen_layer, self._sess)
         self._trainer.set_tensorboard_writer(self._tester.get_writer())
+
+    def get_tb_path(self):
+        return self._tb_path
 
     def get_model(self):
         """
