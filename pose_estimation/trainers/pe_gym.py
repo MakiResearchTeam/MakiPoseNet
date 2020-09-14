@@ -1,8 +1,5 @@
-from ..model import PAFLayer, BinaryHeatmapLayer, PEModel
 from .assembler import ModelAssembler
 import json
-import tensorflow as tf
-import cv2
 import os
 from makiflow.trainers.utils.optimizer_builder import OptimizerBuilder
 from .tester import Tester
@@ -10,6 +7,9 @@ from .coco_tester import CocoTester
 
 
 class PEGym:
+    MSG_CREATE_FOLDER = 'Creating gym folder...'
+    WRN_GYM_FOLDER_EXISTS = 'Warning! Gym folder with the specified path={0} already' \
+                            'exists. Creating another directory with path={1}.'
     """
     Config file consists of several main sections:
     - heatmap_config
@@ -38,8 +38,7 @@ class PEGym:
         self._setup_gym(config)
 
     def _setup_gym(self, config):
-        # Create gym folder
-        os.makedirs(self._train_config[PEGym.GYM_FOLDER], exist_ok=True)
+        self._create_gym_folder()
 
         # Create folder for the last weights of the model
         self._last_w_folder_path = os.path.join(
@@ -55,11 +54,28 @@ class PEGym:
         )
         os.makedirs(tensorboard_path, exist_ok=True)
         config[Tester.TB_FOLDER] = tensorboard_path
+        self._tb_path = tensorboard_path
         self._tester = CocoTester(config, self._sess)
 
         # Create model, trainer and set the tensorboard folder
         self._trainer, self._model = ModelAssembler.assemble(config, self._gen_layer, self._sess)
         self._trainer.set_tensorboard_writer(self._tester.get_writer())
+
+    def get_tb_path(self):
+        return self._tb_path
+
+    def _create_gym_folder(self):
+        print(PEGym.MSG_CREATE_FOLDER)
+        orig_path = self._train_config[PEGym.GYM_FOLDER]
+        path = orig_path
+        counter = 1
+        while os.path.isdir(path):
+            new_path = orig_path + f'_{counter}'
+            counter += 1
+            print(PEGym.WRN_GYM_FOLDER_EXISTS.format(path, new_path))
+            path = new_path
+
+        os.makedirs(path, exist_ok=True)
 
     def get_model(self):
         """
@@ -103,6 +119,7 @@ class PEGym:
         )
         os.makedirs(save_path, exist_ok=True)
         self._model.save_weights(save_path)
+
 
 
 
