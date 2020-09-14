@@ -75,6 +75,7 @@ class PEGym:
             print(PEGym.WRN_GYM_FOLDER_EXISTS.format(path, new_path))
             path = new_path
 
+        self._train_config[PEGym.GYM_FOLDER] = path
         os.makedirs(path, exist_ok=True)
 
     def get_model(self):
