@@ -336,7 +336,10 @@ class NormalizePostMethod(TFRPostMapMethod):
             self.divider = tf.constant(divider, dtype=tf.float32)
 
     def read_record(self, serialized_example) -> dict:
-        element = self._parent_method.read_record(serialized_example)
+        if self._parent_method is not None:
+            element = self._parent_method.read_record(serialized_example)
+        else:
+            element = serialized_example
 
         image_tensor = element[RIterator.IMAGE]
         if self.use_float64:
@@ -409,7 +412,6 @@ class BinaryHeatmapMethod(TFRPostMapMethod):
         x_grid, y_grid = np.meshgrid(np.arange(im_size[0]), np.arange(im_size[1]))
         xy_grid = np.stack([x_grid, y_grid], axis=-1)
         self.xy_grid = tf.convert_to_tensor(xy_grid, dtype=tf.float32)
-
 
     def read_record(self, serialized_example) -> dict:
         if self._parent_method is not None:
