@@ -187,7 +187,7 @@ class GaussHeatmapLayer(MakiLayer):
         ----------
         im_size : 2d tuple
             Contains width and height (w, h) of the image for which to generate the map.
-        radius : int
+        delta : int
             Defines the spreadout of the heat around the point.
         vectorize : bool
             Set to True if you want to vectorize the computation along the batch dimension. May cause
