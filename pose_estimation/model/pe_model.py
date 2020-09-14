@@ -124,7 +124,7 @@ class PEModel(PoseEstimatorInterface):
         """
         # Take predictions
         batched_heatmap, batched_paf = self._session.run(
-            [self.get_heatmap_tensor(), self.get_paf_tensor()],
+            [self.get_heatmap_tensors(), self.get_paf_tensors()],
             feed_dict={self._input_data_tensors[0]: x}
         )
 
@@ -166,7 +166,7 @@ class PEModel(PoseEstimatorInterface):
         """
         return self._session
 
-    def get_paf_tensor(self):
+    def get_paf_tensors(self):
         """
         Return tf.Tensor of paf (party affinity fields) calculation
 
@@ -180,7 +180,7 @@ class PEModel(PoseEstimatorInterface):
         """
         return self._outputs[0]
 
-    def get_heatmap_tensor(self):
+    def get_heatmap_tensors(self):
         """
         Return tf.Tensor of heatmap calculation
 

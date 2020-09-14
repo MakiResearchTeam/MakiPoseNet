@@ -29,8 +29,8 @@ class MSETrainer:
         """
         self._model = model
         model.training_on()
-        self._paf = model.get_paf_tensor()
-        self._heatmap = model.get_heatmap_tensor()
+        self._paf = model.get_paf_tensors()
+        self._heatmap = model.get_heatmap_tensors()
         self._training_paf = training_paf.get_data_tensor()
         self._training_heatmap = training_heatmap.get_data_tensor()
         self._paf_scale = 1.0
