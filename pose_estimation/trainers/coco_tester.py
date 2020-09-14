@@ -40,7 +40,7 @@ class CocoTester(Tester):
 
     def evaluate(self, model, iteration):
         peaks, heatmap, paf = model.predict(
-            np.concatenate([self._norm_image] * self._batch_size, axis=0),
+            np.concatenate([self._norm_image] * model.get_batch_size(), axis=0),
             using_estimate_alg=False
         )
 

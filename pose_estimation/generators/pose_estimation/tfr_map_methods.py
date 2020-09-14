@@ -311,7 +311,6 @@ class AugmentationPostMethod(TFRPostMapMethod):
 
 class NormalizePostMethod(TFRPostMapMethod):
 
-    NORMALIZE_KEYPOINTS = 'normalize_keypoints_tensor'
     NORMALIZE_IMAGE = 'normalize_image_tensor'
 
     def __init__(self, divider=127.5,

@@ -30,38 +30,39 @@ class PEModel(PoseEstimatorInterface):
         json_info = json.loads(json_value)
 
         # Take model information
-        output_heatmap_mt_name = json_info[MakiCore.MODEL_INFO][PEModel.OUTPUT_HEATMAP_MT]
-        output_paf_mt_name = json_info[MakiCore.MODEL_INFO][PEModel.OUTPUT_PAF_MT]
+        output_heatmap_mt_names = json_info[MakiCore.MODEL_INFO][PEModel.OUTPUT_HEATMAP_MT]
+        output_paf_mt_names = json_info[MakiCore.MODEL_INFO][PEModel.OUTPUT_PAF_MT]
+
         input_mt_name = json_info[MakiCore.MODEL_INFO][PEModel.INPUT_MT]
         model_name = json_info[MakiCore.MODEL_INFO][PEModel.NAME]
         graph_info = json_info[MakiCore.GRAPH_INFO]
 
         # Restore all graph variables of saved model
         inputs_and_outputs = MakiCore.restore_graph(
-            [output_heatmap_mt_name, output_paf_mt_name],
+            output_heatmap_mt_names + output_paf_mt_names,
             graph_info,
             input_layer=input_tensor
         )
 
         input_x = inputs_and_outputs[input_mt_name]
 
-        output_paf = inputs_and_outputs[output_paf_mt_name]
-        output_heatmap = inputs_and_outputs[output_heatmap_mt_name]
+        output_paf_list = [inputs_and_outputs[take_by_name] for take_by_name in output_paf_mt_names]
+        output_heatmap_list = [inputs_and_outputs[take_by_name] for take_by_name in output_heatmap_mt_names]
 
         print('Model is restored!')
 
         return PEModel(
             input_x=input_x,
-            output_heatmap=output_heatmap,
-            output_paf=output_paf,
+            output_heatmap_list=output_heatmap_list,
+            output_paf_list=output_paf_list,
             name=model_name
         )
 
     def __init__(
         self,
         input_x: MakiTensor,
-        output_paf: MakiTensor,
-        output_heatmap: MakiTensor,
+        output_paf_list: list,
+        output_heatmap_list: list,
         name="Pose_estimation"
     ):
         """
@@ -71,21 +72,30 @@ class PEModel(PoseEstimatorInterface):
         ----------
         input_x : MakiTensor
             Input MakiTensor
-        output_paf : MakiTensor
-            Output part affinity fields (paf) MakiTensor
-        output_heatmap : MakiTensor
-            Output heatmap MakiTensor
+        output_paf_list : list
+            List of MakiTensors which are output part affinity fields (paf).
+            Assume that last tensor in the list, will be the main one
+        output_heatmap_list : list
+            List of MakiTensors which are output heatmaps.
+            Assume that last tensor in the list, will be the main one
         name : str
             Name of this model
         """
         self.name = str(name)
 
-        graph_tensors = output_paf.get_previous_tensors()
-        graph_tensors.update(output_paf.get_self_pair())
+        self._index_of_main_paf = len(output_paf_list) - 1
 
-        graph_tensors.update(output_heatmap.get_previous_tensors())
-        graph_tensors.update(output_heatmap.get_self_pair())
-        super().__init__(graph_tensors, outputs=[output_paf, output_heatmap], inputs=[input_x])
+        graph_tensors = {}
+
+        for elem in output_paf_list:
+            graph_tensors.update(elem.get_previous_tensors())
+            graph_tensors.update(elem.get_self_pair())
+
+        for elem in output_heatmap_list:
+            graph_tensors.update(elem.get_previous_tensors())
+            graph_tensors.update(elem.get_self_pair())
+
+        super().__init__(graph_tensors, outputs=output_paf_list + output_heatmap_list, inputs=[input_x])
 
     def predict(self, x: list, pooling_window_size=(3, 3), using_estimate_alg=True):
         """
@@ -124,7 +134,7 @@ class PEModel(PoseEstimatorInterface):
         """
         # Take predictions
         batched_heatmap, batched_paf = self._session.run(
-            [self.get_heatmap_tensors(), self.get_paf_tensors()],
+            [self.get_main_heatmap_tensor(), self.get_main_paf_tensor()],
             feed_dict={self._input_data_tensors[0]: x}
         )
 
@@ -166,33 +176,41 @@ class PEModel(PoseEstimatorInterface):
         """
         return self._session
 
+    def get_main_paf_tensor(self):
+
+        return self._output_data_tensors[self._index_of_main_paf]
+
+    def get_main_heatmap_tensor(self):
+
+        return self._output_data_tensors[-1]
+
     def get_paf_tensors(self):
         """
-        Return tf.Tensor of paf (party affinity fields) calculation
+        Return list of tf.Tensors which are paf (party affinity fields) calculation tensor
 
         """
-        return self._output_data_tensors[0]
+        return self._output_data_tensors[: (self._index_of_main_paf + 1)]
 
     def get_paf_makitensor(self):
         """
-        Return mf.MakiTensor of the paf (party affinity fields) calculation tensor
+        Return list of mf.MakiTensors which are the paf (party affinity fields) calculation tensor
 
         """
-        return self._outputs[0]
+        return self._outputs[: (self._index_of_main_paf + 1)]
 
     def get_heatmap_tensors(self):
         """
-        Return tf.Tensor of heatmap calculation
+        Return list of tf.Tensors which are the heatmap calculation
 
         """
-        return self._output_data_tensors[1]
+        return self._output_data_tensors[(self._index_of_main_paf + 1):]
 
     def get_heatmap_makitensor(self):
         """
-        Return mf.MakiTensor of the heatmap calculation tensor
+        Return list of mf.MakiTensor which are the heatmap calculation tensor
 
         """
-        return self._outputs[1]
+        return self._outputs[(self._index_of_main_paf + 1):]
 
     def get_training_vars(self):
         """
@@ -227,13 +245,13 @@ class PEModel(PoseEstimatorInterface):
 
         """
         input_mt = self._inputs[0]
-        output_heatmap_mt = self.get_heatmap_makitensor()
-        output_paf_mt = self.get_paf_makitensor()
+        output_heatmap_mt_names = [elem.get_name() for elem in self.get_heatmap_makitensor()]
+        output_paf_mt_names = [elem.get_name() for elem in self.get_paf_makitensor()]
 
         return {
             PEModel.INPUT_MT: input_mt.get_name(),
-            PEModel.OUTPUT_HEATMAP_MT: self._outputs[1].get_name(),
-            PEModel.OUTPUT_PAF_MT: self._outputs[0].get_name(),
+            PEModel.OUTPUT_HEATMAP_MT: output_heatmap_mt_names,
+            PEModel.OUTPUT_PAF_MT: output_paf_mt_names,
             PEModel.NAME: self.name
         }
 
