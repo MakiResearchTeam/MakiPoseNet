@@ -29,8 +29,8 @@ class MSETrainer:
         """
         self._model = model
         model.training_on()
-        self._paf = model.get_paf_tensors()
-        self._heatmap = model.get_heatmap_tensors()
+        self._paf_tensors = model.get_paf_tensors()
+        self._heatmap_tensors = model.get_heatmap_tensors()
         self._training_paf = training_paf.get_data_tensor()
         self._training_heatmap = training_heatmap.get_data_tensor()
         self._paf_scale = 1.0
@@ -77,8 +77,14 @@ class MSETrainer:
         self._heatmap_scale = heatmap_scale
 
     def _build_loss(self):
-        self._paf_loss = Loss.mse_loss(self._training_paf, self._paf)
-        self._heatmap_loss = Loss.mse_loss(self._training_heatmap, self._heatmap)
+        self._paf_loss = 0.0
+        for paf in self._paf_tensors:
+            self._paf_loss += Loss.mse_loss(self._training_paf, paf)
+
+        self._heatmap_loss = 0.0
+        for heatmap in self._heatmap_tensors:
+            self._heatmap_loss += Loss.mse_loss(self._training_heatmap, heatmap)
+
         loss = self._paf_scale * self._paf_loss + \
                self._heatmap_scale * self._heatmap_loss
         self._total_loss = self._model.build_final_loss(loss)
