@@ -87,7 +87,7 @@ class PEModel(PoseEstimatorInterface):
         graph_tensors.update(output_heatmap.get_self_pair())
         super().__init__(graph_tensors, outputs=[output_paf, output_heatmap], inputs=[input_x])
 
-    def predict(self, x: list, pooling_window_size=(3, 3)):
+    def predict(self, x: list, pooling_window_size=(3, 3), using_estimate_alg=True):
         """
         Do pose estimation on certain input images
 
@@ -98,22 +98,33 @@ class PEModel(PoseEstimatorInterface):
         pooling_window_size : tuple
             Size of the pooling window,
             By default equal to (3, 3)
+        using_estimate_alg : bool
+            If equal True, when algorithm to build skeletons will be used
+            And method will return list of the class Human (See Return for more detail)
+            Otherwise, method will return peaks, heatmap and paf
 
         Returns
         -------
-        list
-            List of classes Human.
-            Human class store set of `body_parts` to each keypoints detected by neural network,
-            Set `body_parts` is set of classes BodyPart, set itself is store values from 0 to n
-            (n - number of keypoints on the skeleton)
-            which were detected by neural network (i.e. some of keypoints may not be present).
-            To get x and y coordinate, take one of the `body_parts` element (which is BodyPart class),
-            and get x or y by referring to the corresponding field.
-
+        if using_estimate_alg is True:
+            list
+                List of classes Human.
+                Human class store set of `body_parts` to each keypoints detected by neural network,
+                Set `body_parts` is set of classes BodyPart, set itself is store values from 0 to n
+                (n - number of keypoints on the skeleton)
+                which were detected by neural network (i.e. some of keypoints may not be present).
+                To get x and y coordinate, take one of the `body_parts` element (which is BodyPart class),
+                and get x or y by referring to the corresponding field.
+        Otherwise:
+            np.ndarray
+                Peaks
+            np.ndarray
+                Heatmap
+            np.ndarray
+                Paf
         """
         # Take predictions
-        batched_heatmap, batched_paff = self._session.run(
-            self.get_heatmap_tensor(), self.get_paf_tensor(),
+        batched_heatmap, batched_paf = self._session.run(
+            [self.get_heatmap_tensor(), self.get_paf_tensor()],
             feed_dict={self._input_data_tensors[0]: x}
         )
 
@@ -129,18 +140,23 @@ class PEModel(PoseEstimatorInterface):
         # Connect skeletons by applying two algorithms
         batched_humans = []
 
-        for i in range(len(batched_peaks)):
-            single_peaks = batched_peaks[i]
-            single_heatmap = batched_heatmap[i]
-            single_paff = batched_paff[i]
-            # Estimate
-            humans = estimate_paf(single_peaks, single_heatmap, single_paff)
-            # Remove similar points, simple merge similar skeletons
-            humans_dict = merge_similar_skelets(humans)
+        if using_estimate_alg:
+            W, H = self._inputs[0].get_shape()[1:3]
 
-            batched_humans.append(humans_dict)
+            for i in range(len(batched_peaks)):
+                single_peaks = batched_peaks[i].astype(np.float32)
+                single_heatmap = batched_heatmap[i].astype(np.float32)
+                single_paff = batched_paf[i].reshape(W, H, -1).astype(np.float32)
+                # Estimate
+                humans = estimate_paf(single_peaks, single_heatmap, single_paff)
+                # Remove similar points, simple merge similar skeletons
+                humans_dict = merge_similar_skelets(humans)
 
-        return batched_humans
+                batched_humans.append(humans_dict)
+
+            return batched_humans
+        else:
+            return batched_peaks, batched_heatmap, batched_paf
 
     def get_session(self):
         """
@@ -197,6 +213,13 @@ class PEModel(PoseEstimatorInterface):
         final_loss = self._build_final_loss(loss)
 
         return final_loss
+
+    def get_batch_size(self):
+        """
+        Return batch size
+
+        """
+        return self._inputs[0].get_shape()[0]
 
     def _get_model_info(self):
         """
