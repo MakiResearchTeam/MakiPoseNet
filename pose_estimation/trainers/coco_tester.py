@@ -57,14 +57,31 @@ class CocoTester(Tester):
         # Do here the fucking evaluation
         self.write_summaries(
             summaries={
-                CocoTester.HEATMAP_CENTER_BODY_IMAGE: (heatmap[:1][..., :1] * 255.0).astype(np.uint8),
-                CocoTester.HEATMAP_LEFT_SHOULDER_IMAGE: (heatmap[:1][..., 6:7] * 255.0).astype(np.uint8),
-                CocoTester.HEATMAP_RIGHT_SHOULDER_IMAGE: (heatmap[:1][..., 7:8] * 255.0).astype(np.uint8),
-                CocoTester.HEATMAP_RIGHT_HAND_IMAGE: (heatmap[:1][..., 11:12] * 255.0).astype(np.uint8),
-                CocoTester.HEATMAP_LEFT_HAND_IMAGE: (heatmap[:1][..., 10:11] * 255.0).astype(np.uint8),
+                CocoTester.HEATMAP_CENTER_BODY_IMAGE: np.expand_dims(draw_heatmap(heatmap[0][..., 0]), axis=0),
+                CocoTester.HEATMAP_LEFT_SHOULDER_IMAGE:  np.expand_dims(draw_heatmap(heatmap[0][..., 6]), axis=0),
+                CocoTester.HEATMAP_RIGHT_SHOULDER_IMAGE:  np.expand_dims(draw_heatmap(heatmap[0][..., 7]), axis=0),
+                CocoTester.HEATMAP_RIGHT_HAND_IMAGE:  np.expand_dims(draw_heatmap(heatmap[0][..., 11]), axis=0),
+                CocoTester.HEATMAP_LEFT_HAND_IMAGE:  np.expand_dims(draw_heatmap(heatmap[0][..., 10]), axis=0),
                 CocoTester.PAFF_IMAGE: drawed_paff.astype(np.uint8),
                 CocoTester.TEST_IMAGE: self._test_image,
                 CocoTester.ITERATION_COUNTER: iteration
             },
             step=iteration
         )
+
+    def draw_heatmap(self, heatmap):
+    	dpi = 80
+    	h,w = heatmap.shape
+
+    	figsuze = w / float(dpi), h / float(dpi)
+
+    	fig = plt.figure(frameon=False, figsize=figsuze, dpi=dpi)
+    	ax = fig.add_axes([0, 0, 1, 1])
+    	ax.axis('off')
+
+    	sns.heatmap(heatmap)
+    	fig.canvas.draw()
+
+    	data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+    	data = np.reshape(data, (h, w, 3))
+    	return data.astype(np.uint8)
