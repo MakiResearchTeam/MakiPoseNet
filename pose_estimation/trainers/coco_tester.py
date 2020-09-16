@@ -7,6 +7,8 @@ from ..utils.visualize_tools import visualize_paf
 class CocoTester(Tester):
     TEST_IMAGE = 'test_image'
 
+    _EXCEPTION_IMAGE_WAS_NOT_FOUND = "Image by path {0} was not found!"
+
     HEATMAP_CENTER_BODY_IMAGE = 'heatmap_center_body_image'
     HEATMAP_LEFT_SHOULDER_IMAGE = 'heatmap_left_shoulder_image'
     HEATMAP_RIGHT_SHOULDER_IMAGE = 'heatmap_right_shoulder_image'
@@ -18,6 +20,12 @@ class CocoTester(Tester):
 
     def _init(self, config, normalization_method=None):
         test_image = cv2.imread(self._config[CocoTester.TEST_IMAGE])
+
+        if test_image is None:
+            raise TypeError(CocoTester._EXCEPTION_IMAGE_WAS_NOT_FOUND.format(self._config[CocoTester.TEST_IMAGE]))
+
+        test_image = cv2.cvtColor(test_image, cv2.COLOR_BGR2RGB)
+
         im_shape = test_image.shape
 
         if normalization_method is not None:
