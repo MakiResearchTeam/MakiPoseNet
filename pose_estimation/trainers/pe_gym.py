@@ -94,6 +94,9 @@ class PEGym:
         optimizer, global_step = OptimizerBuilder.build_optimizer(
             self._train_config[PEGym.OPTIMIZER_INFO]
         )
+        
+        if global_step is not None:
+            self._sess.run(tf.variables_initializer([global_step]))
 
         it_counter = 0
         for i in range(1, epochs + 1):
