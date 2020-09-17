@@ -29,6 +29,7 @@ class ModelAssembler:
     L2_REG_LAYERS = 'l2_reg_layers'
 
     # gen_layer config
+    GENLAYER_CONFIG = 'genlayer_config'
     TFRECORDS_PATH = 'tfrecords_path'
     IM_HW = 'im_hw'
     PREFETCH_SIZE = 'prefetch_size'
@@ -37,7 +38,7 @@ class ModelAssembler:
 
     @staticmethod
     def assemble(config, gen_layer_fabric, sess):
-        gen_layer = ModelAssembler.build_gen_layer(config, gen_layer_fabric)
+        gen_layer = ModelAssembler.build_gen_layer(config[ModelAssembler.GENLAYER_CONFIG], gen_layer_fabric)
         model = ModelAssembler.setup_model(config[ModelAssembler.MODEL_CONFIG], gen_layer, sess)
         paf, heatmap = ModelAssembler.build_paf_heatmap(config, gen_layer)
         trainer = MSETrainer(
