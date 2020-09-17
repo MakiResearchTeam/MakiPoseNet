@@ -26,7 +26,7 @@ class Tester(ABC):
     def _init(self, config, normalization_method=None):
         pass
 
-    def add_image(self, name):
+    def add_image(self, name, n_images=1):
         """
         Adds an image summary to the tensorboard.
         The image dtype must by uint8 and have shape (batch_size, h, w, c).
@@ -35,12 +35,14 @@ class Tester(ABC):
         ----------
         name : str
             Name that will be displayed on the tensorboard.
+        n_images : int
+            Maximum number of images to display on the board.
         """
         image = tf.placeholder(dtype=tf.uint8)
         self._summary_inputs.update(
             {name: image}
         )
-        image_summary = tf.summary.image(name, image)
+        image_summary = tf.summary.image(name, image, max_outputs=n_images)
         self._summaries.update(
             {name: image_summary}
         )

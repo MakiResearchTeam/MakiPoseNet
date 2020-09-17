@@ -28,31 +28,34 @@ class ModelAssembler:
     L2_REG = 'l2_reg'
     L2_REG_LAYERS = 'l2_reg_layers'
 
+    # gen_layer config
+    TFRECORDS_PATH = 'tfrecords_path'
+    IM_HW = 'im_hw'
+    PREFETCH_SIZE = 'prefetch_size'
+    BATCH_SZ = 'batch_size'
+    KP_SHAPE = 'keypoints_shape'
+
     @staticmethod
-    def build_paf_heatmap(config, gen_layer):
-        # Extract tensors with keypoints and their masks
-        iterator = gen_layer.get_iterator()
-        keypoints = iterator[RIterator.KEYPOINTS]
-        masks = iterator[RIterator.KEYPOINTS_MASK]
+    def assemble(config, gen_layer_fabric, sess):
+        gen_layer = ModelAssembler.build_gen_layer(config, gen_layer_fabric)
+        model = ModelAssembler.setup_model(config[ModelAssembler.MODEL_CONFIG], gen_layer, sess)
+        paf, heatmap = ModelAssembler.build_paf_heatmap(config, gen_layer)
+        trainer = MSETrainer(
+            model=model,
+            training_paf=paf,
+            training_heatmap=heatmap
+        )
+        return trainer, model
 
-        keypoints = to_makitensor(keypoints, 'keypoints')
-        masks = to_makitensor(masks, 'masks')
-
-        # Build heatmap layer
-        heatmap_config = config[ModelAssembler.HEATMAP_CONFIG]
-        if heatmap_config[ModelAssembler.GAUSSIAN]:
-            layer = GaussHeatmapLayer
-        else:
-            layer = BinaryHeatmapLayer
-        heatmap_layer = layer.build(heatmap_config[MakiRestorable.PARAMS])
-        heatmap = heatmap_layer([keypoints, masks])
-
-        # Build paf layer
-        paf_config = config[ModelAssembler.PAF_CONFIG]
-        paf_layer = PAFLayer.build(paf_config[MakiRestorable.PARAMS])
-        paf = paf_layer([keypoints, masks])
-
-        return paf, heatmap
+    @staticmethod
+    def build_gen_layer(config, gen_layer_fabric):
+        return gen_layer_fabric(
+            tfrecotds_path=config[ModelAssembler.TFRECORDS_PATH],
+            im_hw=config[ModelAssembler.IM_HW],
+            batch_sz=config[ModelAssembler.BATCH_SZ],
+            prefetch_sz=config[ModelAssembler.PREFETCH_SIZE],
+            kp_shape=config[ModelAssembler.KP_SHAPE]
+        )
 
     @staticmethod
     def setup_model(model_config, gen_layer, sess):
@@ -91,14 +94,27 @@ class ModelAssembler:
         return model
 
     @staticmethod
-    def assemble(config, gen_layer, sess):
-        model = ModelAssembler.setup_model(config[ModelAssembler.MODEL_CONFIG], gen_layer, sess)
-        paf, heatmap = ModelAssembler.build_paf_heatmap(config, gen_layer)
-        trainer = MSETrainer(
-            model=model,
-            training_paf=paf,
-            training_heatmap=heatmap
-        )
-        return trainer, model
+    def build_paf_heatmap(config, gen_layer):
+        # Extract tensors with keypoints and their masks
+        iterator = gen_layer.get_iterator()
+        keypoints = iterator[RIterator.KEYPOINTS]
+        masks = iterator[RIterator.KEYPOINTS_MASK]
 
+        keypoints = to_makitensor(keypoints, 'keypoints')
+        masks = to_makitensor(masks, 'masks')
 
+        # Build heatmap layer
+        heatmap_config = config[ModelAssembler.HEATMAP_CONFIG]
+        if heatmap_config[ModelAssembler.GAUSSIAN]:
+            layer = GaussHeatmapLayer
+        else:
+            layer = BinaryHeatmapLayer
+        heatmap_layer = layer.build(heatmap_config[MakiRestorable.PARAMS])
+        heatmap = heatmap_layer([keypoints, masks])
+
+        # Build paf layer
+        paf_config = config[ModelAssembler.PAF_CONFIG]
+        paf_layer = PAFLayer.build(paf_config[MakiRestorable.PARAMS])
+        paf = paf_layer([keypoints, masks])
+
+        return paf, heatmap

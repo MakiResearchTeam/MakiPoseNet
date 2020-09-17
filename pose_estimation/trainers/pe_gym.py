@@ -28,13 +28,26 @@ class PEGym:
     GYM_FOLDER = 'gym_folder'
     OPTIMIZER_INFO = 'optimizer_info'
 
-    def __init__(self, config_path, gen_layer, sess):
+
+
+    def __init__(self, config_path, gen_layer_fabric, sess):
+        """
+        Training gym for a pose estimation model.
+        Parameters
+        ----------
+        config_path : str
+            Path to the config file.
+        gen_layer_fabric : python function
+            Fabric that create a generator layer given the arguments.
+        sess : tf.Session
+            The session object.
+        """
         with open(config_path) as json_file:
             json_value = json_file.read()
             config = json.loads(json_value)
 
         self._train_config = config[PEGym.TRAIN_CONFIG]
-        self._gen_layer = gen_layer
+        self._gen_layer_fabric = gen_layer_fabric
         self._sess = sess
         self._setup_gym(config)
 
@@ -59,7 +72,7 @@ class PEGym:
         self._tester = CocoTester(config, self._sess)
 
         # Create model, trainer and set the tensorboard folder
-        self._trainer, self._model = ModelAssembler.assemble(config, self._gen_layer, self._sess)
+        self._trainer, self._model = ModelAssembler.assemble(config, self._gen_layer_fabric, self._sess)
         self._trainer.set_tensorboard_writer(self._tester.get_writer())
 
     def get_tb_path(self):
