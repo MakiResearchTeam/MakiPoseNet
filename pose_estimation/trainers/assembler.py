@@ -51,7 +51,7 @@ class ModelAssembler:
     @staticmethod
     def build_gen_layer(config, gen_layer_fabric):
         return gen_layer_fabric(
-            tfrecotds_path=config[ModelAssembler.TFRECORDS_PATH],
+            tfrecords_path=config[ModelAssembler.TFRECORDS_PATH],
             im_hw=config[ModelAssembler.IM_HW],
             batch_sz=config[ModelAssembler.BATCH_SZ],
             prefetch_sz=config[ModelAssembler.PREFETCH_SIZE],
