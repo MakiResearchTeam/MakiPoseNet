@@ -1,6 +1,7 @@
 from .assembler import ModelAssembler
 import json
 import os
+import tensorflow as tf
 from makiflow.trainers.utils.optimizer_builder import OptimizerBuilder
 from .tester import Tester
 from .coco_tester import CocoTester
