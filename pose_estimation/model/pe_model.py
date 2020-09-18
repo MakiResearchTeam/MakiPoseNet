@@ -95,6 +95,7 @@ class PEModel(PoseEstimatorInterface):
             graph_tensors.update(elem.get_previous_tensors())
             graph_tensors.update(elem.get_self_pair())
 
+        self._init_tensors_for_prediction()
         super().__init__(graph_tensors, outputs=output_paf_list + output_heatmap_list, inputs=[input_x])
 
     def _init_tensors_for_prediction(self):
