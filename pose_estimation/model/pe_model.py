@@ -6,7 +6,7 @@ from .main_modules import PoseEstimatorInterface
 from .utils.algorithm_connect_skelet import estimate_paf, merge_similar_skelets
 from makiflow.base.maki_entities import MakiCore
 from makiflow.base.maki_entities import MakiTensor
-from makiflow.base.maki_entities import InputMakiLayer
+from .utils.smoother import Smoother
 
 
 class PEModel(PoseEstimatorInterface):
@@ -97,6 +97,14 @@ class PEModel(PoseEstimatorInterface):
 
         super().__init__(graph_tensors, outputs=output_paf_list + output_heatmap_list, inputs=[input_x])
 
+    def _init_tensors_for_prediction(self):
+        """
+        Initialize tensors for prediction
+
+        """
+        num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
+        self._gaussian_heatmap = Smoother({'data': self.get_main_heatmap_tensor()}, 25, 3.0, num_keypoints)
+
     def predict(self, x: list, pooling_window_size=(3, 3), using_estimate_alg=True):
         """
         Do pose estimation on certain input images
@@ -134,7 +142,7 @@ class PEModel(PoseEstimatorInterface):
         """
         # Take predictions
         batched_heatmap, batched_paf = self._session.run(
-            [self.get_main_heatmap_tensor(), self.get_main_paf_tensor()],
+            [self._gaussian_heatmap, self.get_main_paf_tensor()],
             feed_dict={self._input_data_tensors[0]: x}
         )
 
