@@ -1,5 +1,6 @@
 import json
 import numpy as np
+import tensorflow as tf
 from scipy.ndimage.filters import maximum_filter
 
 from .main_modules import PoseEstimatorInterface
@@ -104,7 +105,11 @@ class PEModel(PoseEstimatorInterface):
 
         """
         num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
-        self._gaussian_heatmap = Smoother({'data': self.get_main_heatmap_tensor()}, 25, 3.0, num_keypoints).get_output()
+        self._smoother = Smoother({'data': self.get_main_heatmap_tensor()}, 25, 3.0, num_keypoints)
+
+    def set_session(self, session: tf.Session):
+        session.run(tf.variables_initializer(self._smoother.get_variables()))
+        super().set_session(session)
 
     def predict(self, x: list, pooling_window_size=(3, 3), using_estimate_alg=True):
         """

@@ -93,6 +93,10 @@ class Smoother(object):
         # Convolution for a given input and kernel
         convolve = lambda i, k: tf.nn.depthwise_conv2d(i, k, [1, 1, 1, 1], padding=padding)
         with tf.variable_scope(name) as scope:
-            kernel = self.make_gauss_var('gauss_weight', self.filter_size, self.sigma, c_i)
-            output = convolve(input, kernel)
+            self.kernel = self.make_gauss_var('gauss_weight', self.filter_size, self.sigma, c_i)
+            output = convolve(input, self.kernel)
         return output
+
+    def get_variables(self):
+        return [self.kernel]
+
