@@ -104,7 +104,7 @@ class PEModel(PoseEstimatorInterface):
 
         """
         num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
-        self._gaussian_heatmap = Smoother({'data': self.get_main_heatmap_tensor()}, 25, 3.0, num_keypoints)
+        self._gaussian_heatmap = Smoother({'data': self.get_main_heatmap_tensor()}, 25, 3.0, num_keypoints).get_output()
 
     def predict(self, x: list, pooling_window_size=(3, 3), using_estimate_alg=True):
         """
