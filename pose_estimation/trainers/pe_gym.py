@@ -136,6 +136,9 @@ class PEGym:
             gym_folder, f'epoch_{epoch}'
         )
         os.makedirs(save_path, exist_ok=True)
+        save_path = os.path.join(
+            gym_folder, 'weights.ckpt'
+        )
         self._model.save_weights(save_path)
 
 
