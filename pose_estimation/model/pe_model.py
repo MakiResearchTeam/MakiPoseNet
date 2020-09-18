@@ -148,7 +148,7 @@ class PEModel(PoseEstimatorInterface):
         """
         # Take predictions
         batched_heatmap, batched_paf = self._session.run(
-            [self._gaussian_heatmap, self.get_main_paf_tensor()],
+            [self._smoother.get_output(), self.get_main_paf_tensor()],
             feed_dict={self._input_data_tensors[0]: x}
         )
 
