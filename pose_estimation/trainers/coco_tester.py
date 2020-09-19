@@ -80,15 +80,21 @@ class CocoTester(Tester):
         dict_images = {CocoTester.ITERATION_COUNTER: iteration}
 
         for i, (single_norm, single_test) in enumerate(zip(self._norm_images, self._test_images)):
-            single_batch = [single_test]
+            single_batch = [np.expand_dims(self.__put_text_on_image(single_test[0], self._names[i]), axis=0)]
             peaks, heatmap, paf = model.predict(
                 np.concatenate([single_norm] * model.get_batch_size(), axis=0),
                 using_estimate_alg=False
             )
 
-            drawed_paff = np.expand_dims(visualize_paf(single_test, paf[0]), axis=0)
-
+            drawed_paff = np.expand_dims(
+                self.__put_text_on_image(
+                    visualize_paf(single_test[0], paf[0]),
+                    self._names[i] + '_' + CocoTester.PAFF_IMAGE
+                ),
+                axis=0
+            )
             single_batch.append(drawed_paff)
+
             for single_draw_params in CocoTester.DRAW_LIST:
                 index = single_draw_params[1]
                 name_p = single_draw_params[0]
@@ -125,12 +131,17 @@ class CocoTester(Tester):
 
         data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
         data = np.reshape(data, (h, w, 3))
+
+        return self.__put_text_on_image(data, name_heatmap, shift_image)
+
+    def __put_text_on_image(self, image, text, shift_image=60):
+        h,w = image.shape[:-1]
         img = np.ones((h + shift_image, w, 3)) * 255.0
-        img[:h, :w] = data
+        img[:h, :w] = image
 
         cv2.putText(
             img,
-            name_heatmap,
+            text,
             (shift_image // 4, h + shift_image // 2),
             cv2.FONT_HERSHEY_SIMPLEX,
             2,
