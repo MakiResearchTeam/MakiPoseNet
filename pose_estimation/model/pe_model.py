@@ -1,12 +1,13 @@
 import json
 import numpy as np
+import tensorflow as tf
 from scipy.ndimage.filters import maximum_filter
 
 from .main_modules import PoseEstimatorInterface
 from .utils.algorithm_connect_skelet import estimate_paf, merge_similar_skelets
 from makiflow.base.maki_entities import MakiCore
 from makiflow.base.maki_entities import MakiTensor
-from makiflow.base.maki_entities import InputMakiLayer
+from .utils.smoother import Smoother
 
 
 class PEModel(PoseEstimatorInterface):
@@ -96,6 +97,19 @@ class PEModel(PoseEstimatorInterface):
             graph_tensors.update(elem.get_self_pair())
 
         super().__init__(graph_tensors, outputs=output_paf_list + output_heatmap_list, inputs=[input_x])
+        self._init_tensors_for_prediction()
+
+    def _init_tensors_for_prediction(self):
+        """
+        Initialize tensors for prediction
+
+        """
+        num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
+        self._smoother = Smoother({'data': self.get_main_heatmap_tensor()}, 25, 3.0, num_keypoints)
+
+    def set_session(self, session: tf.Session):
+        session.run(tf.variables_initializer(self._smoother.get_variables()))
+        super().set_session(session)
 
     def predict(self, x: list, pooling_window_size=(3, 3), using_estimate_alg=True):
         """
@@ -134,7 +148,7 @@ class PEModel(PoseEstimatorInterface):
         """
         # Take predictions
         batched_heatmap, batched_paf = self._session.run(
-            [self.get_main_heatmap_tensor(), self.get_main_paf_tensor()],
+            [self._smoother.get_output(), self.get_main_paf_tensor()],
             feed_dict={self._input_data_tensors[0]: x}
         )
 
