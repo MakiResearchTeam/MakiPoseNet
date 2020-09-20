@@ -14,23 +14,23 @@ class CocoTester(Tester):
     _EXCEPTION_IMAGE_WAS_NOT_FOUND = "Image by path {0} was not found!"
 
     HEATMAP_CENTER_BODY_IMAGE = 'heatmap_center_body_image'
-    HEATMAP_CENTER_BODY_TEXT = 'heat map center body'
+    HEATMAP_CENTER_BODY_TEXT = 'center body'
     HEATMAP_CENTER_BODY_INDEX = 0
 
     HEATMAP_LEFT_SHOULDER_IMAGE = 'heatmap_left_shoulder_image'
-    HEATMAP_LEFT_SHOULDER_TEXT = "heatmap left shoulder"
+    HEATMAP_LEFT_SHOULDER_TEXT = "left shoulder"
     HEATMAP_LEFT_SHOULDER_INDEX = 6
 
     HEATMAP_RIGHT_SHOULDER_IMAGE = 'heatmap_right_shoulder_image'
-    HEATMAP_RIGHT_SHOULDER_TEXT = "heatmap right shoulder"
+    HEATMAP_RIGHT_SHOULDER_TEXT = "right shoulder"
     HEATMAP_RIGHT_SHOULDER_INDEX = 7
 
     HEATMAP_RIGHT_HAND_IMAGE = 'heatmap_right_hand_image'
-    HEATMAP_RIGHT_HAND_TEXT = "heatmap right hand"
+    HEATMAP_RIGHT_HAND_TEXT = "right hand"
     HEATMAP_RIGHT_HAND_INDEX = 11
 
     HEATMAP_LEFT_HAND_IMAGE = 'heatmap_left_hand_image'
-    HEATMAP_LEFT_HAND_TEXT = "heatmap left hand"
+    HEATMAP_LEFT_HAND_TEXT = "left hand"
     HEATMAP_LEFT_HAND_INDEX = 10
 
     DRAW_LIST = [
@@ -43,6 +43,8 @@ class CocoTester(Tester):
 
     PAFF_IMAGE = 'paff_image'
     ITERATION_COUNTER = 'iteration_counter'
+
+    _CENTRAL_SIZE = 600
 
     def _init(self, config, normalization_method=None):
 
@@ -144,9 +146,9 @@ class CocoTester(Tester):
             text,
             (shift_image // 4, h + shift_image // 2),
             cv2.FONT_HERSHEY_SIMPLEX,
-            2,
+            min(h / self._CENTRAL_SIZE, w / self._CENTRAL_SIZE),
             (0, 0, 0),
-            2
+            1
         )
 
         return img.astype(np.uint8)
