@@ -7,7 +7,6 @@ import numpy as np
 import datetime
 import time
 from collections import defaultdict
-from pycocotools import mask as maskUtils
 import copy
 
 
@@ -36,12 +35,12 @@ FACE_K = [
 
 LEFT_HAND_K = [
     0.029, 0.022, 0.035, 0.037, 0.047, 0.026, 0.025, 0.024,
-    0.035, 0.018, 0.024, 0.022, 0.026, 0.017, 0.021, 0.021, 
+    0.035, 0.018, 0.024, 0.022, 0.026, 0.017, 0.021, 0.021,
     0.032, 0.02, 0.019, 0.022, 0.031
 ]
 
 RIGHT_HAND_K = [
-    0.029, 0.022, 0.035, 0.037, 0.047, 0.026, 0.025, 
+    0.029, 0.022, 0.035, 0.037, 0.047, 0.026, 0.025,
     0.024, 0.035, 0.018, 0.024, 0.022, 0.026, 0.017,
     0.021, 0.021, 0.032, 0.02, 0.019, 0.022, 0.031
 ]
@@ -70,15 +69,15 @@ MAKI_SKELET_K = [
 
 
 class MYeval_wholebody:
-    def __init__(self, cocoGt=None, cocoDt=None, iouType='keypoints'):
+
+    MAKI_KEYPOINTS = 'maki_keypoints'
+
+    def __init__(self, cocoGt=None, cocoDt=None):
         """
         Initialize CocoEval using coco APIs for gt and dt
         :param cocoGt: coco object with ground truth annotations
         :param cocoDt: coco object with detection results
-        :return: None
         """
-        if not iouType:
-            print('iouType not specified. use default iouType segm')
         self.cocoGt   = cocoGt              # ground truth COCO API
         self.cocoDt   = cocoDt              # detections COCO API
         self.params   = {}                  # evaluation parameters
@@ -86,7 +85,7 @@ class MYeval_wholebody:
         self.eval     = {}                  # accumulated evaluation results
         self._gts = defaultdict(list)       # gt for evaluation
         self._dts = defaultdict(list)       # dt for evaluation
-        self.params = Params(iouType=iouType) # parameters
+        self.params = Params()              # parameters
         self._paramsEval = {}               # parameters for evaluation
         self.stats = []                     # result summarization
         self.ious = {}                      # ious between all gts and dts
@@ -99,11 +98,7 @@ class MYeval_wholebody:
         Prepare ._gts and ._dts for evaluation based on params
         :return: None
         """
-        def _toMask(anns, coco):
-            # modify ann['segmentation'] by reference
-            for ann in anns:
-                rle = coco.annToRLE(ann)
-                ann['segmentation'] = rle
+
         p = self.params
         if p.useCats:
             gts=self.cocoGt.loadAnns(self.cocoGt.getAnnIds(imgIds=p.imgIds, catIds=p.catIds))
@@ -112,26 +107,18 @@ class MYeval_wholebody:
             gts=self.cocoGt.loadAnns(self.cocoGt.getAnnIds(imgIds=p.imgIds))
             dts=self.cocoDt.loadAnns(self.cocoDt.getAnnIds(imgIds=p.imgIds))
 
-        # convert ground truth to mask if iouType == 'segm'
-        if p.iouType == 'segm':
-            _toMask(gts, self.cocoGt)
-            _toMask(dts, self.cocoDt)
         # set ignore flag
         for gt in gts:
-            body_gt = gt['keypoints']
-            foot_gt = gt['foot_kpts']
-            face_gt = gt['face_kpts']
-            lefthand_gt = gt['lefthand_kpts']
-            righthand_gt = gt['righthand_kpts']
-            all_kpts_gt = body_gt + foot_gt + face_gt + lefthand_gt + righthand_gt
-            g = np.array(all_kpts_gt)
+            whole_body_gt = gt[self.MAKI_KEYPOINTS]
+
+            g = np.array(whole_body_gt)
             vg = g[2::3]
             k1 = np.count_nonzero(vg > 0)
 
             gt['ignore'] = gt['ignore'] if 'ignore' in gt else 0
             gt['ignore'] = 'iscrowd' in gt and gt['iscrowd']
-            if p.iouType == 'keypoints':
-                gt['ignore'] = (k1 == 0) or gt['ignore']
+            gt['ignore'] = (k1 == 0) or gt['ignore']
+
         self._gts = defaultdict(list)       # gt for evaluation
         self._dts = defaultdict(list)       # dt for evaluation
         for gt in gts:
@@ -149,10 +136,7 @@ class MYeval_wholebody:
         tic = time.time()
         print('Running per image evaluation...')
         p = self.params
-        # add backward compatibility if useSegm is specified in params
-        if not p.useSegm is None:
-            p.iouType = 'segm' if p.useSegm == 1 else 'bbox'
-            print('useSegm (deprecated) is not None. Running {} evaluation'.format(p.iouType))
+
         print('Evaluate annotation type *{}*'.format(p.iouType))
         p.imgIds = list(np.unique(p.imgIds))
         if p.useCats:
@@ -164,53 +148,23 @@ class MYeval_wholebody:
         # loop through images, area range, max detection number
         catIds = p.catIds if p.useCats else [-1]
 
-        if p.iouType == 'segm' or p.iouType == 'bbox':
-            computeIoU = self.computeIoU
-        elif p.iouType == 'keypoints':
-            computeIoU = self.computeOks
-        self.ious = {(imgId, catId): computeIoU(imgId, catId) \
-                        for imgId in p.imgIds
-                        for catId in catIds}
+        self.ious = {
+            (imgId, catId): self.computeOks(imgId, catId)
+            for imgId in p.imgIds
+            for catId in catIds
+        }
 
         evaluateImg = self.evaluateImg
         maxDet = p.maxDets[-1]
-        self.evalImgs = [evaluateImg(imgId, catId, areaRng, maxDet)
-                 for catId in catIds
-                 for areaRng in p.areaRng
-                 for imgId in p.imgIds
-             ]
+        self.evalImgs = [
+            evaluateImg(imgId, catId, areaRng, maxDet)
+            for catId in catIds
+            for areaRng in p.areaRng
+            for imgId in p.imgIds
+        ]
         self._paramsEval = copy.deepcopy(self.params)
         toc = time.time()
         print('DONE (t={:0.2f}s).'.format(toc-tic))
-
-    def computeIoU(self, imgId, catId):
-        p = self.params
-        if p.useCats:
-            gt = self._gts[imgId,catId]
-            dt = self._dts[imgId,catId]
-        else:
-            gt = [_ for cId in p.catIds for _ in self._gts[imgId,cId]]
-            dt = [_ for cId in p.catIds for _ in self._dts[imgId,cId]]
-        if len(gt) == 0 and len(dt) ==0:
-            return []
-        inds = np.argsort([-d['score'] for d in dt], kind='mergesort')
-        dt = [dt[i] for i in inds]
-        if len(dt) > p.maxDets[-1]:
-            dt=dt[0:p.maxDets[-1]]
-
-        if p.iouType == 'segm':
-            g = [g['segmentation'] for g in gt]
-            d = [d['segmentation'] for d in dt]
-        elif p.iouType == 'bbox':
-            g = [g['bbox'] for g in gt]
-            d = [d['bbox'] for d in dt]
-        else:
-            raise Exception('unknown iouType for iou computation')
-
-        # compute iou between each dt and gt region
-        iscrowd = [int(o['iscrowd']) for o in gt]
-        ious = maskUtils.iou(d,g,iscrowd)
-        return ious
 
     def computeOks(self, imgId, catId):
         p = self.params
@@ -232,26 +186,18 @@ class MYeval_wholebody:
         # compute oks between each detection and ground truth object
         for j, gt in enumerate(gts):
             # create bounds for ignore regions(double the gt bbox)
-            body_gt = gt['keypoints']
-            foot_gt = gt['foot_kpts']
-            face_gt = gt['face_kpts']
-            lefthand_gt = gt['lefthand_kpts']
-            righthand_gt = gt['righthand_kpts']
-            all_kpts_gt = body_gt + foot_gt + face_gt + lefthand_gt + righthand_gt
-            g = np.array(all_kpts_gt)
+            whole_body_gt = gt[self.MAKI_KEYPOINTS]
+            g = np.array(whole_body_gt)
+
             xg = g[0::3]; yg = g[1::3]; vg = g[2::3]
             k1 = np.count_nonzero(vg > 0)
             bb = gt['bbox']
             x0 = bb[0] - bb[2]; x1 = bb[0] + bb[2] * 2
             y0 = bb[1] - bb[3]; y1 = bb[1] + bb[3] * 2
             for i, dt in enumerate(dts):
-                body_dt = dt['keypoints']
-                foot_dt = dt['foot_kpts']
-                face_dt = dt['face_kpts']
-                lefthand_dt = dt['lefthand_kpts']
-                righthand_dt = dt['righthand_kpts']
-                all_kpts_dt = body_dt + foot_dt + face_dt + lefthand_dt + righthand_dt
-                d = np.array(all_kpts_dt)
+                whole_body_dt = dt[self.MAKI_KEYPOINTS]
+                d = np.array(whole_body_dt)
+
                 xd = d[0::3]; yd = d[1::3]
                 if k1>0:
                     # measure the per-keypoint distance if keypoints visible
@@ -316,7 +262,7 @@ class MYeval_wholebody:
                         if gtm[tind,gind]>0 and not iscrowd[gind]:
                             continue
                         # if dt matched to reg gt, and on ignore gt, stop
-                        if m>-1 and gtIg[m]==0 and gtIg[gind]==1:
+                        if m > -1 and gtIg[m]==0 and gtIg[gind]==1:
                             break
                         # continue to next gt unless better match made
                         if ious[dind,gind] < iou:
@@ -492,22 +438,6 @@ class MYeval_wholebody:
             print(iStr.format(titleStr, typeStr, iouStr, areaRng, maxDets, mean_s))
             return mean_s
 
-        def _summarizeDets():
-            stats = np.zeros((12,))
-            stats[0] = _summarize(1)
-            stats[1] = _summarize(1, iouThr=.5, maxDets=self.params.maxDets[2])
-            stats[2] = _summarize(1, iouThr=.75, maxDets=self.params.maxDets[2])
-            stats[3] = _summarize(1, areaRng='small', maxDets=self.params.maxDets[2])
-            stats[4] = _summarize(1, areaRng='medium', maxDets=self.params.maxDets[2])
-            stats[5] = _summarize(1, areaRng='large', maxDets=self.params.maxDets[2])
-            stats[6] = _summarize(0, maxDets=self.params.maxDets[0])
-            stats[7] = _summarize(0, maxDets=self.params.maxDets[1])
-            stats[8] = _summarize(0, maxDets=self.params.maxDets[2])
-            stats[9] = _summarize(0, areaRng='small', maxDets=self.params.maxDets[2])
-            stats[10] = _summarize(0, areaRng='medium', maxDets=self.params.maxDets[2])
-            stats[11] = _summarize(0, areaRng='large', maxDets=self.params.maxDets[2])
-            return stats
-
         def _summarizeKps():
             stats = np.zeros((10,))
             stats[0] = _summarize(1, maxDets=20)
@@ -523,12 +453,8 @@ class MYeval_wholebody:
             return stats
         if not self.eval:
             raise Exception('Please run accumulate() first')
-        iouType = self.params.iouType
-        if iouType == 'segm' or iouType == 'bbox':
-            summarize = _summarizeDets
-        elif iouType == 'keypoints':
-            summarize = _summarizeKps
-        self.stats = summarize()
+
+        self.stats = _summarizeKps()
 
     def __str__(self):
         self.summarize()
@@ -539,29 +465,7 @@ class Params:
     Params for coco evaluation api
     """
 
-    def __init__(self, iouType='segm'):
-        if iouType == 'segm' or iouType == 'bbox':
-            self.setDetParams()
-        elif iouType == 'keypoints':
-            self.setKpParams()
-        else:
-            raise Exception('iouType not supported')
-        self.iouType = iouType
-        # useSegm is deprecated
-        self.useSegm = None
-
-    def setDetParams(self):
-        self.imgIds = []
-        self.catIds = []
-        # np.arange causes trouble.  the data point on arange is slightly larger than the true value
-        self.iouThrs = np.linspace(.5, 0.95, np.round((0.95 - .5) / .05) + 1, endpoint=True)
-        self.recThrs = np.linspace(.0, 1.00, np.round((1.00 - .0) / .01) + 1, endpoint=True)
-        self.maxDets = [1, 10, 100]
-        self.areaRng = [[0 ** 2, 1e5 ** 2], [0 ** 2, 32 ** 2], [32 ** 2, 96 ** 2], [96 ** 2, 1e5 ** 2]]
-        self.areaRngLbl = ['all', 'small', 'medium', 'large']
-        self.useCats = 1
-
-    def setKpParams(self):
+    def __init__(self):
         self.imgIds = []
         self.catIds = []
         # np.arange causes trouble.  the data point on arange is slightly larger than the true value

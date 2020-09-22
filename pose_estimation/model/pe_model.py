@@ -165,9 +165,8 @@ class PEModel(PoseEstimatorInterface):
         batched_humans = []
 
         if using_estimate_alg:
-            W, H = self._inputs[0].get_shape()[1:3]
-
             for i in range(len(batched_peaks)):
+                W, H = x[i].shape[:-1]
                 single_peaks = batched_peaks[i].astype(np.float32)
                 single_heatmap = batched_heatmap[i].astype(np.float32)
                 single_paff = batched_paf[i].reshape(W, H, -1).astype(np.float32)
