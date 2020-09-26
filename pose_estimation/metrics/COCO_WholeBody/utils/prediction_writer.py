@@ -20,12 +20,16 @@ Example of the json how to save single prediction
 
 """
 
-from .relayout_coco_annotation import IMAGE_ID, MAKI_KEYPOINTS, ANNOTATIONS, ID
+from .relayout_coco_annotation import IMAGE_ID, MAKI_KEYPOINTS, ANNOTATIONS, ID, AREA
 CATEGORY_ID = 'category_id'
 SCORE = 'score'
 COCO_URL = 'coco_url'
 FILE_NAME = 'file_name'
 DEFAULT_CATEGORY_ID = 1
+
+BIG_NUMBER = 10 ** 10
+LOW_NUMBER = -1
+EPSILONE = 1e-2
 
 
 def create_prediction_coco_json(W: int, H: int, model, ann_file_path: str, path_to_save: str, path_to_images: str):
@@ -60,8 +64,15 @@ def create_prediction_coco_json(W: int, H: int, model, ann_file_path: str, path_
         for single_name in humans_dict:
             single_elem = humans_dict[single_name]
             cocoDt_json.append(
-                write_to_dict(single_ids, single_elem.score, single_elem.to_list(), counter)
+                write_to_dict(
+                    single_ids,
+                    single_elem.score,
+                    single_elem.to_list(),
+                    counter,
+                    calculate_area(np.array(single_elem.to_list()).reshape(-1, 3))
+                )
             )
+
             counter += 1
 
     iterator.close()
@@ -70,12 +81,28 @@ def create_prediction_coco_json(W: int, H: int, model, ann_file_path: str, path_
         json.dump({ANNOTATIONS: cocoDt_json}, fp)
 
 
-def write_to_dict(img_id: int, score: float, maki_keypoints: list, id: int) -> dict:
+def write_to_dict(img_id: int, score: float, maki_keypoints: list, id: int, area: float) -> dict:
     return {
         CATEGORY_ID: DEFAULT_CATEGORY_ID,
         IMAGE_ID: img_id,
         SCORE: score,
         MAKI_KEYPOINTS: maki_keypoints,
-        ID: id
+        ID: id,
+        AREA: area
     }
 
+
+def calculate_area(maki_keypoints: np.ndarray):
+    left_cor = [BIG_NUMBER, BIG_NUMBER]
+    right_cor = [LOW_NUMBER, LOW_NUMBER]
+
+    for i in range(len(maki_keypoints)):
+        if maki_keypoints[i][0] > EPSILONE:
+            left_cor[0] = min(left_cor[0], maki_keypoints[i][0])
+            right_cor[0] = max(right_cor[0], maki_keypoints[i][0])
+
+        if maki_keypoints[i][1] > EPSILONE:
+            left_cor[1] = min(left_cor[1], maki_keypoints[i][1])
+            right_cor[1] = max(right_cor[1], maki_keypoints[i][1])
+
+    return (right_cor[0] - left_cor[0]) * (right_cor[1] - left_cor[1])
