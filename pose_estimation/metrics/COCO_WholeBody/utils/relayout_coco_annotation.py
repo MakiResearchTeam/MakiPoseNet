@@ -49,7 +49,7 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str):
 
         new_segmentation = single_anns[SEGMENTATION]
         for i in range(len(new_segmentation)):
-            single_new_seg_coord = np.array(new_segmentation[i]).reshape(-1, 2) * new_bbox
+            single_new_seg_coord = np.array(new_segmentation[i]).reshape(-1, 2) * scale_bbox
             single_new_seg_coord = single_new_seg_coord.astype(np.float32).reshape(-1).tolist()
             new_segmentation[i] = single_new_seg_coord
 
