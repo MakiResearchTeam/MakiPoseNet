@@ -11,6 +11,8 @@ IMAGES = 'images'
 BBOX = 'bbox'
 # Stored in the annotations
 IMAGE_ID = 'image_id'
+# Id in the image
+ID = 'id'
 
 # Images in JSON
 HEIGHT = 'height'
@@ -47,7 +49,7 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str) -> dict:
 
 def find_image_annot(cocoGt_json: dict, img_id: int) -> dict:
     for single_annot in cocoGt_json[IMAGES]:
-        if single_annot[IMAGE_ID] == img_id:
+        if single_annot[ID] == img_id:
             return single_annot
 
     return None
