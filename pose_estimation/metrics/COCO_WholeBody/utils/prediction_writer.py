@@ -38,7 +38,7 @@ def create_prediction_coco_json(W: int, H: int, model, ann_file_path: str, path_
         single_img = cocoGt.loadImgs(single_ids)[0]
 
         # Load image
-        source_img = cv2.cvtColor(io.imread(single_img[COCO_URL], cv2.COLOR_RGB2BGR))
+        source_img = cv2.cvtColor(io.imread(single_img[COCO_URL]), cv2.COLOR_RGB2BGR)
         source_img = cv2.resize(source_img, (W, H))
         norm_img = [((source_img - 127.5) / 127.5).astype(np.float32)]
         # Predict and take only single
