@@ -39,7 +39,7 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str):
         scale_bbox = (W / image_size[1], H / image_size[0])
 
         new_keypoints = (new_keypoints.reshape(-1, 3) * scale_k).reshape(-1).astype(np.float32).tolist()
-        new_bbox = (np.array(single_anns[BBOX]).reshape(2, 2) * scale_bbox).reshape(-1)
+        new_bbox = (np.array(single_anns[BBOX]).reshape(2, 2) * scale_bbox).reshape(-1).tolist()
 
         Maki_cocoGt_json[ANNOTATIONS][i][MAKI_KEYPOINTS] = new_keypoints
         Maki_cocoGt_json[ANNOTATIONS][i][BBOX] = new_bbox
