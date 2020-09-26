@@ -64,13 +64,13 @@ class Human:
         for i in range(NUMBER_OF_KEYPOINTS):
             take_single = self.body_parts.get(i)
             if take_single is None:
-                list_data.append([0, 0, 0])
+                list_data += [0, 0, 0]
             else:
-                list_data.append([
+                list_data += [
                     self.body_parts[i].x,
                     self.body_parts[i].y,
                     self.body_parts[i].score,
-                ])
+                ]
 
         return list_data
 

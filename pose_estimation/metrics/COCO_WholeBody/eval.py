@@ -109,6 +109,9 @@ class MYeval_wholebody:
 
         # set ignore flag
         for gt in gts:
+            if gt.get(MAKI_KEYPOINTS) is None:
+                continue
+
             whole_body_gt = gt[MAKI_KEYPOINTS]
 
             g = np.array(whole_body_gt)
@@ -136,7 +139,7 @@ class MYeval_wholebody:
         tic = time.time()
         print('Running per image evaluation...')
         p = self.params
-        
+
         p.imgIds = list(np.unique(p.imgIds))
         if p.useCats:
             p.catIds = list(np.unique(p.catIds))
@@ -183,6 +186,8 @@ class MYeval_wholebody:
 
         # compute oks between each detection and ground truth object
         for j, gt in enumerate(gts):
+            if gt.get(MAKI_KEYPOINTS) is None:
+                continue
             # create bounds for ignore regions(double the gt bbox)
             whole_body_gt = gt[MAKI_KEYPOINTS]
             g = np.array(whole_body_gt)
