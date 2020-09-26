@@ -23,23 +23,29 @@ from .relayout_coco_annotation import IMAGE_ID, MAKI_KEYPOINTS
 CATEGORY_ID = 'category_id'
 SCORE = 'score'
 COCO_URL = 'coco_url'
+FILE_NAME = 'file_name'
 DEFAULT_CATEGORY_ID = 1
 
 
-def create_prediction_coco_json(W: int, H: int, model, ann_file_path: str, path_to_save: str):
+def create_prediction_coco_json(W: int, H: int, model, ann_file_path: str, path_to_save: str, path_to_images: str):
     cocoGt = COCO(ann_file_path)
     cocoDt_json = []
 
-    iterator = tqdm(range(len(cocoGt.getImgIds())))
+    img_ids = cocoGt.getImgIds()
+
+    iterator = tqdm(range(len(img_ids)))
 
     for i in iterator:
-        single_ids = cocoGt.getImgIds()[i]
+        single_ids = img_ids[i]
         # Take single image
         single_img = cocoGt.loadImgs(single_ids)[0]
 
         # Load image
-        source_img = cv2.cvtColor(io.imread(single_img[COCO_URL]), cv2.COLOR_RGB2BGR)
-        source_img = cv2.resize(source_img, (W, H))
+        if path_to_images is None:
+            readed_img = cv2.cvtColor(io.imread(single_img[COCO_URL]), cv2.COLOR_RGB2BGR)
+        else:
+            readed_img = cv2.imread(path_to_images + single_img[FILE_NAME])
+        source_img = cv2.resize(readed_img, (W, H))
         norm_img = [((source_img - 127.5) / 127.5).astype(np.float32)]
         # Predict and take only single
         humans_dict = model.predict(norm_img)[0]
