@@ -136,8 +136,7 @@ class MYeval_wholebody:
         tic = time.time()
         print('Running per image evaluation...')
         p = self.params
-
-        print('Evaluate annotation type *{}*'.format(p.iouType))
+        
         p.imgIds = list(np.unique(p.imgIds))
         if p.useCats:
             p.catIds = list(np.unique(p.catIds))
