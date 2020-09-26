@@ -1,14 +1,19 @@
-from pose_estimation.data_preparation.coco_preparator_api import CocoPreparator
-from pose_estimation.metrics.COCO_WholeBody.eval import MAKI_KEYPOINTS
 import numpy as np
 from tqdm import tqdm
 import copy
 import json
+from pycocotools.coco import COCO
+
+from pose_estimation.data_preparation.coco_preparator_api import CocoPreparator
+from pose_estimation.metrics.COCO_WholeBody.eval import MAKI_KEYPOINTS
+
 
 # Annotations in JSON
 ANNOTATIONS = 'annotations'
 IMAGES = 'images'
 BBOX = 'bbox'
+SEGMENTATION = 'segmentation'
+AREA = 'area'
 # Stored in the annotations
 IMAGE_ID = 'image_id'
 # Id in the image
@@ -22,6 +27,7 @@ WIDTH = 'width'
 def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str):
     with open(ann_file_path, 'r') as fp:
         cocoGt_json = json.load(fp)
+    cocoGt = COCO(ann_file_path)
 
     Maki_cocoGt_json = copy.deepcopy(cocoGt_json)
     iterator = tqdm(range(len(cocoGt_json[ANNOTATIONS])))
@@ -40,9 +46,21 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str):
 
         new_keypoints = (new_keypoints.reshape(-1, 3) * scale_k).reshape(-1).astype(np.float32).tolist()
         new_bbox = (np.array(single_anns[BBOX]).reshape(2, 2) * scale_bbox).reshape(-1).tolist()
+        new_segmentation = (np.array(single_anns[SEGMENTATION]).reshape(-1, 2) * scale_bbox)
+        new_segmentation = new_segmentation.reshape(1, -1).tolist()
+
+        # Calculate new value for 'area'
+        new_area = float(np.sum(
+            cocoGt.annToMask({
+                SEGMENTATION: new_segmentation,
+                IMAGE_ID: single_anns[IMAGE_ID]
+            })
+        ))
 
         Maki_cocoGt_json[ANNOTATIONS][i][MAKI_KEYPOINTS] = new_keypoints
         Maki_cocoGt_json[ANNOTATIONS][i][BBOX] = new_bbox
+        Maki_cocoGt_json[ANNOTATIONS][i][SEGMENTATION] = new_segmentation
+        Maki_cocoGt_json[ANNOTATIONS][i][AREA] = new_area
 
     with open(path_to_save, 'w') as fp:
         json.dump(Maki_cocoGt_json, fp)
