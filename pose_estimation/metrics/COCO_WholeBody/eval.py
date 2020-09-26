@@ -67,10 +67,10 @@ MAKI_SKELET_K = [
     RIGHT_HAND_K[-1],
 ]
 
+MAKI_KEYPOINTS = 'maki_keypoints'
+
 
 class MYeval_wholebody:
-
-    MAKI_KEYPOINTS = 'maki_keypoints'
 
     def __init__(self, cocoGt=None, cocoDt=None):
         """
@@ -109,7 +109,7 @@ class MYeval_wholebody:
 
         # set ignore flag
         for gt in gts:
-            whole_body_gt = gt[self.MAKI_KEYPOINTS]
+            whole_body_gt = gt[MAKI_KEYPOINTS]
 
             g = np.array(whole_body_gt)
             vg = g[2::3]
@@ -154,10 +154,9 @@ class MYeval_wholebody:
             for catId in catIds
         }
 
-        evaluateImg = self.evaluateImg
         maxDet = p.maxDets[-1]
         self.evalImgs = [
-            evaluateImg(imgId, catId, areaRng, maxDet)
+            self.evaluateImg(imgId, catId, areaRng, maxDet)
             for catId in catIds
             for areaRng in p.areaRng
             for imgId in p.imgIds
@@ -186,7 +185,7 @@ class MYeval_wholebody:
         # compute oks between each detection and ground truth object
         for j, gt in enumerate(gts):
             # create bounds for ignore regions(double the gt bbox)
-            whole_body_gt = gt[self.MAKI_KEYPOINTS]
+            whole_body_gt = gt[MAKI_KEYPOINTS]
             g = np.array(whole_body_gt)
 
             xg = g[0::3]; yg = g[1::3]; vg = g[2::3]
@@ -195,7 +194,7 @@ class MYeval_wholebody:
             x0 = bb[0] - bb[2]; x1 = bb[0] + bb[2] * 2
             y0 = bb[1] - bb[3]; y1 = bb[1] + bb[3] * 2
             for i, dt in enumerate(dts):
-                whole_body_dt = dt[self.MAKI_KEYPOINTS]
+                whole_body_dt = dt[MAKI_KEYPOINTS]
                 d = np.array(whole_body_dt)
 
                 xd = d[0::3]; yd = d[1::3]

@@ -118,7 +118,7 @@ class CocoPreparator:
 
         for z in range(len(anns)):
             # Method return shape (n_keypoints, 1, 3)
-            all_kp = self.__take_default_skelet(anns[z])[:, 0]
+            all_kp = self.take_default_skelet(anns[z])[:, 0]
 
             for i in range(len(CONNECT_INDEXES)):
                 single = CONNECT_INDEXES[i]
@@ -181,10 +181,10 @@ class CocoPreparator:
             if len(anns) == 0 or len(anns) > self._max_people:
                 continue
 
-            all_kp = self.__take_default_skelet(anns[0])
+            all_kp = self.take_default_skelet(anns[0])
 
             for people_n in range(1, len(anns)):
-                all_kp_single = self.__take_default_skelet(anns[people_n])
+                all_kp_single = self.take_default_skelet(anns[people_n])
                 # all_kp - (n_keypoints, n_people, 3), concatenate by n_people axis
                 all_kp = np.concatenate([all_kp, all_kp_single], axis=1)
 
@@ -264,7 +264,8 @@ class CocoPreparator:
         
         return image, keypoints
 
-    def __take_default_skelet(self, single_human_anns):
+    @staticmethod
+    def take_default_skelet(single_human_anns):
         """
         Take default skelet with 24 keypoints for full body
 
