@@ -19,7 +19,7 @@ HEIGHT = 'height'
 WIDTH = 'width'
 
 
-def relayout_keypoints(W: int, H: int, ann_file_path: str) -> dict:
+def relayout_keypoints(W: int, H: int, ann_file_path: , path_to_save: str):
     with open(ann_file_path, 'r') as fp:
         cocoGt_json = json.load(fp)
 
@@ -44,7 +44,8 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str) -> dict:
         Maki_cocoGt_json[ANNOTATIONS][i][MAKI_KEYPOINTS] = new_keypoints
         Maki_cocoGt_json[ANNOTATIONS][i][BBOX] = new_bbox
 
-    return Maki_cocoGt_json
+    with open(path_to_save, 'w') as fp:
+        json.dump(Maki_cocoGt_json, fp)
 
 
 def find_image_annot(cocoGt_json: dict, img_id: int) -> dict:
