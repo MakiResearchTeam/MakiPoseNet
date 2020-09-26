@@ -19,7 +19,7 @@ HEIGHT = 'height'
 WIDTH = 'width'
 
 
-def relayout_keypoints(W: int, H: int, ann_file_path: , path_to_save: str):
+def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str):
     with open(ann_file_path, 'r') as fp:
         cocoGt_json = json.load(fp)
 
