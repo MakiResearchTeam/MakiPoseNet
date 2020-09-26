@@ -48,6 +48,10 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str):
         new_bbox = (np.array(single_anns[BBOX]).reshape(2, 2) * scale_bbox).reshape(-1).tolist()
 
         new_segmentation = single_anns[SEGMENTATION]
+        # There is some garbage that store in segmentation dict
+        if type(new_segmentation) == dict:
+            break
+
         for m in range(len(new_segmentation)):
             single_new_seg_coord = np.array(new_segmentation[m]).reshape(-1, 2) * scale_bbox
             single_new_seg_coord = single_new_seg_coord.astype(np.float32).reshape(-1).tolist()
