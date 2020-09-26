@@ -46,9 +46,12 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str):
 
         new_keypoints = (new_keypoints.reshape(-1, 3) * scale_k).reshape(-1).astype(np.float32).tolist()
         new_bbox = (np.array(single_anns[BBOX]).reshape(2, 2) * scale_bbox).reshape(-1).tolist()
-        new_segmentation = np.array(single_anns[SEGMENTATION]).reshape(len(single_anns[SEGMENTATION]), -1, 2)
-        new_segmentation *= scale_bbox
-        new_segmentation = new_segmentation.reshape(len(single_anns[SEGMENTATION]), -1).tolist()
+
+        new_segmentation = single_anns[SEGMENTATION]
+        for i in range(len(new_segmentation)):
+            single_new_seg_coord = np.array(new_segmentation[i]).reshape(-1, 2) * new_bbox
+            single_new_seg_coord = single_new_seg_coord.astype(np.float32).reshape(-1).tolist()
+            new_segmentation[i] = single_new_seg_coord
 
         # Calculate new value for 'area'
         new_area = float(np.sum(
