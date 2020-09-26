@@ -20,7 +20,7 @@ Example of the json how to save single prediction
 
 """
 
-from .relayout_coco_annotation import IMAGE_ID, MAKI_KEYPOINTS
+from .relayout_coco_annotation import IMAGE_ID, MAKI_KEYPOINTS, ANNOTATIONS, ID
 CATEGORY_ID = 'category_id'
 SCORE = 'score'
 COCO_URL = 'coco_url'
@@ -35,6 +35,7 @@ def create_prediction_coco_json(W: int, H: int, model, ann_file_path: str, path_
     img_ids = cocoGt.getImgIds()
 
     iterator = tqdm(range(len(img_ids)))
+    counter = 0
 
     for i in iterator:
         single_ids = img_ids[i]
@@ -54,20 +55,22 @@ def create_prediction_coco_json(W: int, H: int, model, ann_file_path: str, path_
         for single_name in humans_dict:
             single_elem = humans_dict[single_name]
             cocoDt_json.append(
-                write_to_dict(single_ids, single_elem.score, single_elem.to_list())
+                write_to_dict(single_ids, single_elem.score, single_elem.to_list(), counter)
             )
+            counter += 1
 
     iterator.close()
 
     with open(path_to_save, 'w') as fp:
-        json.dump(cocoDt_json, fp)
+        json.dump({ANNOTATIONS: cocoDt_json}, fp)
 
 
-def write_to_dict(img_id: int, score: float, maki_keypoints: list) -> dict:
+def write_to_dict(img_id: int, score: float, maki_keypoints: list, id: int) -> dict:
     return {
         CATEGORY_ID: DEFAULT_CATEGORY_ID,
         IMAGE_ID: img_id,
         SCORE: score,
         MAKI_KEYPOINTS: maki_keypoints,
+        ID: id
     }
 
