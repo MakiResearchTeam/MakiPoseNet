@@ -4,6 +4,7 @@ from pycocotools.coco import COCO
 import skimage.io as io
 import cv2
 import json
+import os
 
 # Write prediction from models into json file (in coco annotations style)
 
@@ -44,7 +45,7 @@ def create_prediction_coco_json(W: int, H: int, model, ann_file_path: str, path_
         if path_to_images is None:
             readed_img = cv2.cvtColor(io.imread(single_img[COCO_URL]), cv2.COLOR_RGB2BGR)
         else:
-            readed_img = cv2.imread(path_to_images + single_img[FILE_NAME])
+            readed_img = cv2.imread(os.path.join(path_to_images, single_img[FILE_NAME]))
         source_img = cv2.resize(readed_img, (W, H))
         norm_img = [((source_img - 127.5) / 127.5).astype(np.float32)]
         # Predict and take only single
