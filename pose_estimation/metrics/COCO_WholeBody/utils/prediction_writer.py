@@ -41,6 +41,11 @@ def create_prediction_coco_json(W: int, H: int, model, ann_file_path: str, path_
         single_ids = img_ids[i]
         # Take single image
         single_img = cocoGt.loadImgs(single_ids)[0]
+        annIds = cocoGt.getAnnIds(imgIds=single_img['id'], iscrowd=None)
+        anns = cocoGt.loadAnns(annIds)
+        # Ignore images where are no people
+        if len(anns) == 0:
+            continue
 
         # Load image
         if path_to_images is None:
