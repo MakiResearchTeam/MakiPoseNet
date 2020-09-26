@@ -233,7 +233,7 @@ class MYeval_wholebody:
             return None
 
         for g in gt:
-            if g['ignore'] or (g['area']<aRng[0] or g['area']>aRng[1]):
+            if g.get(MAKI_KEYPOINTS) is not None and (g['ignore'] or (g['area']<aRng[0] or g['area']>aRng[1])):
                 g['_ignore'] = 1
             else:
                 g['_ignore'] = 0
@@ -443,16 +443,16 @@ class MYeval_wholebody:
 
         def _summarizeKps():
             stats = np.zeros((10,))
-            stats[0] = _summarize(1, maxDets=20)
-            stats[1] = _summarize(1, maxDets=20, iouThr=.5)
-            stats[2] = _summarize(1, maxDets=20, iouThr=.75)
-            stats[3] = _summarize(1, maxDets=20, areaRng='medium')
-            stats[4] = _summarize(1, maxDets=20, areaRng='large')
-            stats[5] = _summarize(0, maxDets=20)
-            stats[6] = _summarize(0, maxDets=20, iouThr=.5)
-            stats[7] = _summarize(0, maxDets=20, iouThr=.75)
-            stats[8] = _summarize(0, maxDets=20, areaRng='medium')
-            stats[9] = _summarize(0, maxDets=20, areaRng='large')
+            stats[0] = _summarize(1, maxDets=self.params.maxDets[0])
+            stats[1] = _summarize(1, maxDets=self.params.maxDets[0], iouThr=.5)
+            stats[2] = _summarize(1, maxDets=self.params.maxDets[0], iouThr=.75)
+            stats[3] = _summarize(1, maxDets=self.params.maxDets[0], areaRng='medium')
+            stats[4] = _summarize(1, maxDets=self.params.maxDets[0], areaRng='large')
+            stats[5] = _summarize(0, maxDets=self.params.maxDets[0])
+            stats[6] = _summarize(0, maxDets=self.params.maxDets[0], iouThr=.5)
+            stats[7] = _summarize(0, maxDets=self.params.maxDets[0], iouThr=.75)
+            stats[8] = _summarize(0, maxDets=self.params.maxDets[0], areaRng='medium')
+            stats[9] = _summarize(0, maxDets=self.params.maxDets[0], areaRng='large')
             return stats
         if not self.eval:
             raise Exception('Please run accumulate() first')
