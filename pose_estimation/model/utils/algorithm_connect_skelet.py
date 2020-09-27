@@ -59,6 +59,21 @@ class Human:
     def get_max_score(self):
         return max([x.score for _, x in self.body_parts.items()])
 
+    def to_list(self) -> list:
+        list_data = []
+        for i in range(NUMBER_OF_KEYPOINTS):
+            take_single = self.body_parts.get(i)
+            if take_single is None:
+                list_data += [0, 0, 0]
+            else:
+                list_data += [
+                    self.body_parts[i].x,
+                    self.body_parts[i].y,
+                    self.body_parts[i].score,
+                ]
+
+        return list_data
+
     def __str__(self):
         return ' '.join([str(x) for x in self.body_parts.values()])
 
