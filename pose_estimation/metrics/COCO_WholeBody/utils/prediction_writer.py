@@ -15,24 +15,49 @@ Example of the json how to save single prediction
     "category_id": 1,
     "image_id": int,
     "score": float,
-    "maki_keypoints": list of shape (24, 3), last dimension fill with 1
+    "keypoints": list of shape (24, 3), last dimension fill with 1
 }
 
 """
 
-from .relayout_coco_annotation import IMAGE_ID, MAKI_KEYPOINTS, ANNOTATIONS, ID, AREA
+from .relayout_coco_annotation import IMAGE_ID, KEYPOINTS, ID
 CATEGORY_ID = 'category_id'
 SCORE = 'score'
 COCO_URL = 'coco_url'
 FILE_NAME = 'file_name'
 DEFAULT_CATEGORY_ID = 1
 
-BIG_NUMBER = 10 ** 10
-LOW_NUMBER = -1
-EPSILONE = 1e-2
 
+def create_prediction_coco_json(
+        W: int,
+        H: int,
+        model,
+        ann_file_path: str,
+        path_to_save: str,
+        path_to_images: str):
+    """
+    Create prediction JSON for evaluation on COCO dataset
 
-def create_prediction_coco_json(W: int, H: int, model, ann_file_path: str, path_to_save: str, path_to_images: str):
+    Parameters
+    ----------
+    W : int
+        Width of the image
+    H : int
+        Height of the image
+    model : pe_model
+        Model from which collects prediction.
+        Model should be built and initialized with session.
+    ann_file_path : str
+        Path to annotation file on which will be used evaluation.
+        It can be original COCO file or re-layout file.
+    path_to_save : str
+        Path to save prediction JSON.
+        Example: /user/exp/predicted_data.json
+    path_to_images : str
+        Folder to image that will be loaded to estimate poses.
+        Should be fit to annotation file (i. e. validation JSON to validation images)
+
+    """
     cocoGt = COCO(ann_file_path)
     cocoDt_json = []
 
@@ -68,8 +93,7 @@ def create_prediction_coco_json(W: int, H: int, model, ann_file_path: str, path_
                     single_ids,
                     single_elem.score,
                     single_elem.to_list(),
-                    counter,
-                    calculate_area(np.array(single_elem.to_list()).reshape(-1, 3))
+                    counter
                 )
             )
 
@@ -78,31 +102,18 @@ def create_prediction_coco_json(W: int, H: int, model, ann_file_path: str, path_
     iterator.close()
 
     with open(path_to_save, 'w') as fp:
-        json.dump({ANNOTATIONS: cocoDt_json}, fp)
+        json.dump(cocoDt_json, fp)
 
 
-def write_to_dict(img_id: int, score: float, maki_keypoints: list, id: int, area: float) -> dict:
+def write_to_dict(img_id: int, score: float, maki_keypoints: list, id: int) -> dict:
+    """
+    Write data into dict for saving it later into JSON
+
+    """
     return {
         CATEGORY_ID: DEFAULT_CATEGORY_ID,
         IMAGE_ID: img_id,
         SCORE: score,
-        MAKI_KEYPOINTS: maki_keypoints,
+        KEYPOINTS: maki_keypoints,
         ID: id,
-        AREA: area
     }
-
-
-def calculate_area(maki_keypoints: np.ndarray):
-    left_cor = [BIG_NUMBER, BIG_NUMBER]
-    right_cor = [LOW_NUMBER, LOW_NUMBER]
-
-    for i in range(len(maki_keypoints)):
-        if maki_keypoints[i][0] > EPSILONE:
-            left_cor[0] = min(left_cor[0], maki_keypoints[i][0])
-            right_cor[0] = max(right_cor[0], maki_keypoints[i][0])
-
-        if maki_keypoints[i][1] > EPSILONE:
-            left_cor[1] = min(left_cor[1], maki_keypoints[i][1])
-            right_cor[1] = max(right_cor[1], maki_keypoints[i][1])
-
-    return (right_cor[0] - left_cor[0]) * (right_cor[1] - left_cor[1])

@@ -5,7 +5,6 @@ import json
 from pycocotools.coco import COCO
 
 from pose_estimation.data_preparation.coco_preparator_api import CocoPreparator
-from pose_estimation.metrics.COCO_WholeBody.eval import MAKI_KEYPOINTS
 
 
 # Annotations in JSON
@@ -13,6 +12,7 @@ ANNOTATIONS = 'annotations'
 IMAGES = 'images'
 BBOX = 'bbox'
 SEGMENTATION = 'segmentation'
+KEYPOINTS = 'keypoints'
 AREA = 'area'
 # Stored in the annotations
 IMAGE_ID = 'image_id'
@@ -65,7 +65,7 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str):
             })
         ))
 
-        Maki_cocoGt_json[ANNOTATIONS][i][MAKI_KEYPOINTS] = new_keypoints
+        Maki_cocoGt_json[ANNOTATIONS][i][KEYPOINTS] = new_keypoints
         Maki_cocoGt_json[ANNOTATIONS][i][BBOX] = new_bbox
         Maki_cocoGt_json[ANNOTATIONS][i][SEGMENTATION] = new_segmentation
         Maki_cocoGt_json[ANNOTATIONS][i][AREA] = new_area
