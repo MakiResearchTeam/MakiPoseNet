@@ -46,19 +46,19 @@ RIGHT_HAND_K = [
 
 ALL_K = BODY_K + FOOT_K + FACE_K + LEFT_HAND_K + RIGHT_HAND_K
 
-# Constants for our skelet with 21 keypoints
+# Constants for our skelet with 24 keypoints
 MAKI_SKELET_K = [
     # center of the body
-    BODY_K[6],
+    BODY_K[11],
     # neck
-    BODY_K[0],
+    BODY_K[5],
     # face
     *BODY_K[1:5],
     # body
     *BODY_K[5:],
     # foot
-    FOOT_K[0],
-    FOOT_K[3],
+    BODY_K[-2],
+    BODY_K[-1],
     # hands
     LEFT_HAND_K[4],
     LEFT_HAND_K[-1],
@@ -87,6 +87,7 @@ class MYeval_wholebody:
         self.params = Params()  # parameters
         self._paramsEval = {}  # parameters for evaluation
         self.stats = []  # result summarization
+        self.stats_str = [] # result in str
         self.ious = {}  # ious between all gts and dts
         if not cocoGt is None:
             self.params.imgIds = sorted(cocoGt.getImgIds())
@@ -423,6 +424,7 @@ class MYeval_wholebody:
         Compute and display summary metrics for evaluation results.
         Note this functin can *only* be applied on the default parameter setting
         """
+        final_string = ""
 
         def _summarize(ap=1, iouThr=None, areaRng='all', maxDets=100):
             p = self.params
@@ -453,27 +455,37 @@ class MYeval_wholebody:
                 mean_s = -1
             else:
                 mean_s = np.mean(s[s > -1])
-            print(iStr.format(titleStr, typeStr, iouStr, areaRng, maxDets, mean_s))
-            return mean_s
+
+            single_final_string = iStr.format(titleStr, typeStr, iouStr, areaRng, maxDets, mean_s)
+            print(single_final_string)
+            return mean_s, single_final_string
 
         def _summarizeKps():
             stats = np.zeros((10,))
-            stats[0] = _summarize(1, maxDets=self.params.maxDets[0])
-            stats[1] = _summarize(1, maxDets=self.params.maxDets[0], iouThr=.5)
-            stats[2] = _summarize(1, maxDets=self.params.maxDets[0], iouThr=.75)
-            stats[3] = _summarize(1, maxDets=self.params.maxDets[0], areaRng='medium')
-            stats[4] = _summarize(1, maxDets=self.params.maxDets[0], areaRng='large')
-            stats[5] = _summarize(0, maxDets=self.params.maxDets[0])
-            stats[6] = _summarize(0, maxDets=self.params.maxDets[0], iouThr=.5)
-            stats[7] = _summarize(0, maxDets=self.params.maxDets[0], iouThr=.75)
-            stats[8] = _summarize(0, maxDets=self.params.maxDets[0], areaRng='medium')
-            stats[9] = _summarize(0, maxDets=self.params.maxDets[0], areaRng='large')
-            return stats
+            stats_str = [0] * 10
+            stats[0], stats_str[0] = _summarize(1, maxDets=self.params.maxDets[0])
+            stats[1], stats_str[1] = _summarize(1, maxDets=self.params.maxDets[0], iouThr=.5)
+            stats[2], stats_str[2] = _summarize(1, maxDets=self.params.maxDets[0], iouThr=.75)
+            stats[3], stats_str[3] = _summarize(1, maxDets=self.params.maxDets[0], areaRng='medium')
+            stats[4], stats_str[4] = _summarize(1, maxDets=self.params.maxDets[0], areaRng='large')
+            stats[5], stats_str[5] = _summarize(0, maxDets=self.params.maxDets[0])
+            stats[6], stats_str[6] = _summarize(0, maxDets=self.params.maxDets[0], iouThr=.5)
+            stats[7], stats_str[7] = _summarize(0, maxDets=self.params.maxDets[0], iouThr=.75)
+            stats[8], stats_str[8] = _summarize(0, maxDets=self.params.maxDets[0], areaRng='medium')
+            stats[9], stats_str[9] = _summarize(0, maxDets=self.params.maxDets[0], areaRng='large')
+            return stats, stats_str
 
         if not self.eval:
             raise Exception('Please run accumulate() first')
 
-        self.stats = _summarizeKps()
+        self.stats, self.stats_str = _summarizeKps()
+
+    def get_stats_str(self) -> str:
+        final_str = ""
+        for single_str in self.stats_str:
+            final_str += single_str + "\n"
+
+        return final_str
 
     def __str__(self):
         self.summarize()

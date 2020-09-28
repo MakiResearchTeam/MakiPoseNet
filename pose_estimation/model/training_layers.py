@@ -1,9 +1,7 @@
-from makiflow.layers.sf_layer import SimpleForwardLayer
 from makiflow.base.maki_entities.maki_layer import MakiRestorable
-from makiflow.base import MakiLayer, MakiTensor
+from makiflow.base import MakiLayer
 import tensorflow as tf
 import numpy as np
-from copy import copy
 
 
 class BinaryHeatmapLayer(MakiLayer):
