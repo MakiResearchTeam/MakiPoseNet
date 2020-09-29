@@ -34,6 +34,7 @@ class Tester(ABC):
         self._sess = sess
 
         # Init stuff for measure metric
+        self._limit_annots = self._config[self.LIMIT_ANNOT]
         relayout_keypoints(
             img_size[1], img_size[0],
             self._config[self.ANNOT_GT_JSON], self._path_to_relayout_annot,
@@ -43,7 +44,6 @@ class Tester(ABC):
         # Load ground-truth annot
         self.W = img_size[1]
         self.H = img_size[0]
-        self._limit_annots = self._config[self.LIMIT_ANNOT]
         self.cocoGt = COCO(self._path_to_relayout_annot)
         self._path_to_val_images = self._config[self.PATH_TO_VAL_IMAGES]
 
