@@ -1,5 +1,8 @@
 import tensorflow as tf
+from pose_estimation.metrics.COCO_WholeBody import relayout_keypoints
 from abc import ABC, abstractmethod
+import os
+from pycocotools.coco import COCO
 
 
 class Tester(ABC):
@@ -10,11 +13,39 @@ class Tester(ABC):
     TB_FOLDER = 'tb_folder'  # folder for tensorboard to write data in
     TEST_IMAGE = 'test_image'
     BATCH_SIZE = 'batch_size'
+    LOG_FOLDER = 'logs'
+    ANNOT_GT_JSON = 'annot_gt_json'
+    PATH_TO_VAL_IMAGES = "path_to_val_images"
+    LIMIT_ANNOT = 'limit_annot'
 
-    def __init__(self, config, sess, normalization_method=None):
+    NAME_RELAYOUR_ANNOT_JSON = "relayour_annot.json"
+    NAME_PREDICTED_ANNOT_JSON = 'predicted_annot.json'
+    AP_AR_DATA_TXT = 'ap_ar_data.txt'
+
+    def __init__(self, config, sess, path_to_save_logs:str, img_size: tuple, normalization_method=None):
         self._config = config[Tester.TEST_CONFIG]
+
+        self._path_to_save_logs = os.path.join(path_to_save_logs, self.LOG_FOLDER)
+        os.makedirs(self._path_to_save_logs, exist_ok=True)
+
+        self._path_to_relayout_annot = os.path.join(self._path_to_save_logs, self.NAME_RELAYOUR_ANNOT_JSON)
+
         self._tb_writer = tf.summary.FileWriter(config[Tester.TB_FOLDER])
         self._sess = sess
+
+        # Init stuff for measure metric
+        relayout_keypoints(
+            img_size[1], img_size[0],
+            self._config[self.ANNOT_GT_JSON], self._path_to_relayout_annot,
+            self._limit_annots
+        )
+
+        # Load ground-truth annot
+        self.W = img_size[1]
+        self.H = img_size[0]
+        self._limit_annots = self._config[self.LIMIT_ANNOT]
+        self.cocoGt = COCO(self._path_to_relayout_annot)
+        self._path_to_val_images = self._config[self.PATH_TO_VAL_IMAGES]
 
         # The summaries to write
         self._summaries = {}

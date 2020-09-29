@@ -24,13 +24,20 @@ HEIGHT = 'height'
 WIDTH = 'width'
 
 
-def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str):
+def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str, limit_number=None):
     with open(ann_file_path, 'r') as fp:
         cocoGt_json = json.load(fp)
     cocoGt = COCO(ann_file_path)
 
     Maki_cocoGt_json = copy.deepcopy(cocoGt_json)
-    iterator = tqdm(range(len(cocoGt_json[ANNOTATIONS])))
+    del Maki_cocoGt_json[ANNOTATIONS]
+
+    if limit_number is None:
+        iterator = tqdm(range(len(cocoGt_json[ANNOTATIONS])))
+    elif type(limit_number) == int:
+        iterator = tqdm(range(min(limit_number, len(cocoGt_json[ANNOTATIONS])) ))
+    else:
+        raise TypeError(f'limit_number should have type int, but it has {type(limit_number)} and value {limit_number}')
 
     for i in iterator:
         single_anns = cocoGt_json[ANNOTATIONS][i]
@@ -65,10 +72,12 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str):
             })
         ))
 
+        Maki_cocoGt_json[ANNOTATIONS][i] = single_anns
         Maki_cocoGt_json[ANNOTATIONS][i][KEYPOINTS] = new_keypoints
         Maki_cocoGt_json[ANNOTATIONS][i][BBOX] = new_bbox
         Maki_cocoGt_json[ANNOTATIONS][i][SEGMENTATION] = new_segmentation
         Maki_cocoGt_json[ANNOTATIONS][i][AREA] = new_area
+
     iterator.close()
     with open(path_to_save, 'w') as fp:
         json.dump(Maki_cocoGt_json, fp)
@@ -80,3 +89,4 @@ def find_image_annot(cocoGt_json: dict, img_id: int) -> dict:
             return single_annot
 
     return None
+
