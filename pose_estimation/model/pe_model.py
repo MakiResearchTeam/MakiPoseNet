@@ -18,7 +18,7 @@ class PEModel(PoseEstimatorInterface):
     NAME = 'name'
 
     @staticmethod
-    def from_json(path_to_model: str, input_tensor: MakiTensor):
+    def from_json(path_to_model: str, input_tensor: MakiTensor = None):
         """
         Creates and returns PEModel from json file contains its architecture
 
@@ -45,7 +45,9 @@ class PEModel(PoseEstimatorInterface):
             input_layer=input_tensor
         )
 
-        input_x = inputs_and_outputs[input_mt_name]
+        input_x = input_tensor
+        if input_x is None:
+            input_x = inputs_and_outputs[input_mt_name]
 
         output_paf_list = [inputs_and_outputs[take_by_name] for take_by_name in output_paf_mt_names]
         output_heatmap_list = [inputs_and_outputs[take_by_name] for take_by_name in output_heatmap_mt_names]
