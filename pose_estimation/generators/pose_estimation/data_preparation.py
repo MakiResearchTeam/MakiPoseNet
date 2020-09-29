@@ -1,7 +1,7 @@
 
 from __future__ import absolute_import
 import tensorflow as tf
-from ..pipeline.tfr.utils import _tensor_to_byte_feature
+from makiflow.generators.pipeline.tfr.utils import _tensor_to_byte_feature
 
 
 # Save form

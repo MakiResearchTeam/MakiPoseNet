@@ -1,4 +1,4 @@
-from ..pipeline.tfr.tfr_map_method import TFRMapMethod, TFRPostMapMethod
+from makiflow.generators.pipeline.tfr.tfr_map_method import TFRMapMethod, TFRPostMapMethod
 from .data_preparation import IMAGE_FNAME, KEYPOINTS_FNAME, KEYPOINTS_MASK_FNAME, IMAGE_PROPERTIES_FNAME
 from .utils import check_bounds, apply_transformation, apply_transformation_batched
 
