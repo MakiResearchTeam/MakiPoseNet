@@ -27,8 +27,8 @@ class PEGym:
     PRINT_PERIOD = 'print_period'
     GYM_FOLDER = 'gym_folder'
     OPTIMIZER_INFO = 'optimizer_info'
-
-
+    GEN_LAYER_INFO = "genlayer_config"
+    SIZE_IMG = "im_hw"
 
     def __init__(self, config_path, gen_layer_fabric, sess):
         """
@@ -69,7 +69,12 @@ class PEGym:
         os.makedirs(tensorboard_path, exist_ok=True)
         config[Tester.TB_FOLDER] = tensorboard_path
         self._tb_path = tensorboard_path
-        self._tester = CocoTester(config, self._sess)
+        self._tester = CocoTester(
+            config,
+            self._sess,
+            self._train_config[PEGym.GYM_FOLDER],
+            config[self.GEN_LAYER_INFO][self.SIZE_IMG]
+        )
 
         # Create model, trainer and set the tensorboard folder
         self._trainer, self._model = ModelAssembler.assemble(config, self._gen_layer_fabric, self._sess)

@@ -3,8 +3,10 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+from pose_estimation.metrics.COCO_WholeBody import (MYeval_wholebody,
+                                                    create_prediction_coco_json)
 from ..utils.visualize_tools import visualize_paf
+import os
 
 
 class CocoTester(Tester):
@@ -117,6 +119,26 @@ class CocoTester(Tester):
             summaries=dict_images,
             step=iteration
         )
+
+        new_log_folder = os.path.join(self._path_to_save_logs, f"iter_{iteration}")
+        os.makedirs(new_log_folder, exist_ok=True)
+        save_predicted_json = os.path.join(new_log_folder, self.NAME_PREDICTED_ANNOT_JSON)
+
+        create_prediction_coco_json(
+            self.W, self.H, model,
+            self._path_to_relayout_annot,
+            save_predicted_json,
+            self._path_to_val_images
+        )
+
+        cocoDt = self.cocoGt.loadRes(save_predicted_json)
+        cocoEval = MYeval_wholebody(cocoDt=cocoDt, cocoGt=self.cocoGt)
+        cocoEval.evaluate()
+        cocoEval.accumulate()
+        cocoEval.summarize()
+
+        with open(os.path.join(new_log_folder, self.AP_AR_DATA_TXT), 'w') as fp:
+            fp.write(cocoEval.get_stats_str())
 
     def draw_heatmap(self, heatmap, name_heatmap, shift_image=60):
         dpi = 80
