@@ -114,24 +114,26 @@ def create_prediction_coco_json(
             image_ids_list = []
     iterator.close()
     uniq_images = len(norm_img_list)
-    remain_images = batch_size - len(norm_img_list)
-    norm_img_list += [norm_img_list[-1]] * remain_images
 
-    humans_dict_list = model.predict(norm_img_list)[:uniq_images]
+    if uniq_images > 0:
+        remain_images = batch_size - len(norm_img_list)
+        norm_img_list += [norm_img_list[-1]] * remain_images
 
-    for (single_humans_dict, single_image_ids) in zip(humans_dict_list, image_ids_list):
-        for single_name in single_humans_dict:
-            single_elem = single_humans_dict[single_name]
-            cocoDt_json.append(
-                write_to_dict(
-                    single_image_ids,
-                    single_elem.score,
-                    single_elem.to_list(),
-                    counter
+        humans_dict_list = model.predict(norm_img_list)[:uniq_images]
+
+        for (single_humans_dict, single_image_ids) in zip(humans_dict_list, image_ids_list):
+            for single_name in single_humans_dict:
+                single_elem = single_humans_dict[single_name]
+                cocoDt_json.append(
+                    write_to_dict(
+                        single_image_ids,
+                        single_elem.score,
+                        single_elem.to_list(),
+                        counter
+                    )
                 )
-            )
 
-            counter += 1
+                counter += 1
 
     with open(path_to_save, 'w') as fp:
         json.dump(cocoDt_json, fp)

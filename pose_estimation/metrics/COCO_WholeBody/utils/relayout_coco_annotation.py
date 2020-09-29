@@ -29,8 +29,14 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str, li
         cocoGt_json = json.load(fp)
     cocoGt = COCO(ann_file_path)
 
+    # Store: (image_id, image_info)
+    dict_id_by_image_info = dict([(elem[ID], elem) for elem in cocoGt_json[IMAGES]])
+    # Store: (image_id, bool)
+    used_ids = dict([(elem[ID], False) for elem in cocoGt_json[IMAGES]])
+
     Maki_cocoGt_json = copy.deepcopy(cocoGt_json)
     Maki_cocoGt_json[ANNOTATIONS] = []
+    Maki_cocoGt_json[IMAGES] = []
 
     if limit_number is None:
         iterator = tqdm(range(len(cocoGt_json[ANNOTATIONS])))
@@ -77,6 +83,10 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str, li
         Maki_cocoGt_json[ANNOTATIONS][i][BBOX] = new_bbox
         Maki_cocoGt_json[ANNOTATIONS][i][SEGMENTATION] = new_segmentation
         Maki_cocoGt_json[ANNOTATIONS][i][AREA] = new_area
+
+        if not used_ids[single_anns[IMAGE_ID]]:
+            Maki_cocoGt_json[IMAGES].append(dict_id_by_image_info[single_anns[IMAGE_ID]])
+            used_ids[single_anns[IMAGE_ID]] = True
 
     iterator.close()
     with open(path_to_save, 'w') as fp:
