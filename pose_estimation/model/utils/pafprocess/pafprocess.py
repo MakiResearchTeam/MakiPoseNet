@@ -4,18 +4,16 @@
 # Do not make changes to this file unless you know what you are doing--modify
 # the SWIG interface file instead.
 
-PATH_TO_SO_FILE = '_pafprocess'
-
 from sys import version_info as _swig_python_version_info
 if _swig_python_version_info >= (2, 7, 0):
     def swig_import_helper():
         import importlib
         pkg = __name__.rpartition('.')[0]
-        mname = '.'.join((pkg, PATH_TO_SO_FILE)).lstrip('.')
+        mname = '.'.join((pkg, '_pafprocess')).lstrip('.')
         try:
             return importlib.import_module(mname)
         except ImportError:
-            return importlib.import_module(PATH_TO_SO_FILE)
+            return importlib.import_module('_pafprocess')
     _pafprocess = swig_import_helper()
     del swig_import_helper
 elif _swig_python_version_info >= (2, 6, 0):
@@ -24,12 +22,12 @@ elif _swig_python_version_info >= (2, 6, 0):
         import imp
         fp = None
         try:
-            fp, pathname, description = imp.find_module(PATH_TO_SO_FILE, [dirname(__file__)])
+            fp, pathname, description = imp.find_module('_pafprocess', [dirname(__file__)])
         except ImportError:
             import _pafprocess
             return _pafprocess
         try:
-            _mod = imp.load_module(PATH_TO_SO_FILE, fp, pathname, description)
+            _mod = imp.load_module('_pafprocess', fp, pathname, description)
         finally:
             if fp is not None:
                 fp.close()
