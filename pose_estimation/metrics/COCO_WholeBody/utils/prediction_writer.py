@@ -1,3 +1,5 @@
+from pose_estimation.model.pe_model import PEModel
+
 from tqdm import tqdm
 import numpy as np
 from pycocotools.coco import COCO
@@ -31,7 +33,7 @@ DEFAULT_CATEGORY_ID = 1
 def create_prediction_coco_json(
         W: int,
         H: int,
-        model,
+        model: PEModel,
         ann_file_path: str,
         path_to_save: str,
         path_to_images: str):
@@ -64,7 +66,12 @@ def create_prediction_coco_json(
     img_ids = cocoGt.getImgIds()
 
     iterator = tqdm(range(len(img_ids)))
+    # Counter for generation unique IDs into annotation file
     counter = 0
+    # Store batched images and image ids
+    norm_img_list = []
+    image_ids_list = []
+    batch_size = model.get_batch_size()
 
     for i in iterator:
         single_ids = img_ids[i]
@@ -82,15 +89,42 @@ def create_prediction_coco_json(
         else:
             readed_img = cv2.imread(os.path.join(path_to_images, single_img[FILE_NAME]))
         source_img = cv2.resize(readed_img, (W, H))
-        norm_img = [((source_img - 127.5) / 127.5).astype(np.float32)]
-        # Predict and take only single
-        humans_dict = model.predict(norm_img)[0]
+        norm_img_list += [((source_img - 127.5) / 127.5).astype(np.float32)]
+        image_ids_list += [single_ids]
 
-        for single_name in humans_dict:
-            single_elem = humans_dict[single_name]
+        # Process batch of the images
+        if batch_size == len(norm_img_list):
+            humans_dict_list = model.predict(norm_img_list)
+
+            for (single_humans_dict, single_image_ids) in zip(humans_dict_list, image_ids_list):
+                for single_name in single_humans_dict:
+                    single_elem = single_humans_dict[single_name]
+                    cocoDt_json.append(
+                        write_to_dict(
+                            single_image_ids,
+                            single_elem.score,
+                            single_elem.to_list(),
+                            counter
+                        )
+                    )
+
+                    counter += 1
+            # Clear batched arrays
+            norm_img_list = []
+            image_ids_list = []
+    iterator.close()
+    uniq_images = len(norm_img_list)
+    remain_images = batch_size - len(norm_img_list)
+    norm_img_list += [norm_img_list[-1]] * remain_images
+
+    humans_dict_list = model.predict(norm_img_list)[:uniq_images]
+
+    for (single_humans_dict, single_image_ids) in zip(humans_dict_list, image_ids_list):
+        for single_name in single_humans_dict:
+            single_elem = single_humans_dict[single_name]
             cocoDt_json.append(
                 write_to_dict(
-                    single_ids,
+                    single_image_ids,
                     single_elem.score,
                     single_elem.to_list(),
                     counter
@@ -98,8 +132,6 @@ def create_prediction_coco_json(
             )
 
             counter += 1
-
-    iterator.close()
 
     with open(path_to_save, 'w') as fp:
         json.dump(cocoDt_json, fp)
