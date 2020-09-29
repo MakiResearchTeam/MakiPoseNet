@@ -1,5 +1,6 @@
 from .tester import Tester
 import cv2
+import json
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -130,7 +131,11 @@ class CocoTester(Tester):
             save_predicted_json,
             self._path_to_val_images
         )
-        print('Load data, size_prediction')
+
+        with open(save_predicted_json, 'r') as fp:
+            cocoGt_json = json.load(fp)
+        print('Load data', len(cocoGt_json))
+
         cocoDt = self.cocoGt.loadRes(save_predicted_json)
         print('After load')
         cocoEval = MYeval_wholebody(cocoDt=cocoDt, cocoGt=self.cocoGt)
