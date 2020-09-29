@@ -1,6 +1,5 @@
 from .tester import Tester
 import cv2
-import json
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -125,26 +124,23 @@ class CocoTester(Tester):
         os.makedirs(new_log_folder, exist_ok=True)
         save_predicted_json = os.path.join(new_log_folder, self.NAME_PREDICTED_ANNOT_JSON)
 
-        create_prediction_coco_json(
+        num_detections = create_prediction_coco_json(
             self.W, self.H, model,
             self._path_to_relayout_annot,
             save_predicted_json,
-            self._path_to_val_images
+            self._path_to_val_images,
+            return_number_of_predictions=True
         )
 
-        with open(save_predicted_json, 'r') as fp:
-            cocoGt_json = json.load(fp)
-        print('Load data', len(cocoGt_json))
+        if num_detections > 0:
+            cocoDt = self.cocoGt.loadRes(save_predicted_json)
+            cocoEval = MYeval_wholebody(cocoDt=cocoDt, cocoGt=self.cocoGt)
+            cocoEval.evaluate()
+            cocoEval.accumulate()
+            cocoEval.summarize()
 
-        cocoDt = self.cocoGt.loadRes(save_predicted_json)
-        print('After load')
-        cocoEval = MYeval_wholebody(cocoDt=cocoDt, cocoGt=self.cocoGt)
-        cocoEval.evaluate()
-        cocoEval.accumulate()
-        cocoEval.summarize()
-
-        with open(os.path.join(new_log_folder, self.AP_AR_DATA_TXT), 'w') as fp:
-            fp.write(cocoEval.get_stats_str())
+            with open(os.path.join(new_log_folder, self.AP_AR_DATA_TXT), 'w') as fp:
+                fp.write(cocoEval.get_stats_str())
 
     def draw_heatmap(self, heatmap, name_heatmap, shift_image=60):
         dpi = 80

@@ -36,7 +36,8 @@ def create_prediction_coco_json(
         model: PEModel,
         ann_file_path: str,
         path_to_save: str,
-        path_to_images: str):
+        path_to_images: str,
+        return_number_of_predictions=False):
     """
     Create prediction JSON for evaluation on COCO dataset
 
@@ -58,7 +59,13 @@ def create_prediction_coco_json(
     path_to_images : str
         Folder to image that will be loaded to estimate poses.
         Should be fit to annotation file (i. e. validation JSON to validation images)
+    return_number_of_predictions : bool
+        If equal True, will be returned number of prediction
 
+    Return
+    ------
+    int
+        Number of predictions, if `return_number_of_predictions` equal True
     """
     cocoGt = COCO(ann_file_path)
     cocoDt_json = []
@@ -114,7 +121,6 @@ def create_prediction_coco_json(
             image_ids_list = []
     iterator.close()
     uniq_images = len(norm_img_list)
-    print("Here size uniq: ", uniq_images)
 
     if uniq_images > 0:
         remain_images = batch_size - len(norm_img_list)
@@ -138,6 +144,9 @@ def create_prediction_coco_json(
 
     with open(path_to_save, 'w') as fp:
         json.dump(cocoDt_json, fp)
+
+    if return_number_of_predictions:
+        return len(cocoDt_json)
 
 
 def write_to_dict(img_id: int, score: float, maki_keypoints: list, id: int) -> dict:
