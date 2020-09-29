@@ -114,7 +114,7 @@ def create_prediction_coco_json(
             image_ids_list = []
     iterator.close()
     uniq_images = len(norm_img_list)
-    print("Here size uniq: ", len(uniq_images))
+    print("Here size uniq: ", uniq_images)
 
     if uniq_images > 0:
         remain_images = batch_size - len(norm_img_list)
