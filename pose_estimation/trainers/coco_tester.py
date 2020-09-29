@@ -130,8 +130,9 @@ class CocoTester(Tester):
             save_predicted_json,
             self._path_to_val_images
         )
-
+        print('Load data, size_prediction')
         cocoDt = self.cocoGt.loadRes(save_predicted_json)
+        print('After load')
         cocoEval = MYeval_wholebody(cocoDt=cocoDt, cocoGt=self.cocoGt)
         cocoEval.evaluate()
         cocoEval.accumulate()
