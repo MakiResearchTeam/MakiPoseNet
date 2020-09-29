@@ -30,7 +30,7 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str, li
     cocoGt = COCO(ann_file_path)
 
     Maki_cocoGt_json = copy.deepcopy(cocoGt_json)
-    del Maki_cocoGt_json[ANNOTATIONS]
+    Maki_cocoGt_json[ANNOTATIONS] = []
 
     if limit_number is None:
         iterator = tqdm(range(len(cocoGt_json[ANNOTATIONS])))
@@ -72,7 +72,7 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str, li
             })
         ))
 
-        Maki_cocoGt_json[ANNOTATIONS][i] = single_anns
+        Maki_cocoGt_json[ANNOTATIONS].append(single_anns)
         Maki_cocoGt_json[ANNOTATIONS][i][KEYPOINTS] = new_keypoints
         Maki_cocoGt_json[ANNOTATIONS][i][BBOX] = new_bbox
         Maki_cocoGt_json[ANNOTATIONS][i][SEGMENTATION] = new_segmentation
