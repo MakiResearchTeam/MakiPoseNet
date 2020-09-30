@@ -74,13 +74,13 @@ class Human:
 
         return list_data
 
-    def to_dict(self) -> dict:
+    def to_dict(self, th_hold=0.1) -> dict:
         dict_data = {}
         for i in range(NUMBER_OF_KEYPOINTS):
             take_single = self.body_parts.get(i)
-            if take_single is not None:
+            if take_single is not None and take_single[i].score >= th_hold:
                 dict_data.update({
-                    i: [self.body_parts[i].x, self.body_parts[i].y]
+                    i: [take_single.x, take_single.y]
                 })
 
         return dict_data
