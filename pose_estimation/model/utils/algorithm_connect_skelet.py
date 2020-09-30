@@ -74,6 +74,17 @@ class Human:
 
         return list_data
 
+    def to_dict(self) -> dict:
+        dict_data = {}
+        for i in range(NUMBER_OF_KEYPOINTS):
+            take_single = self.body_parts.get(i)
+            if take_single is not None:
+                dict_data.update({
+                    i: [self.body_parts[i].x, self.body_parts[i].y]
+                })
+
+        return dict_data
+
     def __str__(self):
         return ' '.join([str(x) for x in self.body_parts.values()])
 
