@@ -78,7 +78,7 @@ class Human:
         dict_data = {}
         for i in range(NUMBER_OF_KEYPOINTS):
             take_single = self.body_parts.get(i)
-            if take_single is not None and take_single[i].score >= th_hold:
+            if take_single is not None and take_single.score >= th_hold:
                 dict_data.update({
                     i: [take_single.x, take_single.y]
                 })
