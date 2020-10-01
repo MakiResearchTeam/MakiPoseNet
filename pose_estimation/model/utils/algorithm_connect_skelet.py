@@ -80,7 +80,11 @@ class Human:
             take_single = self.body_parts.get(i)
             if take_single is not None and take_single.score >= th_hold:
                 dict_data.update({
-                    i: [take_single.x, take_single.y]
+                    i: [take_single.x, take_single.y, take_single.score]
+                })
+            else:
+                dict_data.update({
+                    i: [0, 0, 0]
                 })
 
         return dict_data
