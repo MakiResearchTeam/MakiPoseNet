@@ -63,7 +63,7 @@ class Human:
         list_data = []
         for i in range(NUMBER_OF_KEYPOINTS):
             take_single = self.body_parts.get(i)
-            if take_single is None and take_single.score >= th_hold:
+            if take_single is None or take_single.score < th_hold:
                 list_data += [0.0, 0.0, 0.0]
             else:
                 list_data += [
