@@ -174,7 +174,7 @@ int process_paf(int p1, int p2, int p3, float *peaks, int h1, int h2, int h3, fl
                 }
             // If found zero and pair id that should be drawn
             // Some limbs were added just for additional help for paff to connect other points
-            } else if (found == 0 && pair_id < MAIN_SIZE) {
+            } else if (found == 0 && pair_id < NUM_PART) {
                 // last two dimension hold for detected limbs and score of all limbs
                 vector<float> row(SIZE_ROW);
                 for (int i = 0; i < SIZE_ROW; i ++) row[i] = -1;

@@ -19,7 +19,7 @@ const int STEP_PAF = 10;
 const int ADDITIONAL_SIZE = 2;
 const int MAIN_SIZE = 23;
 // Size of the row controller for construction of the skelet
-const int SIZE_ROW = MAIN_SIZE + 2;
+const int SIZE_ROW = NUM_PART + 2;
 // Main + additional sizes
 const int COCOPAIRS_SIZE = MAIN_SIZE + ADDITIONAL_SIZE; // 25
 
