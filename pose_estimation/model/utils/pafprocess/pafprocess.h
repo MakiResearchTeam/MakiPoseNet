@@ -4,12 +4,13 @@
 #define PAFPROCESS
 
 const float THRESH_HEAT = 0.05;
-const float THRESH_VECTOR_SCORE = 0.05;
+const float THRESH_VECTOR_SCORE = 0.17; // 0.05
 const int THRESH_VECTOR_CNT1 = 6;
 // By default THRESH_PART_CNT = 4 and THRESH_HUMAN_SCORE = 0.3,
 // BUT in the original paper of the OpenPose that are below were used
-const int THRESH_PART_CNT = 3;
-const float THRESH_HUMAN_SCORE = 0.2;
+// THRESH_PART_CNT = 3 and THRESH_HUMAN_SCORE = 0.2
+const int THRESH_PART_CNT = 4;
+const float THRESH_HUMAN_SCORE = 0.3;
 const int NUM_PART = 24;
 
 const int STEP_PAF = 10;
