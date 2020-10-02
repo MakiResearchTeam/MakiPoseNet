@@ -177,7 +177,7 @@ int process_paf(int p1, int p2, int p3, float *peaks, int h1, int h2, int h3, fl
             } else if (found == 0 && pair_id < MAIN_SIZE) {
                 // last two dimension hold for detected limbs and score of all limbs
                 vector<float> row(SIZE_ROW);
-                for (int i = 0; i < COCOPAIRS_SIZE; i ++) row[i] = -1;
+                for (int i = 0; i < SIZE_ROW; i ++) row[i] = -1;
                 row[part_id1] = conns[conn_id].cid1;
                 row[part_id2] = conns[conn_id].cid2;
                 // at this moments we have 2 detected limbs
