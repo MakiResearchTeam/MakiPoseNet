@@ -59,12 +59,12 @@ class Human:
     def get_max_score(self):
         return max([x.score for _, x in self.body_parts.items()])
 
-    def to_list(self) -> list:
+    def to_list(self, th_hold=0.2) -> list:
         list_data = []
         for i in range(NUMBER_OF_KEYPOINTS):
             take_single = self.body_parts.get(i)
-            if take_single is None:
-                list_data += [0, 0, 0]
+            if take_single is None and take_single.score >= th_hold:
+                list_data += [0.0, 0.0, 0.0]
             else:
                 list_data += [
                     self.body_parts[i].x,
@@ -74,7 +74,7 @@ class Human:
 
         return list_data
 
-    def to_dict(self, th_hold=0.1) -> dict:
+    def to_dict(self, th_hold=0.2) -> dict:
         dict_data = {}
         for i in range(NUMBER_OF_KEYPOINTS):
             take_single = self.body_parts.get(i)
@@ -84,7 +84,7 @@ class Human:
                 })
             else:
                 dict_data.update({
-                    i: [0, 0, 0]
+                    i: [0.0, 0.0, 0.0]
                 })
 
         return dict_data
