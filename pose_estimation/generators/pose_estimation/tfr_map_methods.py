@@ -68,7 +68,8 @@ class LoadDataMethod(TFRMapMethod):
         keypoints_tensor = tf.io.parse_tensor(example[KEYPOINTS_FNAME], out_type=self.keypoints_dtype)
 
         keypoints_mask_tensor = tf.io.parse_tensor(example[KEYPOINTS_MASK_FNAME], out_type=self.keypoints_mask_dtype)
-        image_properties_tensor = tf.io.parse_tensor(example[IMAGE_PROPERTIES_FNAME], out_type=self.image_properties_dtype)
+        image_properties_tensor = tf.io.parse_tensor(example[IMAGE_PROPERTIES_FNAME],
+                                                     out_type=self.image_properties_dtype)
 
         # Give the data its shape because it doesn't have it right after being extracted
         keypoints_tensor.set_shape(self.shape_keypoints)
@@ -136,20 +137,20 @@ class RandomCropMethod(TFRPostMapMethod):
 
 
 class AugmentationPostMethod(TFRPostMapMethod):
-    
+
     def __init__(self,
-        use_rotation=True,
-        angle_min=-30.0,
-        angle_max=30.0,
-        use_shift=False,
-        dx_min=None,
-        dx_max=None,
-        dy_min=None,
-        dy_max=None,
-        use_zoom=True,
-        zoom_min=0.9,
-        zoom_max=1.1
-    ):
+                 use_rotation=True,
+                 angle_min=-30.0,
+                 angle_max=30.0,
+                 use_shift=False,
+                 dx_min=None,
+                 dx_max=None,
+                 dy_min=None,
+                 dy_max=None,
+                 use_zoom=True,
+                 zoom_min=0.9,
+                 zoom_max=1.1
+                 ):
         """
         Perform augmentation of images (rotation, shift, zoom)
 
@@ -186,7 +187,7 @@ class AugmentationPostMethod(TFRPostMapMethod):
                 'Parameters angle_max and angle_min are should be not None values' + \
                 'If `use_rotation` equal to True'
             )
-        
+
         if use_rotation and angle_max < angle_min:
             raise ValueError(
                 'Parameter angle_max should be bigger that angle_min, but ' + \
@@ -208,7 +209,7 @@ class AugmentationPostMethod(TFRPostMapMethod):
                 'Parameter dx_max should be bigger that dx_min, but ' + \
                 f'dx_max = {dx_max} and dx_min = {dx_min} were given'
             )
-        
+
         self.dx_min = dx_min
         self.dx_max = dx_max
 
@@ -217,23 +218,23 @@ class AugmentationPostMethod(TFRPostMapMethod):
                 'Parameter dy_max should be bigger that dy_min, but ' + \
                 f'dy_max = {dy_max} and dy_min = {dy_min} were given'
             )
-        
+
         self.dy_min = dy_min
         self.dy_max = dy_max
-        
+
         self.use_zoom = use_zoom
         if use_zoom and (zoom_min is None or zoom_max is None):
             raise ValueError(
                 'Parameters zoom_min and zoom_max are should be not None values' + \
                 'If use_zoom equal to True'
             )
-        
+
         if use_shift and zoom_max < zoom_min:
             raise ValueError(
                 'Parameter zoom_max should be bigger that zoom_min, but ' + \
                 f'zoom_max = {zoom_max} and zoom_min = {zoom_min} were given'
             )
-        
+
         self.zoom_min = zoom_min
         self.zoom_max = zoom_max
 
@@ -255,7 +256,7 @@ class AugmentationPostMethod(TFRPostMapMethod):
         if len(image_shape) == 3:
             if self.use_rotation:
                 angle = tf.random.uniform([], minval=self.angle_min, maxval=self.angle_max, dtype='float32')
-            
+
             if self.use_shift:
                 dy = tf.random.uniform([], minval=self.dy_min, maxval=self.dy_max, dtype='float32')
                 dx = tf.random.uniform([], minval=self.dx_min, maxval=self.dx_max, dtype='float32')
@@ -281,7 +282,7 @@ class AugmentationPostMethod(TFRPostMapMethod):
             N = image_shape[0]
             if self.use_rotation:
                 angle = tf.random.uniform([N], minval=self.angle_min, maxval=self.angle_max, dtype='float32')
-            
+
             if self.use_shift:
                 dy = tf.random.uniform([N], minval=self.dy_min, maxval=self.dy_max, dtype='float32')
                 dx = tf.random.uniform([N], minval=self.dx_min, maxval=self.dx_max, dtype='float32')
@@ -310,7 +311,6 @@ class AugmentationPostMethod(TFRPostMapMethod):
 
 
 class NormalizePostMethod(TFRPostMapMethod):
-
     NORMALIZE_IMAGE = 'normalize_image_tensor'
 
     def __init__(self, divider=127.5,
@@ -360,7 +360,6 @@ class NormalizePostMethod(TFRPostMapMethod):
 
 
 class RGB2BGRPostMethod(TFRPostMapMethod):
-
     RGB2BGR_KEYPOINTS = 'RGB2BGR_tensor'
     RGB2BGR_IMAGE = 'BGR2RGB_input'
 
@@ -431,9 +430,9 @@ class BinaryHeatmapMethod(TFRPostMapMethod):
         # [h, w]
         fn_p = lambda kp, xy_grid, radius: tf.reduce_max(
             BinaryHeatmapMethod.__build_heatmap_mp(
-                kp, 
-                xy_grid, 
-                radius, 
+                kp,
+                xy_grid,
+                radius,
                 destination_call=self.__build_heatmap
             ),
             axis=0
@@ -441,29 +440,29 @@ class BinaryHeatmapMethod(TFRPostMapMethod):
         # Build maps for keypoints of multiple classes.
         # [c, h, w]
         fn_c = lambda kp, xy_grid, radius: BinaryHeatmapMethod.__build_heatmap_mp(
-            kp, 
-            xy_grid, 
-            radius, 
+            kp,
+            xy_grid,
+            radius,
             destination_call=fn_p
         )
         # Build a batch of maps.
         # [b, c, h, w]
         fn_b = lambda kp, xy_grid, radius: BinaryHeatmapMethod.__build_heatmap_mp(
-            kp, 
-            xy_grid, 
-            radius, 
+            kp,
+            xy_grid,
+            radius,
             destination_call=fn_c
         )
-        
+
         # Decide whether to perform calucalation in a batch dimension.
         # May be faster, but requires more memory.
-        if len(kp.get_shape()) == 4:            # [b, c, h, w]
+        if len(kp.get_shape()) == 4:  # [b, c, h, w]
             return fn_b(kp, xy_grid, radius)
-        elif len(kp.get_shape()) == 3:          # [c, h, w]
+        elif len(kp.get_shape()) == 3:  # [c, h, w]
             return fn_c(kp, xy_grid, radius)
         else:
             message = f'Expected keypoints dimensionality to be 3 or 4, but got {len(kp.get_shape())}.' + \
-                f'Keypoints shape: {kp.get_shape()}'
+                      f'Keypoints shape: {kp.get_shape()}'
             raise Exception(message)
 
     @staticmethod
@@ -503,6 +502,74 @@ class BinaryHeatmapMethod(TFRPostMapMethod):
         grid_size = xy_grid.get_shape()[:2]
         heatmap = tf.ones((grid_size[0], grid_size[1]), dtype=self.map_dtype)
 
-        bool_location_map = (xy_grid[..., 0] - kp[0])**2 + (xy_grid[..., 1] - kp[1])**2 < radius**2
+        bool_location_map = (xy_grid[..., 0] - kp[0]) ** 2 + (xy_grid[..., 1] - kp[1]) ** 2 < radius ** 2
         bool_location_map = tf.cast(bool_location_map, dtype=self.map_dtype)
         return heatmap * bool_location_map
+
+
+class FlipPostMethod(TFRPostMapMethod):
+    def __init__(self, rate=0.5):
+        super().__init__()
+        self._rate = rate
+
+    def __flip(self, element):
+        # Flip the image
+        image = element[RIterator.IMAGE]
+        flipped_im = tf.image.flip_left_right(image)
+        element[RIterator.IMAGE] = flipped_im
+        # Flip keypoints
+        keypoints = element[RIterator.KEYPOINTS]
+        _, height, width, _ = image.get_shape().as_list()
+        move = np.array([[[width, 0]]], dtype='float32')
+        keypoints = move - keypoints
+        element[RIterator.KEYPOINTS] = keypoints
+        return element
+
+    def read_record(self, serialized_example) -> dict:
+        if self._parent_method is not None:
+            element = self._parent_method.read_record(serialized_example)
+        else:
+            element = serialized_example
+
+        n = tf.random_uniform(maxval=1.0)
+        cond = n < self._rate
+
+
+class ImageAdjustPostMethod(TFRPostMapMethod):
+
+    def __init__(self, contrast_factor_range=(0.5, 2.0), max_delta=0.4, contrast_rate=0.5, brightness_rate=0.5):
+        super().__init__()
+        self._cont_low = contrast_factor_range[0]
+        if self._cont_low <= 0.0:
+            raise ValueError(f'The lowest value for contrast factor must be positive, received {self._cont_low}')
+
+        self._cont_high = contrast_factor_range[1]
+        self._max_delta = max_delta
+        if self._max_delta <= 0.0:
+            raise ValueError(f'The max_delta value for brightness must be positive, received {self._max_delta}')
+
+        self._contrast_rate = contrast_rate
+        self._brightness_rate = brightness_rate
+
+    def adjust_contrast(self, image):
+        return tf.image.random_contrast(image, lower=self._cont_low, upper=self._cont_high)
+
+    def adjust_brightness(self, image):
+        return tf.image.random_brightness(image, max_delta=self._max_delta)
+
+    def read_record(self, serialized_example) -> dict:
+        element = self._parent_method.read_record(serialized_example)
+        image = element[RIterator.IMAGE]
+
+        p = tf.random.uniform(minval=0, maxval=1)
+        true_fn = lambda: self.adjust_contrast(image)
+        false_fn = lambda: image
+        image = tf.cond(p < self._contrast_rate, true_fn, false_fn)
+
+        p = tf.random.uniform(minval=0, maxval=1)
+        true_fn = lambda: self.adjust_brightness(image)
+        false_fn = lambda: image
+        image = tf.cond(p < self._brightness_rate, true_fn, false_fn)
+
+        element[RIterator.IMAGE] = image
+        return element
