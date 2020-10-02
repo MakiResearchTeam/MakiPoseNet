@@ -508,31 +508,58 @@ class BinaryHeatmapMethod(TFRPostMapMethod):
 
 
 class FlipPostMethod(TFRPostMapMethod):
-    def __init__(self, rate=0.5):
+    def __init__(self, keypoints_map, rate=0.5):
+        """
+        Flip image and its keypoints with the probability of `rate`.
+        Parameters
+        ----------
+        keypoints_map : list
+            Contains mappings which describe the transformation of points after the flip.
+            Examples: [[0, 1], [2, 4]] means, that point with index 0 become a point with index 1
+            and point with index 2 becomes a point with index 4.
+            Warning! len(keypoints_map) must be equal to the total number of points.
+        rate : float
+            The probability of flip.
+        """
         super().__init__()
         self._rate = rate
+        keypoints_map = sorted(keypoints_map, key=lambda x: x[0])
+        keypoints_map = [x[1] for x in keypoints_map]
+        self._keypoints_map = keypoints_map
 
-    def __flip(self, element):
+    def flip(self, image, keypoints):
+        """
+        Parameters
+        ----------
+        keypoints : tf.Tensor of shape [batch, c, n_people, 2]
+            Tensor of keypoints coordinates.
+        """
         # Flip the image
-        image = element[RIterator.IMAGE]
         flipped_im = tf.image.flip_left_right(image)
-        element[RIterator.IMAGE] = flipped_im
+
         # Flip keypoints
-        keypoints = element[RIterator.KEYPOINTS]
         _, height, width, _ = image.get_shape().as_list()
         move = np.array([[[width, 0]]], dtype='float32')
         keypoints = move - keypoints
-        element[RIterator.KEYPOINTS] = keypoints
-        return element
+        keypoints = tf.gather(keypoints, self._keypoints_map, axis=1)
+        return flipped_im, keypoints
 
     def read_record(self, serialized_example) -> dict:
         if self._parent_method is not None:
             element = self._parent_method.read_record(serialized_example)
         else:
             element = serialized_example
+        image = element[RIterator.IMAGE]
+        keypoints = element[RIterator.KEYPOINTS]
 
-        n = tf.random_uniform(maxval=1.0)
-        cond = n < self._rate
+        p = tf.random_uniform(minval=0, maxval=1.0)
+        true_fn = lambda: self.flip(image, keypoints)
+        false_fn = lambda: image, keypoints
+        image, keypoints = tf.cond(p < self._rate, true_fn, false_fn)
+
+        element[RIterator.IMAGE] = image
+        element[RIterator.KEYPOINTS] = keypoints
+        return element
 
 
 class ImageAdjustPostMethod(TFRPostMapMethod):
@@ -558,7 +585,10 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
         return tf.image.random_brightness(image, max_delta=self._max_delta)
 
     def read_record(self, serialized_example) -> dict:
-        element = self._parent_method.read_record(serialized_example)
+        if self._parent_method is not None:
+            element = self._parent_method.read_record(serialized_example)
+        else:
+            element = serialized_example
         image = element[RIterator.IMAGE]
 
         p = tf.random.uniform(minval=0, maxval=1)
