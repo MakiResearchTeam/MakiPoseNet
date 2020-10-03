@@ -84,7 +84,7 @@ def create_prediction_coco_json(
         single_ids = img_ids[i]
         # Take single image
         single_img = cocoGt.loadImgs(single_ids)[0]
-        annIds = cocoGt.getAnnIds(imgIds=single_img['id'], iscrowd=None)
+        annIds = cocoGt.getAnnIds(imgIds=single_img[ID], iscrowd=None)
         anns = cocoGt.loadAnns(annIds)
         # Ignore images where are no people
         if len(anns) == 0:
@@ -120,6 +120,8 @@ def create_prediction_coco_json(
             norm_img_list = []
             image_ids_list = []
     iterator.close()
+
+    # Process images which remained
     uniq_images = len(norm_img_list)
 
     if uniq_images > 0:

@@ -9,63 +9,7 @@ import time
 from collections import defaultdict
 import copy
 
-# Constants, aka k in formule
-
-BODY_K = [
-    .026, .025, .025, .035, .035, .079, .079, .072, .072,
-    .062, .062, 0.107, 0.107, .087, .087, .089, .089
-]
-
-FOOT_K = [
-    0.068, 0.066, 0.066, 0.092, 0.094, 0.094
-]
-
-FACE_K = [
-    0.042, 0.043, 0.044, 0.043, 0.040, 0.035, 0.031, 0.025,
-    0.020, 0.023, 0.029, 0.032, 0.037, 0.038, 0.043,
-    0.041, 0.045, 0.013, 0.012, 0.011, 0.011, 0.012, 0.012,
-    0.011, 0.011, 0.013, 0.015, 0.009, 0.007, 0.007,
-    0.007, 0.012, 0.009, 0.008, 0.016, 0.010, 0.017, 0.011,
-    0.009, 0.011, 0.009, 0.007, 0.013, 0.008, 0.011,
-    0.012, 0.010, 0.034, 0.008, 0.008, 0.009, 0.008, 0.008,
-    0.007, 0.010, 0.008, 0.009, 0.009, 0.009, 0.007,
-    0.007, 0.008, 0.011, 0.008, 0.008, 0.008, 0.01, 0.008
-]
-
-LEFT_HAND_K = [
-    0.029, 0.022, 0.035, 0.037, 0.047, 0.026, 0.025, 0.024,
-    0.035, 0.018, 0.024, 0.022, 0.026, 0.017, 0.021, 0.021,
-    0.032, 0.02, 0.019, 0.022, 0.031
-]
-
-RIGHT_HAND_K = [
-    0.029, 0.022, 0.035, 0.037, 0.047, 0.026, 0.025,
-    0.024, 0.035, 0.018, 0.024, 0.022, 0.026, 0.017,
-    0.021, 0.021, 0.032, 0.02, 0.019, 0.022, 0.031
-]
-
-ALL_K = BODY_K + FOOT_K + FACE_K + LEFT_HAND_K + RIGHT_HAND_K
-
-# Constants for our skelet with 24 keypoints
-MAKI_SKELET_K = [
-    # center of the body
-    BODY_K[11],
-    # neck
-    BODY_K[5],
-    # face
-    *BODY_K[1:5],
-    # body
-    *BODY_K[5:],
-    # foot
-    BODY_K[-2],
-    BODY_K[-1],
-    # hands
-    LEFT_HAND_K[4],
-    LEFT_HAND_K[-1],
-    RIGHT_HAND_K[4],
-    RIGHT_HAND_K[-1],
-]
-
+from .utils.eval_constants import MAKI_SKELET_K
 from .utils import KEYPOINTS
 
 
@@ -74,21 +18,34 @@ class MYeval_wholebody:
     def __init__(self, cocoGt=None, cocoDt=None):
         """
         Initialize CocoEval using coco APIs for gt and dt
-        :param cocoGt: coco object with ground truth annotations
-        :param cocoDt: coco object with detection results
+
+        Parameters
+        ----------
+        cocoGt: coco object
+            Coco object with ground truth annotations
+        cocoDt: coco object
+            Coco object with detection results
+
         """
-        self.cocoGt = cocoGt  # ground truth COCO API
-        self.cocoDt = cocoDt  # detections COCO API
-        self.params = {}  # evaluation parameters
-        self.evalImgs = defaultdict(list)  # per-image per-category evaluation results [KxAxI] elements
-        self.eval = {}  # accumulated evaluation results
-        self._gts = defaultdict(list)  # gt for evaluation
-        self._dts = defaultdict(list)  # dt for evaluation
-        self.params = Params()  # parameters
-        self._paramsEval = {}  # parameters for evaluation
-        self.stats = []  # result summarization
-        self.stats_str = [] # result in str
-        self.ious = {}  # ious between all gts and dts
+        self.cocoGt = cocoGt                            # ground truth COCO API
+        self.cocoDt = cocoDt                            # detections COCO API
+
+        self.params = {}                                # evaluation parameters
+
+        self.evalImgs = defaultdict(list)               # per-image per-category evaluation results [KxAxI] elements
+        self.eval = {}                                  # accumulated evaluation results
+
+        self._gts = defaultdict(list)                   # gt for evaluation
+        self._dts = defaultdict(list)                   # dt for evaluation
+
+        self.params = Params()                          # parameters
+
+        self._paramsEval = {}                           # parameters for evaluation
+        self.stats = []                                 # result summarization
+        self.stats_str = []                             # result in str
+
+        self.ious = {}                                  # ious between all gts and dts
+
         if not cocoGt is None:
             self.params.imgIds = sorted(cocoGt.getImgIds())
             self.params.catIds = sorted(cocoGt.getCatIds())
@@ -96,7 +53,7 @@ class MYeval_wholebody:
     def _prepare(self):
         """
         Prepare ._gts and ._dts for evaluation based on params
-        :return: None
+
         """
 
         p = self.params
@@ -107,7 +64,7 @@ class MYeval_wholebody:
             gts = self.cocoGt.loadAnns(self.cocoGt.getAnnIds(imgIds=p.imgIds))
             dts = self.cocoDt.loadAnns(self.cocoDt.getAnnIds(imgIds=p.imgIds))
 
-        # set ignore flag
+        # Ignore images where no keypoints, i. e. skip them or set ignore flag
         for gt in gts:
             if gt.get(KEYPOINTS) is None:
                 continue
@@ -122,19 +79,19 @@ class MYeval_wholebody:
             gt['ignore'] = 'iscrowd' in gt and gt['iscrowd']
             gt['ignore'] = (k1 == 0) or gt['ignore']
 
-        self._gts = defaultdict(list)  # gt for evaluation
-        self._dts = defaultdict(list)  # dt for evaluation
+        self._gts = defaultdict(list)               # gt for evaluation
+        self._dts = defaultdict(list)               # dt for evaluation
         for gt in gts:
             self._gts[gt['image_id'], gt['category_id']].append(gt)
         for dt in dts:
             self._dts[dt['image_id'], dt['category_id']].append(dt)
-        self.evalImgs = defaultdict(list)  # per-image per-category evaluation results
-        self.eval = {}  # accumulated evaluation results
+        self.evalImgs = defaultdict(list)           # per-image per-category evaluation results
+        self.eval = {}                              # accumulated evaluation results
 
     def evaluate(self):
         """
         Run per image evaluation on given images and store results (a list of dict) in self.evalImgs
-        :return: None
+
         """
         tic = time.time()
         print('Running per image evaluation...')
@@ -169,6 +126,7 @@ class MYeval_wholebody:
 
     def computeOks(self, imgId, catId):
         p = self.params
+
         # dimention here should be Nxm
         gts = self._gts[imgId, catId]
         dts = self._dts[imgId, catId]
@@ -229,7 +187,10 @@ class MYeval_wholebody:
     def evaluateImg(self, imgId, catId, aRng, maxDet):
         """
         perform evaluation for single category and image
-        :return: dict (single image results)
+
+        Return
+        ------
+        dict (single image results)
         """
         p = self.params
         if p.useCats:
@@ -309,8 +270,12 @@ class MYeval_wholebody:
     def accumulate(self, p=None):
         """
         Accumulate per image evaluation results and store the result in self.eval
-        :param p: input params for evaluation
-        :return: None
+
+        Parameters
+        ----------
+        p: Params
+            Input params for evaluation
+
         """
         print('Accumulating evaluation results...')
         tic = time.time()
@@ -424,7 +389,6 @@ class MYeval_wholebody:
         Compute and display summary metrics for evaluation results.
         Note this functin can *only* be applied on the default parameter setting
         """
-        final_string = ""
 
         def _summarize(ap=1, iouThr=None, areaRng='all', maxDets=100):
             p = self.params

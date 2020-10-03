@@ -54,17 +54,21 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str, li
 
         image_size = (image_annot[HEIGHT], image_annot[WIDTH])
 
+        # Scales for bbox and keypoints
         scale_k = (W / image_size[1], H / image_size[0], 1)
         scale_bbox = (W / image_size[1], H / image_size[0])
-
+        # Scale bbox and keypoints
         new_keypoints = (new_keypoints.reshape(-1, 3) * scale_k).reshape(-1).astype(np.float32).tolist()
         new_bbox = (np.array(single_anns[BBOX]).reshape(2, 2) * scale_bbox).reshape(-1).tolist()
 
         new_segmentation = single_anns[SEGMENTATION]
-        # There is some garbage that store in segmentation dict
+        # There is some garbage that stored in segmentation dict
+        # Just skip it
+        # TODO: Do something with this images
         if type(new_segmentation) == dict:
             break
 
+        # Scale segmentation points
         for m in range(len(new_segmentation)):
             single_new_seg_coord = np.array(new_segmentation[m]).reshape(-1, 2) * scale_bbox
             single_new_seg_coord = single_new_seg_coord.astype(np.float32).reshape(-1).tolist()
@@ -78,12 +82,14 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str, li
             })
         ))
 
+        # Fill our annotation with new information
         Maki_cocoGt_json[ANNOTATIONS].append(single_anns)
         Maki_cocoGt_json[ANNOTATIONS][i][KEYPOINTS] = new_keypoints
         Maki_cocoGt_json[ANNOTATIONS][i][BBOX] = new_bbox
         Maki_cocoGt_json[ANNOTATIONS][i][SEGMENTATION] = new_segmentation
         Maki_cocoGt_json[ANNOTATIONS][i][AREA] = new_area
 
+        # Write img ids which we process
         if not used_ids[single_anns[IMAGE_ID]]:
             Maki_cocoGt_json[IMAGES].append(dict_id_by_image_info[single_anns[IMAGE_ID]])
             used_ids[single_anns[IMAGE_ID]] = True
@@ -94,6 +100,10 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str, li
 
 
 def find_image_annot(cocoGt_json: dict, img_id: int) -> dict:
+    """
+    Return annotation from `cocoGt_json` annotation according to `img_id`
+
+    """
     for single_annot in cocoGt_json[IMAGES]:
         if single_annot[ID] == img_id:
             return single_annot

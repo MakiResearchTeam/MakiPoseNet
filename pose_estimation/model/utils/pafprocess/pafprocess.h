@@ -11,15 +11,19 @@ const int THRESH_VECTOR_CNT1 = 6;
 // THRESH_PART_CNT = 3 and THRESH_HUMAN_SCORE = 0.2
 const int THRESH_PART_CNT = 3;
 const float THRESH_HUMAN_SCORE = 0.3;
+
+
 const int NUM_PART = 24;
+// Size of the row controller that store keypoints
+// Last two indexes is used for calculating detected limb
+// And all limbs that appear on the image
+const int SIZE_ROW = NUM_PART + 2;
 
 const int STEP_PAF = 10;
 
 // Main and additional sizes of the limbs connection array
 const int ADDITIONAL_SIZE = 2;
 const int MAIN_SIZE = 23;
-// Size of the row controller for construction of the skelet
-const int SIZE_ROW = NUM_PART + 2;
 // Main + additional sizes
 const int COCOPAIRS_SIZE = MAIN_SIZE + ADDITIONAL_SIZE; // 25
 
