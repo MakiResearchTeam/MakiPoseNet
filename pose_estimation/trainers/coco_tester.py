@@ -46,7 +46,11 @@ class CocoTester(Tester):
     PAFF_IMAGE = 'paff_image'
     ITERATION_COUNTER = 'iteration_counter'
 
+    AP_IOU_050 = "AP with IOU 0.50"
+    AR_IOU_050 = "AR with IOU 0.50"
+
     _CENTRAL_SIZE = 600
+    _ZERO_VALUE = 0.0
 
     def _init(self, config, normalization_method=None):
 
@@ -78,11 +82,14 @@ class CocoTester(Tester):
             self.add_image(self._names[-1], n_images=7)
 
         self.add_scalar(CocoTester.ITERATION_COUNTER)
+        self.add_scalar(CocoTester.AP_IOU_050)
+        self.add_scalar(CocoTester.AR_IOU_050)
 
     def evaluate(self, model, iteration):
 
-        dict_images = {CocoTester.ITERATION_COUNTER: iteration}
+        dict_summary_to_tb = {CocoTester.ITERATION_COUNTER: iteration}
 
+        # Write heatmap,paf and image itself for each image in `_test_images`
         for i, (single_norm, single_test) in enumerate(zip(self._norm_images, self._test_images)):
             single_batch = [np.expand_dims(self.__put_text_on_image(single_test[0], self._names[i]), axis=0)]
             peaks, heatmap, paf = model.predict(
@@ -112,14 +119,9 @@ class CocoTester(Tester):
                         axis=0
                     )
                 )
-            dict_images.update({self._names[i]: np.concatenate(single_batch, axis=0).astype(np.uint8)})
+            dict_summary_to_tb.update({self._names[i]: np.concatenate(single_batch, axis=0).astype(np.uint8)})
 
-        # Do here the fucking evaluation
-        self.write_summaries(
-            summaries=dict_images,
-            step=iteration
-        )
-
+        # Create folder to store AP/AR results
         new_log_folder = os.path.join(self._path_to_save_logs, f"iter_{iteration}")
         os.makedirs(new_log_folder, exist_ok=True)
         save_predicted_json = os.path.join(new_log_folder, self.NAME_PREDICTED_ANNOT_JSON)
@@ -131,7 +133,7 @@ class CocoTester(Tester):
             self._path_to_val_images,
             return_number_of_predictions=True
         )
-
+        # Process evaluation only if number of detection bigger that 0
         if num_detections > 0:
             cocoDt = self.cocoGt.loadRes(save_predicted_json)
             cocoEval = MYeval_wholebody(cocoDt=cocoDt, cocoGt=self.cocoGt)
@@ -141,6 +143,22 @@ class CocoTester(Tester):
 
             with open(os.path.join(new_log_folder, self.AP_AR_DATA_TXT), 'w') as fp:
                 fp.write(cocoEval.get_stats_str())
+
+            # Take and write AP/AR values
+            a_prediction, a_recall = cocoEval.get_AP_AR_with_IoU_50()
+            dict_summary_to_tb.update({CocoTester.AP_IOU_050: a_prediction})
+            dict_summary_to_tb.update({CocoTester.AR_IOU_050: a_recall})
+
+        else:
+            # If there is no detection, write zero values
+            dict_summary_to_tb.update({CocoTester.AP_IOU_050: self._ZERO_VALUE})
+            dict_summary_to_tb.update({CocoTester.AR_IOU_050: self._ZERO_VALUE})
+
+        # Write data into tensorBoard
+        self.write_summaries(
+            summaries=dict_summary_to_tb,
+            step=iteration
+        )
 
     def draw_heatmap(self, heatmap, name_heatmap, shift_image=60):
         dpi = 80

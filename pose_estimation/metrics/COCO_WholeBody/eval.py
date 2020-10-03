@@ -487,6 +487,13 @@ class MYeval_wholebody:
 
         return final_str
 
+    def get_AP_AR_with_IoU_50(self):
+        """
+        Return AP and AR with IoU equal to 0.5
+
+        """
+        return self.stats[1], self.stats[6]
+
     def __str__(self):
         self.summarize()
 
