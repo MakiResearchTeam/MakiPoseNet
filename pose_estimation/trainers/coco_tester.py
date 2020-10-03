@@ -68,6 +68,7 @@ class CocoTester(Tester):
             if test_image is None:
                 raise TypeError(CocoTester._EXCEPTION_IMAGE_WAS_NOT_FOUND.format(self._config[CocoTester.TEST_IMAGE]))
 
+            test_image = cv2.resize(test_image, (self.W, self.H))
             test_image = cv2.cvtColor(test_image, cv2.COLOR_BGR2RGB)
             im_shape = test_image.shape
 
