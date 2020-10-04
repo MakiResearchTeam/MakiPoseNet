@@ -563,8 +563,25 @@ class FlipPostMethod(TFRPostMapMethod):
 
 
 class ImageAdjustPostMethod(TFRPostMapMethod):
+    MSG_NORM_IMAGE = "Image is normalized. Cannot change brightness and contrast."
 
-    def __init__(self, contrast_factor_range=(0.5, 2.0), max_delta=0.4, contrast_rate=0.5, brightness_rate=0.5):
+    def __init__(self, contrast_factor_range=(0.5, 2.0), max_delta=0.4, contrast_rate=0.5, brightness_rate=0.5, assert_image=True):
+        """
+        Does contrast and brightness adjustment.
+
+        Parameters
+        ----------
+        contrast_factor_range : tuple
+        max_delta : tuple
+        contrast_rate : float
+            Probability of changing contrast.
+        brightness_rate : float
+            Probability of changing brightness.
+        assert_image : bool
+            When changing brightness and contrast, it will be checked whether the image is normalized.
+            If the image is normalized, an exception is thrown. The check is done via looking at the mean
+            of the image: if it greater than 3.0, then the image is unnormalized and everything is okay.
+        """
         super().__init__()
         self._cont_low = contrast_factor_range[0]
         if self._cont_low <= 0.0:
@@ -577,12 +594,13 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
 
         self._contrast_rate = contrast_rate
         self._brightness_rate = brightness_rate
+        self._assert_image = assert_image
 
     def adjust_contrast(self, image):
         return tf.image.random_contrast(image, lower=self._cont_low, upper=self._cont_high)
 
     def adjust_brightness(self, image):
-        return tf.image.random_brightness(image, max_delta=self._max_delta)
+        return tf.image.random_brightness(image, max_delta=self._max_delta,)
 
     def read_record(self, serialized_example) -> dict:
         if self._parent_method is not None:
@@ -590,6 +608,21 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
         else:
             element = serialized_example
         image = element[RIterator.IMAGE]
+
+        if self._assert_image:
+            # Make sure the image is unnormalized
+            normalization_check = tf.assert_greater(tf.reduce_mean(image), 3.0, message=ImageAdjustPostMethod.MSG_NORM_IMAGE)
+            with tf.control_dependencies([normalization_check]):
+                image = self.adjust_image(image)
+        else:
+            image = self.adjust_image(image)
+
+        element[RIterator.IMAGE] = image
+        return element
+
+    def adjust_image(self, image):
+        # Random contrast and random brightness work only with integer values
+        image = tf.cast(image, tf.uint8)
 
         p = tf.random.uniform(minval=0, maxval=1, shape=[])
         true_fn = lambda: self.adjust_contrast(image)
@@ -601,5 +634,7 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
         false_fn = lambda: image
         image = tf.cond(p < self._brightness_rate, true_fn, false_fn)
 
-        element[RIterator.IMAGE] = image
-        return element
+        # Cast the image back to float
+        image = tf.cast(image, tf.float32)
+
+        return image
