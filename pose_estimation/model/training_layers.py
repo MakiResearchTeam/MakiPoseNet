@@ -10,6 +10,10 @@ class BinaryHeatmapLayer(MakiLayer):
     RADIUS = 'radius'
     MAP_DTYPE = 'map_dtype'
     VECTORIZE = 'vectorize'
+    SCALE_KEYPOINTS = 'scale_keypoints'
+
+    KEYPOINTS_SCALER = 'keypoints_scaler'
+    TRANSFORM_KEYPOINTS_OP = 'transform_keypoints'
 
 
     @staticmethod
@@ -18,14 +22,21 @@ class BinaryHeatmapLayer(MakiLayer):
             im_size=params[BinaryHeatmapLayer.IM_SIZE],
             radius=params[BinaryHeatmapLayer.RADIUS],
             map_dtype=params[BinaryHeatmapLayer.MAP_DTYPE],
-            vectorize=params[BinaryHeatmapLayer.VECTORIZE]
+            vectorize=params[BinaryHeatmapLayer.VECTORIZE],
+            scale_keypoints=params[BinaryHeatmapLayer.SCALE_KEYPOINTS]
         )
 
     def to_dict(self):
         raise NotImplementedError()
-
     
-    def __init__(self, im_size, radius, map_dtype=tf.int32, vectorize=False, name='BinaryHeatmapLayer'):
+    def __init__(
+            self,
+            im_size,
+            radius,
+            map_dtype=tf.int32,
+            vectorize=False,
+            scale_keypoints=None,
+            name='BinaryHeatmapLayer'):
         """
         Generates hard keypoint maps using highly optimized vectorization.
 
@@ -33,7 +44,7 @@ class BinaryHeatmapLayer(MakiLayer):
         ----------
         im_size : 2d tuple
             Contains width and height (w, h) of the image for which to generate the map.
-        radius : int
+        radius : float
             Radius of a label-circle around the keypoint.
         map_dtype : tf.dtype
             Dtype of the generated map. Use tf.int32 for binary classification and tf.float32 for
@@ -41,6 +52,13 @@ class BinaryHeatmapLayer(MakiLayer):
         vectorize : bool
             Set to True if you want to vectorize the computation along the batch dimension. May cause
             the OOM error due to high memory consumption.
+        scale_keypoints : tuple/list
+            Tuple or list of scales [x_scale, y_scale],
+            Where:
+                x_scale - scale keypoints by x axis;
+                y_scale - scale keypoints by y axis;
+            This parameter is used for downsize training keypoints by certain scale
+
         """
         super().__init__(name, params=[], regularize_params=[], named_params_dict={})
         self.im_size = im_size
@@ -52,17 +70,32 @@ class BinaryHeatmapLayer(MakiLayer):
         xy_grid = np.stack([x_grid, y_grid], axis=-1)
         self.xy_grid = tf.convert_to_tensor(xy_grid, dtype=tf.float32)
 
+        # Prepare scales
+        if scale_keypoints is not None:
+            self.scale_matrix = tf.constant(
+                [
+                    [1.0/scale_keypoints[0], 0.0],
+                    [0.0,                    1.0/scale_keypoints[1]]
+                ],
+                dtype=tf.float32,
+                name=self.KEYPOINTS_SCALER
+            )
+        else:
+            self.scale_matrix = None
+
     def _forward(self, x, computation_mode=MakiRestorable.TRAINING_MODE):
         with tf.name_scope(computation_mode):
             with tf.name_scope(self.get_name()):
                 keypoints, masks = x
+
+                if self.scale_matrix is not None:
+                    keypoints = tf.matmul(keypoints, self.scale_matrix, name=self.TRANSFORM_KEYPOINTS_OP)
+
                 maps = self.__build_heatmap_batch(keypoints, masks, self.radius)
         return maps
 
     def _training_forward(self, x):
         return self._forward(x)
-
-    
 
     def __build_heatmap_batch(self, kp, masks, radius):
         # Build maps for keypoints of the same class for multiple people
@@ -168,16 +201,22 @@ class GaussHeatmapLayer(MakiLayer):
     IM_SIZE = 'im_size'
     DELTA = 'delta'
     VECTORIZE = 'vectorize'
+    SCALE_KEYPOINTS = 'scale_keypoints'
+
+    KEYPOINTS_SCALER = 'keypoints_scaler'
+
+    TRANSFORM_KEYPOINTS_OP = 'transform_keypoints'
 
     @staticmethod
     def build(params: dict):
         return GaussHeatmapLayer(
             im_size=params[GaussHeatmapLayer.IM_SIZE],
             delta=params[GaussHeatmapLayer.DELTA],
-            vectorize=params[GaussHeatmapLayer.VECTORIZE]
+            vectorize=params[GaussHeatmapLayer.VECTORIZE],
+            scale_keypoints=params[BinaryHeatmapLayer.SCALE_KEYPOINTS]
         )
 
-    def __init__(self, im_size, delta, vectorize=False, name='GaussHeatmapLayer'):
+    def __init__(self, im_size, delta, vectorize=False, name='GaussHeatmapLayer', scale_keypoints=None):
         """
         Generates hard keypoint maps using highly optimized vectorization.
 
@@ -185,11 +224,18 @@ class GaussHeatmapLayer(MakiLayer):
         ----------
         im_size : 2d tuple
             Contains width and height (w, h) of the image for which to generate the map.
-        delta : int
+        delta : float
             Defines the spreadout of the heat around the point.
         vectorize : bool
             Set to True if you want to vectorize the computation along the batch dimension. May cause
             the OOM error due to high memory consumption.
+        scale_keypoints : tuple/list
+            Tuple or list of scales [x_scale, y_scale],
+            Where:
+                x_scale - scale keypoints by x axis;
+                y_scale - scale keypoints by y axis;
+            This parameter is used for downsize training keypoints by certain scale
+
         """
         super().__init__(name, params=[], regularize_params=[], named_params_dict={})
         self.im_size = im_size
@@ -200,10 +246,27 @@ class GaussHeatmapLayer(MakiLayer):
         xy_grid = np.stack([x_grid, y_grid], axis=-1)
         self.xy_grid = tf.convert_to_tensor(xy_grid, dtype=tf.float32)
 
+        # Prepare scales
+        if scale_keypoints is not None:
+            self.scale_matrix = tf.constant(
+                [
+                    [1.0/scale_keypoints[0], 0.0],
+                    [0.0,                    1.0/scale_keypoints[1]]
+                ],
+                dtype=tf.float32,
+                name=self.KEYPOINTS_SCALER
+            )
+        else:
+            self.scale_matrix = None
+
     def _forward(self, x, computation_mode=MakiRestorable.TRAINING_MODE):
         with tf.name_scope(computation_mode):
             with tf.name_scope(self.get_name()):
                 keypoints, masks = x
+
+                if self.scale_matrix is not None:
+                    keypoints = tf.matmul(keypoints, self.scale_matrix, name=self.TRANSFORM_KEYPOINTS_OP)
+
                 maps = self.__build_heatmap_batch(keypoints, masks, self.delta)
         return maps
 
@@ -317,7 +380,11 @@ class PAFLayer(MakiLayer):
     SIGMA = 'sigma'
     SKELETON = 'skeleton'
     VECTORIZE = 'vectorize'
+    SCALE_KEYPOINTS = 'scale_keypoints'
 
+    KEYPOINTS_SCALER = 'keypoints_scaler'
+
+    TRANSFORM_KEYPOINTS_OP = 'transform_keypoints'
 
     @staticmethod
     def build(params: dict):
@@ -325,7 +392,8 @@ class PAFLayer(MakiLayer):
             im_size=params[PAFLayer.IM_SIZE],
             sigma=params[PAFLayer.SIGMA],
             skeleton=params[PAFLayer.SKELETON],
-            vectorize=params[PAFLayer.VECTORIZE]
+            vectorize=params[PAFLayer.VECTORIZE],
+            scale_keypoints=params[BinaryHeatmapLayer.SCALE_KEYPOINTS]
         )
 
     # 90 degrees rotation matrix. Used for generation of orthogonal vector. 
@@ -337,7 +405,7 @@ class PAFLayer(MakiLayer):
         dtype=tf.float32
     )
 
-    def __init__(self, im_size, sigma, skeleton, vectorize=False, name='PAFLayer'):
+    def __init__(self, im_size, sigma, skeleton, vectorize=False, name='PAFLayer', scale_keypoints=None):
         """
         Generates part affinity fields for the given `skeleton`.
 
@@ -345,7 +413,7 @@ class PAFLayer(MakiLayer):
         ----------
         im_size : 2d tuple
             Contains width and height (w, h) of the image for which to generate the map.
-        sigma : int
+        sigma : float
             Width of the affinity field. Corresponds to the width of the limb.
         skeleton : np.ndarray of shape [n_pairs, 2]
             A numpy array containing indices for pairs of points. Vectors in the PAF
@@ -354,6 +422,13 @@ class PAFLayer(MakiLayer):
         vectorize : bool
             Set to True if you want to vectorize the computation along the batch dimension. May cause
             the OOM error due to high memory consumption.
+        scale_keypoints : tuple/list
+            Tuple or list of scales [x_scale, y_scale],
+            Where:
+                x_scale - scale keypoints by x axis;
+                y_scale - scale keypoints by y axis;
+            This parameter is used for downsize training keypoints by certain scale
+
         """
         super().__init__(name, params=[], regularize_params=[], named_params_dict={})
         self.sigma = sigma
@@ -364,10 +439,27 @@ class PAFLayer(MakiLayer):
         xy_grid = np.stack([x_grid, y_grid], axis=-1)
         self.xy_grid = tf.convert_to_tensor(xy_grid, dtype=tf.float32)
 
+        # Prepare scales
+        if scale_keypoints is not None:
+            self.scale_matrix = tf.constant(
+                [
+                    [1.0/scale_keypoints[0], 0.0],
+                    [0.0,                    1.0/scale_keypoints[1]]
+                ],
+                dtype=tf.float32,
+                name=self.KEYPOINTS_SCALER
+            )
+        else:
+            self.scale_matrix = None
+
     def _forward(self, x, computation_mode=MakiRestorable.TRAINING_MODE):
         with tf.name_scope(computation_mode):
             with tf.name_scope(self.get_name()):
                 keypoints, masks = x
+
+                if self.scale_matrix is not None:
+                    keypoints = tf.matmul(keypoints, self.scale_matrix, name=self.TRANSFORM_KEYPOINTS_OP)
+
                 pafs = self.__build_paf_batch(keypoints, masks)
         return pafs
 

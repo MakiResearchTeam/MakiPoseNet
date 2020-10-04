@@ -2,6 +2,7 @@ import json
 import numpy as np
 import tensorflow as tf
 from scipy.ndimage.filters import maximum_filter
+import cv2
 
 from .main_modules import PoseEstimatorInterface
 from .utils.algorithm_connect_skelet import estimate_paf, merge_similar_skelets
@@ -113,7 +114,7 @@ class PEModel(PoseEstimatorInterface):
         session.run(tf.variables_initializer(self._smoother.get_variables()))
         super().set_session(session)
 
-    def predict(self, x: list, pooling_window_size=(3, 3), using_estimate_alg=True):
+    def predict(self, x: list, resize_to=None, pooling_window_size=(3, 3), using_estimate_alg=True):
         """
         Do pose estimation on certain input images
 
@@ -121,6 +122,10 @@ class PEModel(PoseEstimatorInterface):
         ----------
         x : list or np.ndarray
             Input list/np.ndarray of the images
+        resize_to : tuple
+            Tuple of two int [W, H], which are size of the output. H - Height, W - Width.
+            Resize prediction from neural network to certain size.
+            By default resize not be used. If it used, by default used area interpolation
         pooling_window_size : tuple
             Size of the pooling window,
             By default equal to (3, 3)
@@ -153,6 +158,22 @@ class PEModel(PoseEstimatorInterface):
             [self._smoother.get_output(), self.get_main_paf_tensor()],
             feed_dict={self._input_data_tensors[0]: x}
         )
+
+        if resize_to is not None:
+            W_pred, H_pred = batched_paf[0].shape[1:3]
+
+            for i in range(self.get_batch_size()):
+                batched_heatmap[i] = cv2.resize(
+                    batched_heatmap[i],
+                    (resize_to[1], resize_to[0]),
+                    cv2.INTER_AREA
+                )
+
+                batched_paf[i] = cv2.resize(
+                    batched_paf[i].reshape(W_pred, H_pred, -1),
+                    (resize_to[1], resize_to[0]),
+                    cv2.INTER_AREA
+                ).reshape(W_pred, H_pred, -1, 2)
 
         # Apply NMS (Non maximum suppression)
         batched_max_pool_heatmap = maximum_filter(
