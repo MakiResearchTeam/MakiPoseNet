@@ -101,7 +101,7 @@ def create_prediction_coco_json(
 
         # Process batch of the images
         if batch_size == len(norm_img_list):
-            humans_dict_list = model.predict(norm_img_list)
+            humans_dict_list = model.predict(norm_img_list, resize_to=[W, H])
 
             for (single_humans_dict, single_image_ids) in zip(humans_dict_list, image_ids_list):
                 for single_name in single_humans_dict:
@@ -128,7 +128,7 @@ def create_prediction_coco_json(
         remain_images = batch_size - len(norm_img_list)
         norm_img_list += [norm_img_list[-1]] * remain_images
 
-        humans_dict_list = model.predict(norm_img_list)[:uniq_images]
+        humans_dict_list = model.predict(norm_img_list, resize_to=[W, H])[:uniq_images]
 
         for (single_humans_dict, single_image_ids) in zip(humans_dict_list, image_ids_list):
             for single_name in single_humans_dict:

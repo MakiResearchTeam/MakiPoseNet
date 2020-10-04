@@ -95,7 +95,8 @@ class CocoTester(Tester):
             single_batch = [np.expand_dims(self.__put_text_on_image(single_test[0], self._names[i]), axis=0)]
             peaks, heatmap, paf = model.predict(
                 np.concatenate([single_norm] * model.get_batch_size(), axis=0),
-                using_estimate_alg=False
+                using_estimate_alg=False,
+                resize_to=[self.W, self.H]
             )
 
             drawed_paff = np.expand_dims(
