@@ -552,7 +552,7 @@ class FlipPostMethod(TFRPostMapMethod):
         image = element[RIterator.IMAGE]
         keypoints = element[RIterator.KEYPOINTS]
 
-        p = tf.random_uniform(minval=0, maxval=1.0)
+        p = tf.random_uniform(minval=0, maxval=1.0, shape=[])
         true_fn = lambda: self.flip(image, keypoints)
         false_fn = lambda: image, keypoints
         image, keypoints = tf.cond(p < self._rate, true_fn, false_fn)
@@ -591,12 +591,12 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
             element = serialized_example
         image = element[RIterator.IMAGE]
 
-        p = tf.random.uniform(minval=0, maxval=1)
+        p = tf.random.uniform(minval=0, maxval=1, shape=[])
         true_fn = lambda: self.adjust_contrast(image)
         false_fn = lambda: image
         image = tf.cond(p < self._contrast_rate, true_fn, false_fn)
 
-        p = tf.random.uniform(minval=0, maxval=1)
+        p = tf.random.uniform(minval=0, maxval=1, shape=[])
         true_fn = lambda: self.adjust_brightness(image)
         false_fn = lambda: image
         image = tf.cond(p < self._brightness_rate, true_fn, false_fn)
