@@ -527,7 +527,7 @@ class FlipPostMethod(TFRPostMapMethod):
         keypoints_map = [x[1] for x in keypoints_map]
         self._keypoints_map = keypoints_map
 
-    def flip(self, image, keypoints):
+    def flip(self, image, keypoints, masks):
         """
         Parameters
         ----------
@@ -545,9 +545,10 @@ class FlipPostMethod(TFRPostMapMethod):
         scale_y = np.array([[[1, -1]]], dtype='float32')
         keypoints = keypoints * scale_y
 
-        # Reorder points
+        # Reorder points and their masks
         keypoints = tf.gather(keypoints, self._keypoints_map, axis=1)
-        return flipped_im, keypoints
+        masks = tf.gather(masks, self._keypoints_map, axis=1)
+        return flipped_im, keypoints, masks
 
     def read_record(self, serialized_example) -> dict:
         if self._parent_method is not None:
@@ -556,14 +557,16 @@ class FlipPostMethod(TFRPostMapMethod):
             element = serialized_example
         image = element[RIterator.IMAGE]
         keypoints = element[RIterator.KEYPOINTS]
+        masks = element[RIterator.KEYPOINTS_MASK]
 
         p = tf.random_uniform(minval=0, maxval=1.0, shape=[])
-        true_fn = lambda: self.flip(image, keypoints)
-        false_fn = lambda: (image, keypoints)
-        image, keypoints = tf.cond(p < self._rate, true_fn, false_fn)
+        true_fn = lambda: self.flip(image, keypoints, masks)
+        false_fn = lambda: (image, keypoints, masks)
+        image, keypoints, masks = tf.cond(p < self._rate, true_fn, false_fn)
 
         element[RIterator.IMAGE] = image
         element[RIterator.KEYPOINTS] = keypoints
+        element[RIterator.KEYPOINTS_MASK] = masks
         return element
 
 
