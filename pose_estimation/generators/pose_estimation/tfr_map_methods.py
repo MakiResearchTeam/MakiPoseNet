@@ -554,7 +554,7 @@ class FlipPostMethod(TFRPostMapMethod):
 
         p = tf.random_uniform(minval=0, maxval=1.0, shape=[])
         true_fn = lambda: self.flip(image, keypoints)
-        false_fn = lambda: image, keypoints
+        false_fn = lambda: (image, keypoints)
         image, keypoints = tf.cond(p < self._rate, true_fn, false_fn)
 
         element[RIterator.IMAGE] = image
