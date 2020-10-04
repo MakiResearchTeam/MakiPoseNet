@@ -173,7 +173,7 @@ class PEModel(PoseEstimatorInterface):
                     batched_paf[i].reshape(W_pred, H_pred, -1),
                     (resize_to[1], resize_to[0]),
                     cv2.INTER_AREA
-                ).reshape(W_pred, H_pred, -1, 2)
+                ).reshape(resize_to[0], resize_to[1], -1, 2)
 
         # Apply NMS (Non maximum suppression)
         batched_max_pool_heatmap = maximum_filter(
