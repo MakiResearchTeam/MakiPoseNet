@@ -541,6 +541,11 @@ class FlipPostMethod(TFRPostMapMethod):
         _, height, width, _ = image.get_shape().as_list()
         move = np.array([[[width, 0]]], dtype='float32')
         keypoints = move - keypoints
+        # Flip y coordinate since it has changed its sign
+        scale_y = np.array([[[1, -1]]], dtype='float32')
+        keypoints = keypoints * scale_y
+
+        # Reorder points
         keypoints = tf.gather(keypoints, self._keypoints_map, axis=1)
         return flipped_im, keypoints
 
