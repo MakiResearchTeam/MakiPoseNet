@@ -178,6 +178,8 @@ class CocoTester(Tester):
         data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
         data = np.reshape(data, (h, w, 3))
 
+        plt.close('all')
+
         return self.__put_text_on_image(data, name_heatmap, shift_image)
 
     def __put_text_on_image(self, image, text, shift_image=60):
