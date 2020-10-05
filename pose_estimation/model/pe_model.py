@@ -18,6 +18,9 @@ class PEModel(PoseEstimatorInterface):
     OUTPUT_PAF_MT = 'output_paf_mt'
     NAME = 'name'
 
+    UPSAMPLE_SIZE = 'upsample_size'
+
+
     @staticmethod
     def from_json(path_to_model: str, input_tensor: MakiTensor = None):
         """
@@ -107,8 +110,29 @@ class PEModel(PoseEstimatorInterface):
         Initialize tensors for prediction
 
         """
+
+        self.upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=PEModel.UPSAMPLE_SIZE)
+
+        main_paf = self.get_main_paf_tensor()
+        shape_paf = main_paf.shape.as_list()
+
+        main_paf = tf.reshape(main_paf, shape=shape_paf[:-2] + [-1])
+        self._resized_paf = tf.image.resize_area(
+            main_paf,
+            self.upsample_size,
+            align_corners=False,
+            name='upsample_paf'
+        )
+
+        self._resized_heatmap = tf.image.resize_area(
+            self.get_main_heatmap_tensor(),
+            self.upsample_size,
+            align_corners=False,
+            name='upsample_heatmap'
+        )
+
         num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
-        self._smoother = Smoother({'data': self.get_main_heatmap_tensor()}, 25, 3.0, num_keypoints)
+        self._smoother = Smoother({Smoother.DATA: self._resized_heatmap}, 25, 3.0, num_keypoints)
 
     def set_session(self, session: tf.Session):
         session.run(tf.variables_initializer(self._smoother.get_variables()))
@@ -154,26 +178,13 @@ class PEModel(PoseEstimatorInterface):
                 Paf
         """
         # Take predictions
+        if resize_to is None:
+            resize_to = self.get_main_paf_tensor().shape.as_list()[1:3]
+
         batched_heatmap, batched_paf = self._session.run(
-            [self._smoother.get_output(), self.get_main_paf_tensor()],
-            feed_dict={self._input_data_tensors[0]: x}
+            [self._smoother.get_output(), self._resized_paf],
+            feed_dict={self._input_data_tensors[0]: x, self.upsample_size: resize_to}
         )
-
-        if resize_to is not None:
-            W_pred, H_pred = batched_paf[0].shape[1:3]
-
-            for i in range(self.get_batch_size()):
-                batched_heatmap[i] = cv2.resize(
-                    batched_heatmap[i],
-                    (resize_to[1], resize_to[0]),
-                    cv2.INTER_AREA
-                )
-
-                batched_paf[i] = cv2.resize(
-                    batched_paf[i].reshape(W_pred, H_pred, -1),
-                    (resize_to[1], resize_to[0]),
-                    cv2.INTER_AREA
-                ).reshape(resize_to[0], resize_to[1], -1, 2)
 
         # Apply NMS (Non maximum suppression)
         batched_max_pool_heatmap = maximum_filter(

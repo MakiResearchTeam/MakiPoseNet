@@ -31,6 +31,9 @@ def layer(op):
 
 
 class Smoother(object):
+
+    DATA = 'data'
+
     def __init__(self, inputs, filter_size, sigma, heat_map_size=0):
         self.inputs = inputs
         self.terminals = []
