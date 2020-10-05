@@ -90,7 +90,7 @@ def create_prediction_coco_json(
         return image
 
     def start_process(image_paths: list, W: int, H: int, n_threade: int):
-        pool = dummy.Pool(processes=n_threade)
+        pool = mp.Pool(processes=n_threade)
         res = pool.map(process_image, [(W, H, image_paths[index]) for index in range(len(image_paths))])
 
         pool.close()
