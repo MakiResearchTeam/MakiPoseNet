@@ -31,6 +31,8 @@ COCO_URL = 'coco_url'
 FILE_NAME = 'file_name'
 DEFAULT_CATEGORY_ID = 1
 
+DEFAULT_NUM_THREADES = 4
+
 
 def create_prediction_coco_json(
         W: int,
@@ -40,7 +42,7 @@ def create_prediction_coco_json(
         path_to_save: str,
         path_to_images: str,
         return_number_of_predictions=False,
-        n_processes=10):
+        n_threade=None):
     """
     Create prediction JSON for evaluation on COCO dataset
 
@@ -64,12 +66,18 @@ def create_prediction_coco_json(
         Should be fit to annotation file (i. e. validation JSON to validation images)
     return_number_of_predictions : bool
         If equal True, will be returned number of prediction
+    n_threade : int
+        Number of threades to process image (resize, normalize and etc...),
+        By default equal to 4, if value equal to None
 
     Return
     ------
     int
         Number of predictions, if `return_number_of_predictions` equal True
     """
+
+    if n_threade is None:
+        n_threade = DEFAULT_NUM_THREADES
 
     # Methods to process image with multiprocessing
     def process_image(data):
@@ -81,8 +89,8 @@ def create_prediction_coco_json(
         image /= np.float32(127.5)
         return image
 
-    def start_process(image_paths: list, W: int, H: int):
-        pool = dummy.Pool(processes=n_processes)
+    def start_process(image_paths: list, W: int, H: int, n_threade: int):
+        pool = dummy.Pool(processes=n_threade)
         res = pool.map(process_image, [(W, H, image_paths[index]) for index in range(len(image_paths))])
 
         pool.close()
@@ -119,7 +127,7 @@ def create_prediction_coco_json(
 
         # Process batch of the images
         if batch_size == len(imgs_path_list):
-            norm_img_list = start_process(imgs_path_list, W=W, H=H)
+            norm_img_list = start_process(imgs_path_list, W=W, H=H, n_threade=n_threade)
             humans_dict_list = model.predict(norm_img_list, resize_to=[W, H])
 
             for (single_humans_dict, single_image_ids) in zip(humans_dict_list, image_ids_list):
@@ -147,7 +155,7 @@ def create_prediction_coco_json(
         remain_images = batch_size - uniq_images
         imgs_path_list += [imgs_path_list[-1]] * remain_images
 
-        norm_img_list = start_process(imgs_path_list, W=W, H=H)
+        norm_img_list = start_process(imgs_path_list, W=W, H=H, n_threade=n_threade)
         humans_dict_list = model.predict(norm_img_list, resize_to=[W, H])[:uniq_images]
 
         for (single_humans_dict, single_image_ids) in zip(humans_dict_list, image_ids_list):

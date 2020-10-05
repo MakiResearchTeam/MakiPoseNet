@@ -17,12 +17,13 @@ class Tester(ABC):
     ANNOT_GT_JSON = 'annot_gt_json'
     PATH_TO_VAL_IMAGES = "path_to_val_images"
     LIMIT_ANNOT = 'limit_annot'
+    N_THREADE = 'n_threade'
 
     NAME_RELAYOUR_ANNOT_JSON = "relayour_annot.json"
     NAME_PREDICTED_ANNOT_JSON = 'predicted_annot.json'
     AP_AR_DATA_TXT = 'ap_ar_data.txt'
 
-    def __init__(self, config, sess, path_to_save_logs:str, img_size: tuple, normalization_method=None):
+    def __init__(self, config: dict, sess, path_to_save_logs:str, img_size: tuple, normalization_method=None):
         self._config = config[Tester.TEST_CONFIG]
 
         self._path_to_save_logs = os.path.join(path_to_save_logs, self.LOG_FOLDER)
@@ -35,6 +36,7 @@ class Tester(ABC):
 
         # Init stuff for measure metric
         self._limit_annots = self._config[self.LIMIT_ANNOT]
+        self._n_threade = self._config[self.N_THREADE]
         relayout_keypoints(
             img_size[1], img_size[0],
             self._config[self.ANNOT_GT_JSON], self._path_to_relayout_annot,

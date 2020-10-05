@@ -133,7 +133,8 @@ class CocoTester(Tester):
             self._path_to_relayout_annot,
             save_predicted_json,
             self._path_to_val_images,
-            return_number_of_predictions=True
+            return_number_of_predictions=True,
+            n_threade=self._n_threade
         )
         # Process evaluation only if number of detection bigger that 0
         if num_detections > 0:
