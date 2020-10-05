@@ -123,7 +123,7 @@ class PEModel(PoseEstimatorInterface):
             align_corners=False,
             name='upsample_paf'
         )
-        self._resized_paf = tf.reshape(self._resized_paf, shape=shape_paf[:-2] + [-1, 2])
+        self._resized_paf = tf.reshape(self._resized_paf, shape=shape_paf)
 
         self._resized_heatmap = tf.image.resize_area(
             self.get_main_heatmap_tensor(),
