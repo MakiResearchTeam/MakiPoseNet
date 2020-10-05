@@ -113,17 +113,27 @@ class PEModel(PoseEstimatorInterface):
 
         self.upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=PEModel.UPSAMPLE_SIZE)
 
+        # [N, W, H, NUM_KP]
         main_paf = self.get_main_paf_tensor()
+
+        # [N, W, H, NUM_KP, 2]
         shape_paf = main_paf.shape.as_list()
 
         main_paf = tf.reshape(main_paf, shape=shape_paf[:-2] + [-1])
+        # [N, W, H, NUM_KP * 2] --> [N, NEW_W, NEW_H, NUM_KP * 2]
         self._resized_paf = tf.image.resize_area(
             main_paf,
             self.upsample_size,
             align_corners=False,
             name='upsample_paf'
         )
-        self._resized_paf = tf.reshape(self._resized_paf, shape=shape_paf)
+
+        num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
+        # [N, NEW_W, NEW_H, NUM_KP * 2] --> [N, NEW_W, NEW_H, NUM_KP, 2]
+        new_shape = tf.stack(
+            [self.get_batch_size(), self.upsample_size[0], self.upsample_size[1], num_keypoints, 2]
+        )
+        self._resized_paf = tf.reshape(self._resized_paf, shape=new_shape)
 
         self._resized_heatmap = tf.image.resize_area(
             self.get_main_heatmap_tensor(),
@@ -132,7 +142,6 @@ class PEModel(PoseEstimatorInterface):
             name='upsample_heatmap'
         )
 
-        num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
         self._smoother = Smoother({Smoother.DATA: self._resized_heatmap}, 25, 3.0, num_keypoints)
 
     def set_session(self, session: tf.Session):
