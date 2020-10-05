@@ -7,6 +7,8 @@ import skimage.io as io
 import cv2
 import json
 import os
+from multiprocessing import dummy
+import multiprocessing as mp
 
 # Write prediction from models into json file (in coco annotations style)
 
@@ -37,7 +39,8 @@ def create_prediction_coco_json(
         ann_file_path: str,
         path_to_save: str,
         path_to_images: str,
-        return_number_of_predictions=False):
+        return_number_of_predictions=False,
+        n_processes=10):
     """
     Create prediction JSON for evaluation on COCO dataset
 
@@ -67,6 +70,26 @@ def create_prediction_coco_json(
     int
         Number of predictions, if `return_number_of_predictions` equal True
     """
+
+    # Methods to process image with multiprocessing
+    def process_image(data):
+        W, H, image_paths = data
+        image = cv2.imread(image_paths)
+        image = cv2.resize(image, (H, W))
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+        image -= np.float32(127.5)
+        image /= np.float32(127.5)
+        return image
+
+    def start_process(image_paths: list, W: int, H: int):
+        pool = dummy.Pool(processes=n_processes)
+        res = pool.map(process_image, [(W, H, image_paths[index]) for index in range(len(image_paths))])
+
+        pool.close()
+        pool.join()
+
+        return res
+
     cocoGt = COCO(ann_file_path)
     cocoDt_json = []
 
@@ -76,7 +99,7 @@ def create_prediction_coco_json(
     # Counter for generation unique IDs into annotation file
     counter = 0
     # Store batched images and image ids
-    norm_img_list = []
+    imgs_path_list = []
     image_ids_list = []
     batch_size = model.get_batch_size()
 
@@ -90,17 +113,13 @@ def create_prediction_coco_json(
         if len(anns) == 0:
             continue
 
-        # Load image
-        if path_to_images is None:
-            readed_img = cv2.cvtColor(io.imread(single_img[COCO_URL]), cv2.COLOR_RGB2BGR)
-        else:
-            readed_img = cv2.imread(os.path.join(path_to_images, single_img[FILE_NAME]))
-        source_img = cv2.resize(readed_img, (W, H))
-        norm_img_list += [((source_img - 127.5) / 127.5).astype(np.float32)]
+        # Store path to img and its ids
+        imgs_path_list.append(os.path.join(path_to_images, single_img[FILE_NAME]))
         image_ids_list += [single_ids]
 
         # Process batch of the images
-        if batch_size == len(norm_img_list):
+        if batch_size == len(imgs_path_list):
+            norm_img_list = start_process(imgs_path_list, W=W, H=H)
             humans_dict_list = model.predict(norm_img_list, resize_to=[W, H])
 
             for (single_humans_dict, single_image_ids) in zip(humans_dict_list, image_ids_list):
@@ -117,17 +136,18 @@ def create_prediction_coco_json(
 
                     counter += 1
             # Clear batched arrays
-            norm_img_list = []
+            imgs_path_list = []
             image_ids_list = []
     iterator.close()
 
     # Process images which remained
-    uniq_images = len(norm_img_list)
+    uniq_images = len(imgs_path_list)
 
     if uniq_images > 0:
-        remain_images = batch_size - len(norm_img_list)
-        norm_img_list += [norm_img_list[-1]] * remain_images
+        remain_images = batch_size - uniq_images
+        imgs_path_list += [imgs_path_list[-1]] * remain_images
 
+        norm_img_list = start_process(imgs_path_list, W=W, H=H)
         humans_dict_list = model.predict(norm_img_list, resize_to=[W, H])[:uniq_images]
 
         for (single_humans_dict, single_image_ids) in zip(humans_dict_list, image_ids_list):

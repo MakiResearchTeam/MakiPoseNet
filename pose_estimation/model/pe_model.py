@@ -157,7 +157,7 @@ class PEModel(PoseEstimatorInterface):
         x : list or np.ndarray
             Input list/np.ndarray of the images
         resize_to : tuple
-            Tuple of two int [W, H], which are size of the output. H - Height, W - Width.
+            Tuple of two int [H, W], which are size of the output. H - Height, W - Width.
             Resize prediction from neural network to certain size.
             By default resize not be used. If it used, by default used area interpolation
         pooling_window_size : tuple
