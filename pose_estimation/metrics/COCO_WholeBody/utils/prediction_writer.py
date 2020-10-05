@@ -34,6 +34,27 @@ DEFAULT_CATEGORY_ID = 1
 DEFAULT_NUM_THREADES = 4
 
 
+# Methods to process image with multiprocessing
+def process_image(data):
+    W, H, image_paths = data
+    image = cv2.imread(image_paths)
+    image = cv2.resize(image, (H, W))
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+    image -= np.float32(127.5)
+    image /= np.float32(127.5)
+    return image
+
+
+def start_process(image_paths: list, W: int, H: int, n_threade: int):
+    pool = mp.Pool(processes=n_threade)
+    res = pool.map(process_image, [(W, H, image_paths[index]) for index in range(len(image_paths))])
+
+    pool.close()
+    pool.join()
+
+    return res
+
+
 def create_prediction_coco_json(
         W: int,
         H: int,
@@ -80,23 +101,6 @@ def create_prediction_coco_json(
         n_threade = DEFAULT_NUM_THREADES
 
     # Methods to process image with multiprocessing
-    def process_image(data):
-        W, H, image_paths = data
-        image = cv2.imread(image_paths)
-        image = cv2.resize(image, (H, W))
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
-        image -= np.float32(127.5)
-        image /= np.float32(127.5)
-        return image
-
-    def start_process(image_paths: list, W: int, H: int, n_threade: int):
-        pool = mp.Pool(processes=n_threade)
-        res = pool.map(process_image, [(W, H, image_paths[index]) for index in range(len(image_paths))])
-
-        pool.close()
-        pool.join()
-
-        return res
 
     cocoGt = COCO(ann_file_path)
     cocoDt_json = []
