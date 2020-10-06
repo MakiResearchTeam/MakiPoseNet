@@ -19,7 +19,6 @@ class PEModel(PoseEstimatorInterface):
     NAME = 'name'
 
     UPSAMPLE_SIZE = 'upsample_size'
-    MAX_POOLING_OP = 'max_pooling_op'
 
     _DEFAULT_KERNEL_MAX_POOL = [1, 3, 3, 1]
 
@@ -115,7 +114,6 @@ class PEModel(PoseEstimatorInterface):
         """
 
         self.upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=PEModel.UPSAMPLE_SIZE)
-        self.max_pooling_kernel_size = tf.placeholder(dtype=tf.int32, shape=(4), name=PEModel.MAX_POOLING_OP)
 
         # [N, W, H, NUM_KP]
         main_paf = self.get_main_paf_tensor()
@@ -151,7 +149,7 @@ class PEModel(PoseEstimatorInterface):
         # Apply NMS (Non maximum suppression)
         # Apply max pool operation to heatmap
         self._max_pooled_heatmap = tf.nn.max_pool(
-            self._smoother.get_output(), self.max_pooling_kernel_size, strides=[1,1,1,1], padding='SAME'
+            self._smoother.get_output(), self._DEFAULT_KERNEL_MAX_POOL, strides=[1,1,1,1], padding='SAME'
         )
         # Take only values that equal to heatmap from max pooling,
         # i.e. biggest numbers of heatmaps
@@ -168,7 +166,7 @@ class PEModel(PoseEstimatorInterface):
         session.run(tf.variables_initializer(self._smoother.get_variables()))
         super().set_session(session)
 
-    def predict(self, x: list, resize_to=None, pooling_window_size=(3, 3), using_estimate_alg=True):
+    def predict(self, x: list, resize_to=None, using_estimate_alg=True):
         """
         Do pose estimation on certain input images
 
@@ -180,9 +178,6 @@ class PEModel(PoseEstimatorInterface):
             Tuple of two int [H, W], which are size of the output. H - Height, W - Width.
             Resize prediction from neural network to certain size.
             By default resize not be used. If it used, by default used area interpolation
-        pooling_window_size : tuple
-            Size of the pooling window,
-            By default equal to (3, 3)
         using_estimate_alg : bool
             If equal True, when algorithm to build skeletons will be used
             And method will return list of the class Human (See Return for more detail)
@@ -215,8 +210,8 @@ class PEModel(PoseEstimatorInterface):
             [self._smoother.get_output(), self._resized_paf, self._peaks],
             feed_dict={
                 self._input_data_tensors[0]: x,
-                self.upsample_size: resize_to,
-                self.max_pooling_kernel_size: [1, pooling_window_size[0], pooling_window_size[1], 1]}
+                self.upsample_size: resize_to
+            }
         )
 
         # Connect skeletons by applying two algorithms
