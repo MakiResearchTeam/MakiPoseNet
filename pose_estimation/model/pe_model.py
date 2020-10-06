@@ -19,6 +19,9 @@ class PEModel(PoseEstimatorInterface):
     NAME = 'name'
 
     UPSAMPLE_SIZE = 'upsample_size'
+    MAX_POOLING_OP = 'max_pooling_op'
+
+    _DEFAULT_KERNEL_MAX_POOL = [1, 3, 3, 1]
 
 
     @staticmethod
@@ -112,6 +115,7 @@ class PEModel(PoseEstimatorInterface):
         """
 
         self.upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=PEModel.UPSAMPLE_SIZE)
+        self.max_pooling_kernel_size = tf.placeholder(dtype=tf.int32, shape=(4), name=PEModel.MAX_POOLING_OP)
 
         # [N, W, H, NUM_KP]
         main_paf = self.get_main_paf_tensor()
@@ -143,6 +147,22 @@ class PEModel(PoseEstimatorInterface):
         )
         num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
         self._smoother = Smoother({Smoother.DATA: self._resized_heatmap}, 25, 3.0, num_keypoints)
+
+        # Apply NMS (Non maximum suppression)
+        # Apply max pool operation to heatmap
+        self._max_pooled_heatmap = tf.nn.max_pool(
+            self._smoother.get_output(), self.max_pooling_kernel_size, strides=[1,1,1,1], padding='SAME'
+        )
+        # Take only values that equal to heatmap from max pooling,
+        # i.e. biggest numbers of heatmaps
+        self._peaks = tf.where(
+            tf.equal(
+                self._smoother.get_output(),
+                self._max_pooled_heatmap
+            ),
+            self._smoother.get_output(),
+            tf.zeros_like(self._smoother.get_output())
+        )
 
     def set_session(self, session: tf.Session):
         session.run(tf.variables_initializer(self._smoother.get_variables()))
@@ -191,19 +211,13 @@ class PEModel(PoseEstimatorInterface):
         if resize_to is None:
             resize_to = self.get_main_paf_tensor().shape.as_list()[1:3]
 
-        batched_heatmap, batched_paf = self._session.run(
-            [self._smoother.get_output(), self._resized_paf],
-            feed_dict={self._input_data_tensors[0]: x, self.upsample_size: resize_to}
+        batched_heatmap, batched_paf, batched_peaks = self._session.run(
+            [self._smoother.get_output(), self._resized_paf, self._peaks],
+            feed_dict={
+                self._input_data_tensors[0]: x,
+                self.upsample_size: resize_to,
+                self.max_pooling_kernel_size: [1, pooling_window_size[0], pooling_window_size[1], 1]}
         )
-
-        # Apply NMS (Non maximum suppression)
-        batched_max_pool_heatmap = maximum_filter(
-            batched_heatmap,
-            # Footprint goes on shape (N, W, H, C), skip window for N and C dimensions
-            footprint=np.ones((1, pooling_window_size[0], pooling_window_size[1], 1))
-        )
-        # Take only "peaks" i. e. most probably keypoints on the image
-        batched_peaks = batched_heatmap * (batched_max_pool_heatmap == batched_heatmap)
 
         # Connect skeletons by applying two algorithms
         batched_humans = []
