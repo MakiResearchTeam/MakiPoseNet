@@ -94,7 +94,7 @@ class Human:
               NumKeypoints_1: [x_coord, y_coord, score],
               ..........................................
             }
-            Where NumKeypoints, NumKeypoints_1 ... are integer value responsible for index of the keypoint,
+            Where NumKeypoints, NumKeypoints_1 ... are string values responsible for index of the keypoint,
             x_coord - coordinate of the keypoint on X axis
             y_coord - coordinate of the keypoint on Y axis
             score - confidence of the neural network
@@ -105,11 +105,11 @@ class Human:
             take_single = self.body_parts.get(i)
             if take_single is not None and take_single.score >= th_hold:
                 dict_data.update({
-                    i: [take_single.x, take_single.y, take_single.score]
+                    str(i): [take_single.x, take_single.y, take_single.score]
                 })
             else:
                 dict_data.update({
-                    i: [0.0, 0.0, 0.0]
+                    str(i): [0.0, 0.0, 0.0]
                 })
 
         return dict_data
