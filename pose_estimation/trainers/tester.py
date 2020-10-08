@@ -18,6 +18,7 @@ class Tester(ABC):
     PATH_TO_VAL_IMAGES = "path_to_val_images"
     LIMIT_ANNOT = 'limit_annot'
     N_THREADE = 'n_threade'
+    TYPE_PARALL = 'type_parall'
 
     NAME_RELAYOUR_ANNOT_JSON = "relayour_annot.json"
     NAME_PREDICTED_ANNOT_JSON = 'predicted_annot.json'
@@ -37,6 +38,8 @@ class Tester(ABC):
         # Init stuff for measure metric
         self._limit_annots = self._config[self.LIMIT_ANNOT]
         self._n_threade = self._config[self.N_THREADE]
+        self._type_parall = self._config[self.TYPE_PARALL]
+
         relayout_keypoints(
             img_size[1], img_size[0],
             self._config[self.ANNOT_GT_JSON], self._path_to_relayout_annot,

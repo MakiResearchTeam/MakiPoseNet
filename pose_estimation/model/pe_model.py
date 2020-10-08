@@ -112,7 +112,7 @@ class PEModel(PoseEstimatorInterface):
         Initialize tensors for prediction
 
         """
-
+        # Store (H, W) - final size of the prediction
         self.upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=PEModel.UPSAMPLE_SIZE)
 
         # [N, W, H, NUM_KP]
@@ -122,8 +122,8 @@ class PEModel(PoseEstimatorInterface):
         shape_paf = main_paf.shape.as_list()
         num_pafs = shape_paf[3]
 
-        main_paf = tf.reshape(main_paf, shape=shape_paf[:-2] + [-1])
         # [N, W, H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS * 2]
+        main_paf = tf.reshape(main_paf, shape=shape_paf[:-2] + [-1])
         self._resized_paf = tf.image.resize_area(
             main_paf,
             self.upsample_size,
@@ -143,13 +143,22 @@ class PEModel(PoseEstimatorInterface):
             align_corners=False,
             name='upsample_heatmap'
         )
+
         num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
-        self._smoother = Smoother({Smoother.DATA: self._resized_heatmap}, 25, 3.0, num_keypoints)
+        self._smoother = Smoother(
+            {Smoother.DATA: self._resized_heatmap},
+            25,
+            3.0,
+            num_keypoints
+        )
 
         # Apply NMS (Non maximum suppression)
         # Apply max pool operation to heatmap
         self._max_pooled_heatmap = tf.nn.max_pool(
-            self._smoother.get_output(), self._DEFAULT_KERNEL_MAX_POOL, strides=[1,1,1,1], padding='SAME'
+            self._smoother.get_output(),
+            self._DEFAULT_KERNEL_MAX_POOL,
+            strides=[1,1,1,1],
+            padding='SAME'
         )
         # Take only values that equal to heatmap from max pooling,
         # i.e. biggest numbers of heatmaps
@@ -187,13 +196,9 @@ class PEModel(PoseEstimatorInterface):
         -------
         if using_estimate_alg is True:
             list
-                List of classes Human.
-                Human class store set of `body_parts` to each keypoints detected by neural network,
-                Set `body_parts` is set of classes BodyPart, set itself is store values from 0 to n
-                (n - number of keypoints on the skeleton)
-                which were detected by neural network (i.e. some of keypoints may not be present).
-                To get x and y coordinate, take one of the `body_parts` element (which is BodyPart class),
-                and get x or y by referring to the corresponding field.
+                List of predictions to each input image.
+                Single element of this list is a List of classes Human which were detected.
+
         Otherwise:
             np.ndarray
                 Peaks
@@ -214,21 +219,24 @@ class PEModel(PoseEstimatorInterface):
             }
         )
 
-        # Connect skeletons by applying two algorithms
-        batched_humans = []
-
         if using_estimate_alg:
+
+            # Connect skeletons by applying two algorithms
+            batched_humans = []
+
             for i in range(len(batched_peaks)):
-                W, H = x[i].shape[:-1]
                 single_peaks = batched_peaks[i].astype(np.float32)
                 single_heatmap = batched_heatmap[i].astype(np.float32)
-                single_paff = batched_paf[i].reshape(W, H, -1).astype(np.float32)
-                # Estimate
-                humans = estimate_paf(single_peaks, single_heatmap, single_paff)
-                # Remove similar points, simple merge similar skeletons
-                humans_dict = merge_similar_skelets(humans)
 
-                batched_humans.append(humans_dict)
+                W, H = batched_paf[i][i].shape[:2]
+                single_paff = batched_paf[i].reshape(W, H, -1).astype(np.float32)
+
+                # Estimate
+                humans_list = estimate_paf(single_peaks, single_heatmap, single_paff)
+                # Remove similar points, simple merge similar skeletons
+                humans_merged_list = merge_similar_skelets(humans_list)
+
+                batched_humans.append(humans_merged_list)
 
             return batched_humans
         else:

@@ -33,6 +33,9 @@ DEFAULT_CATEGORY_ID = 1
 
 DEFAULT_NUM_THREADES = 4
 
+TYPE_THREAD = 'thread'
+TYPE_PROCESS = 'process'
+
 
 # Methods to process image with multiprocessing
 def process_image(data):
@@ -45,8 +48,14 @@ def process_image(data):
     return image
 
 
-def start_process(image_paths: list, W: int, H: int, n_threade: int):
-    pool = dummy.Pool(processes=n_threade)
+def start_process(image_paths: list, W: int, H: int, n_threade: int, type_parall: str):
+    if type_parall == TYPE_THREAD:
+        pool = dummy.Pool(processes=n_threade)
+    elif type_parall == TYPE_PROCESS:
+        pool = mp.Pool(processes=n_threade)
+    else:
+        raise TypeError(f'type {type_parall} is non known type for processing image in prediction writer!')
+
     res = pool.map(process_image, [(W, H, image_paths[index]) for index in range(len(image_paths))])
 
     pool.close()
@@ -63,7 +72,9 @@ def create_prediction_coco_json(
         path_to_save: str,
         path_to_images: str,
         return_number_of_predictions=False,
-        n_threade=None):
+        n_threade=None,
+        type_parall=TYPE_THREAD
+    ):
     """
     Create prediction JSON for evaluation on COCO dataset
 
@@ -90,6 +101,10 @@ def create_prediction_coco_json(
     n_threade : int
         Number of threades to process image (resize, normalize and etc...),
         By default equal to 4, if value equal to None
+    type_parall : str
+        Type of the parallel calculation for loading and preprocessing images,
+        Can be `thread` or `process` values.
+        By default equal to `thread`
 
     Return
     ------
@@ -131,17 +146,22 @@ def create_prediction_coco_json(
 
         # Process batch of the images
         if batch_size == len(imgs_path_list):
-            norm_img_list = start_process(imgs_path_list, W=W, H=H, n_threade=n_threade)
-            humans_dict_list = model.predict(norm_img_list, resize_to=[W, H])
+            norm_img_list = start_process(
+                imgs_path_list,
+                W=W, H=H,
+                n_threade=n_threade,
+                type_parall=type_parall
+            )
 
-            for (single_humans_dict, single_image_ids) in zip(humans_dict_list, image_ids_list):
-                for single_name in single_humans_dict:
-                    single_elem = single_humans_dict[single_name]
+            humans_predicted_list = model.predict(norm_img_list, resize_to=[W, H])
+
+            for (single_humans_predicted_list, single_image_ids) in zip(humans_predicted_list, image_ids_list):
+                for single_prediction in single_humans_predicted_list:
                     cocoDt_json.append(
                         write_to_dict(
                             single_image_ids,
-                            single_elem.score,
-                            single_elem.to_list(),
+                            single_prediction.score,
+                            single_prediction.to_list(),
                             counter
                         )
                     )
@@ -159,17 +179,22 @@ def create_prediction_coco_json(
         remain_images = batch_size - uniq_images
         imgs_path_list += [imgs_path_list[-1]] * remain_images
 
-        norm_img_list = start_process(imgs_path_list, W=W, H=H, n_threade=n_threade)
-        humans_dict_list = model.predict(norm_img_list, resize_to=[W, H])[:uniq_images]
+        norm_img_list = start_process(
+            imgs_path_list,
+            W=W, H=H,
+            n_threade=n_threade,
+            type_parall=type_parall
+        )
 
-        for (single_humans_dict, single_image_ids) in zip(humans_dict_list, image_ids_list):
-            for single_name in single_humans_dict:
-                single_elem = single_humans_dict[single_name]
+        humans_predicted_list = model.predict(norm_img_list, resize_to=[W, H])[:uniq_images]
+
+        for (single_humans_predicted_list, single_image_ids) in zip(humans_predicted_list, image_ids_list):
+            for single_prediction in single_humans_predicted_list:
                 cocoDt_json.append(
                     write_to_dict(
                         single_image_ids,
-                        single_elem.score,
-                        single_elem.to_list(),
+                        single_prediction.score,
+                        single_prediction.to_list(),
                         counter
                     )
                 )

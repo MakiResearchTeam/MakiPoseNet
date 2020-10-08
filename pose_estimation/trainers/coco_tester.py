@@ -134,7 +134,8 @@ class CocoTester(Tester):
             save_predicted_json,
             self._path_to_val_images,
             return_number_of_predictions=True,
-            n_threade=self._n_threade
+            n_threade=self._n_threade,
+            type_parall=self._type_parall
         )
         # Process evaluation only if number of detection bigger that 0
         if num_detections > 0:
