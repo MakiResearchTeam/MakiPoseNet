@@ -32,3 +32,11 @@ class PoseEstimatorInterface(MakiCore, ABC):
     def get_session(self):
         # TODO: Move this method into MakiModel
         pass
+
+    @abstractmethod
+    def get_paf_makitensor(self):
+        pass
+
+    @abstractmethod
+    def get_heatmap_makitensor(self):
+        pass
