@@ -46,7 +46,7 @@ class MYeval_wholebody:
 
         self.ious = {}                                  # ious between all gts and dts
 
-        if not cocoGt is None:
+        if cocoGt is not None:
             self.params.imgIds = sorted(cocoGt.getImgIds())
             self.params.catIds = sorted(cocoGt.getCatIds())
 
@@ -64,11 +64,8 @@ class MYeval_wholebody:
             gts = self.cocoGt.loadAnns(self.cocoGt.getAnnIds(imgIds=p.imgIds))
             dts = self.cocoDt.loadAnns(self.cocoDt.getAnnIds(imgIds=p.imgIds))
 
-        # Ignore images where no keypoints, i. e. skip them or set ignore flag
+        # Ignore images where no keypoints or alot people on single image, i. e. set ignore flag
         for gt in gts:
-            if gt.get(KEYPOINTS) is None:
-                continue
-
             whole_body_gt = gt[KEYPOINTS]
 
             g = np.array(whole_body_gt)
@@ -144,8 +141,6 @@ class MYeval_wholebody:
 
         # compute oks between each detection and ground truth object
         for j, gt in enumerate(gts):
-            if gt.get(KEYPOINTS) is None:
-                continue
             # create bounds for ignore regions(double the gt bbox)
             whole_body_gt = gt[KEYPOINTS]
             g = np.array(whole_body_gt)
@@ -203,7 +198,7 @@ class MYeval_wholebody:
             return None
 
         for g in gt:
-            if g.get(KEYPOINTS) is not None and (g['ignore'] or (g['area'] < aRng[0] or g['area'] > aRng[1])):
+            if g['ignore'] or (g['area'] < aRng[0] or g['area'] > aRng[1]):
                 g['_ignore'] = 1
             else:
                 g['_ignore'] = 0

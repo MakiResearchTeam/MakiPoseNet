@@ -3,7 +3,6 @@ from pose_estimation.model.pe_model import PEModel
 from tqdm import tqdm
 import numpy as np
 from pycocotools.coco import COCO
-import skimage.io as io
 import cv2
 import json
 import os

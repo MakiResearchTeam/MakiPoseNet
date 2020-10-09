@@ -35,15 +35,20 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str, li
     used_ids = dict([(elem[ID], False) for elem in cocoGt_json[IMAGES]])
 
     Maki_cocoGt_json = copy.deepcopy(cocoGt_json)
+    # Clear information ablut annotations and images
+    # In next for loop, we write new information
     Maki_cocoGt_json[ANNOTATIONS] = []
     Maki_cocoGt_json[IMAGES] = []
 
     if limit_number is None:
         iterator = tqdm(range(len(cocoGt_json[ANNOTATIONS])))
+
     elif type(limit_number) == int:
-        iterator = tqdm(range(min(limit_number, len(cocoGt_json[ANNOTATIONS])) ))
+        iterator = tqdm(range(  min(limit_number, len(cocoGt_json[ANNOTATIONS])) ))
+
     else:
-        raise TypeError(f'limit_number should have type int, but it has {type(limit_number)} and value {limit_number}')
+        raise TypeError(f'limit_number should have type int, but it has {type(limit_number)} '
+                        f'and value {limit_number}')
 
     for i in iterator:
         single_anns = cocoGt_json[ANNOTATIONS][i]
@@ -66,7 +71,7 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str, li
         # Just skip it
         # TODO: Do something with this images
         if type(new_segmentation) == dict:
-            break
+            continue
 
         # Scale segmentation points
         for m in range(len(new_segmentation)):
