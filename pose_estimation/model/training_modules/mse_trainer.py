@@ -29,8 +29,17 @@ class MSETrainer:
         """
         self._model = model
         model.training_on()
-        self._paf_tensors = model.get_paf_tensors()
-        self._heatmap_tensors = model.get_heatmap_tensors()
+        paf_makitensors = model.get_paf_makitensor()
+        heatmap_makitensors = model.get_heatmap_makitensor()
+        paf_names = [x.get_name() for x in paf_makitensors]
+        heatmap_names = [x.get_name() for x in heatmap_makitensors]
+
+        self._paf_tensors = [
+            model.get_traingraph_tensor(name) for name in paf_names
+        ]
+        self._heatmap_tensors = [
+            model.get_traingraph_tensor(name) for name in heatmap_names
+        ]
         self._training_paf = training_paf.get_data_tensor()
         self._training_heatmap = training_heatmap.get_data_tensor()
         self._paf_scale = 1.0
