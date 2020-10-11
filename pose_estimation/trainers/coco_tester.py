@@ -75,7 +75,9 @@ class CocoTester(Tester):
             if normalization_method is not None:
                 self._norm_images.append(normalization_method(test_image).reshape(1, *im_shape).astype(np.float32))
             else:
-                self._norm_images.append(((test_image.reshape(1, *im_shape) - 127.5) / 127.5).astype(np.float32))
+                self._norm_images.append(
+                    (test_image.reshape(1, *im_shape) / self._norm_div - self._norm_shift).astype(np.float32)
+                )
 
             # The image has to have batch dimension
             self._test_images.append(test_image.reshape(1, *im_shape).astype(np.uint8))

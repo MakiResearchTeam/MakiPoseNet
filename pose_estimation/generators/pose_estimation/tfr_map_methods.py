@@ -311,29 +311,44 @@ class AugmentationPostMethod(TFRPostMapMethod):
 
 
 class NormalizePostMethod(TFRPostMapMethod):
-    NORMALIZE_IMAGE = 'normalize_image_tensor'
 
-    def __init__(self, divider=127.5,
-                 use_caffee_norm=True,
+    def __init__(self,
+                 divider=127.5,
+                 shift=127.5,
                  use_float64=True):
         """
         Normalizes the tensor by dividing it by the `divider`.
         Parameters
         ----------
         divider : float or int
-            The number to divide the tensor by.
+            The number to divide the tensor by,
+            Can be equal to None, i.e. will be not used,
+            For example, x - input tensor
+            Output: x * divider
+        shift : float
+            The number to shift the tensor after divide operation,
+            Can be equal to None, i.e. will be not used,
+            For example, x - input tensor
+            Output: x - shift
         use_float64 : bool
             Set to True if you want the tensor to be converted to float64 during normalization.
             It is used for getting more accurate division result during normalization.
         """
         super().__init__()
         self.use_float64 = use_float64
-        self.use_caffe_norm = use_caffee_norm
+
+        if divider is None:
+            divider = 1.0
+
+        if shift is None:
+            shift = 0.0
 
         if use_float64:
             self.divider = tf.constant(divider, dtype=tf.float64)
+            self.shift = tf.constant(shift, dtype=tf.float64)
         else:
             self.divider = tf.constant(divider, dtype=tf.float32)
+            self.shift = tf.constant(shift, dtype=tf.float32)
 
     def read_record(self, serialized_example) -> dict:
         if self._parent_method is not None:
@@ -344,16 +359,10 @@ class NormalizePostMethod(TFRPostMapMethod):
         image_tensor = element[RIterator.IMAGE]
         if self.use_float64:
             image_tensor = tf.cast(image_tensor, dtype=tf.float64)
-            if self.use_caffe_norm:
-                image_tensor = (image_tensor - self.divider) / self.divider
-            else:
-                image_tensor = tf.divide(image_tensor, self.divider, name=NormalizePostMethod.NORMALIZE_IMAGE)
+            image_tensor = image_tensor / self.divider - self.shift
             image_tensor = tf.cast(image_tensor, dtype=tf.float32)
         else:
-            if self.use_caffe_norm:
-                image_tensor = (image_tensor - self.divider) / self.divider
-            else:
-                image_tensor = tf.divide(image_tensor, self.divider, name=NormalizePostMethod.NORMALIZE_IMAGE)
+            image_tensor = image_tensor / self.divider - self.shift
         element[RIterator.IMAGE] = image_tensor
 
         return element

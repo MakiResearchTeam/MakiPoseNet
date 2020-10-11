@@ -19,6 +19,8 @@ class Tester(ABC):
     LIMIT_ANNOT = 'limit_annot'
     N_THREADE = 'n_threade'
     TYPE_PARALL = 'type_parall'
+    NORMALIZATION_SHIFT = 'normalization_shift'
+    NORMALIZATION_DIV = 'normalization_div'
 
     NAME_RELAYOUR_ANNOT_JSON = "relayour_annot.json"
     NAME_PREDICTED_ANNOT_JSON = 'predicted_annot.json'
@@ -39,6 +41,14 @@ class Tester(ABC):
         self._limit_annots = self._config[self.LIMIT_ANNOT]
         self._n_threade = self._config[self.N_THREADE]
         self._type_parall = self._config[self.TYPE_PARALL]
+
+        self._norm_div = self._config[self.NORMALIZATION_DIV]
+        if self._norm_div is None:
+            self._norm_div = 1.0
+
+        self._norm_shift = self._config[self.NORMALIZATION_SHIFT]
+        if self._norm_shift is None:
+            self._norm_shift = 0.0
 
         relayout_keypoints(
             img_size[1], img_size[0],
