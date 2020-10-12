@@ -15,7 +15,7 @@ from .utils import KEYPOINTS
 
 class MYeval_wholebody:
 
-    def __init__(self, cocoGt=None, cocoDt=None):
+    def __init__(self, cocoGt=None, cocoDt=None, slice_certain_kp=None):
         """
         Initialize CocoEval using coco APIs for gt and dt
 
@@ -29,6 +29,11 @@ class MYeval_wholebody:
         """
         self.cocoGt = cocoGt                            # ground truth COCO API
         self.cocoDt = cocoDt                            # detections COCO API
+
+        if slice_certain_kp is None:                    # Variable to grab certain kp
+            self.slice_certain_kp = None
+        else:
+            self.slice_certain_kp = np.array(slice_certain_kp)
 
         self.params = {}                                # evaluation parameters
 
@@ -66,9 +71,11 @@ class MYeval_wholebody:
 
         # Ignore images where no keypoints or alot people on single image, i. e. set ignore flag
         for gt in gts:
-            whole_body_gt = gt[KEYPOINTS]
+            g = np.array(gt[KEYPOINTS])
 
-            g = np.array(whole_body_gt)
+            if self.slice_certain_kp is not None:
+                g = g.reshape(-1, 3)[self.slice_certain_kp].reshape(-1)
+
             vg = g[2::3]
             k1 = np.count_nonzero(vg > 0)
 
@@ -136,14 +143,19 @@ class MYeval_wholebody:
         ious = np.zeros((len(dts), len(gts)))
 
         sigmas = np.array(MAKI_SKELET_K)
+        if self.slice_certain_kp is not None:
+            sigmas = sigmas[self.slice_certain_kp]
+
         vars = (sigmas * 2) ** 2
         k = len(sigmas)
 
         # compute oks between each detection and ground truth object
         for j, gt in enumerate(gts):
             # create bounds for ignore regions(double the gt bbox)
-            whole_body_gt = gt[KEYPOINTS]
-            g = np.array(whole_body_gt)
+            g = np.array(gt[KEYPOINTS])
+
+            if self.slice_certain_kp is not None:
+                g =  g.reshape(-1, 3)[self.slice_certain_kp].reshape(-1)
 
             xg = g[0::3]
             yg = g[1::3]
@@ -159,8 +171,10 @@ class MYeval_wholebody:
             y1 = bb[1] + bb[3] * 2
 
             for i, dt in enumerate(dts):
-                whole_body_dt = dt[KEYPOINTS]
-                d = np.array(whole_body_dt)
+                d = np.array(dt[KEYPOINTS])
+
+                if self.slice_certain_kp is not None:
+                    d = d.reshape(-1, 3)[self.slice_certain_kp].reshape(-1)
 
                 xd = d[0::3]
                 yd = d[1::3]

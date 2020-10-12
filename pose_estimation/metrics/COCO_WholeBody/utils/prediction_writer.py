@@ -99,7 +99,7 @@ def create_prediction_coco_json(
         If equal True, will be returned number of prediction
     n_threade : int
         Number of threades to process image (resize, normalize and etc...),
-        By default equal to 4, if value equal to None
+        By default parallel calculation not used, i.e. value equal to None
     type_parall : str
         Type of the parallel calculation for loading and preprocessing images,
         Can be `thread` or `process` values.
@@ -110,9 +110,6 @@ def create_prediction_coco_json(
     int
         Number of predictions, if `return_number_of_predictions` equal True
     """
-
-    if n_threade is None:
-        n_threade = DEFAULT_NUM_THREADES
 
     # Methods to process image with multiprocessing
 
@@ -145,14 +142,20 @@ def create_prediction_coco_json(
 
         # Process batch of the images
         if batch_size == len(imgs_path_list):
-            norm_img_list = start_process(
-                imgs_path_list,
-                W=W, H=H,
-                n_threade=n_threade,
-                type_parall=type_parall
-            )
+            if type_parall is not None:
+                norm_img_list = start_process(
+                    imgs_path_list,
+                    W=W, H=H,
+                    n_threade=n_threade,
+                    type_parall=type_parall
+                )
+            else:
+                norm_img_list = [
+                    process_image((W, H, imgs_path_list[index]))
+                    for index in range(len(imgs_path_list))
+                ]
 
-            humans_predicted_list = model.predict(norm_img_list, resize_to=[W, H])
+            humans_predicted_list = model.predict(norm_img_list, resize_to=[H, W])
 
             for (single_humans_predicted_list, single_image_ids) in zip(humans_predicted_list, image_ids_list):
                 for single_prediction in single_humans_predicted_list:

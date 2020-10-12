@@ -86,16 +86,36 @@ class MSETrainer:
         self._heatmap_scale = heatmap_scale
 
     def _build_loss(self):
-        self._paf_loss = 0.0
+        paf_losses = []
+        heatmap_losses = []
+        bs = self._model.get_batch_size()
+
         for paf in self._paf_tensors:
-            self._paf_loss += Loss.mse_loss(self._training_paf, paf)
+            paf_losses.append(tf.nn.l2_loss(paf - self._training_paf))
 
-        self._heatmap_loss = 0.0
         for heatmap in self._heatmap_tensors:
-            self._heatmap_loss += Loss.mse_loss(self._training_heatmap, heatmap)
+            heatmap_losses.append(tf.nn.l2_loss(heatmap - self._training_heatmap))
 
-        loss = self._paf_scale * self._paf_loss + \
-               self._heatmap_scale * self._heatmap_loss
+        losses = []
+        for (paf, heatmap) in zip(paf_losses, heatmap_losses):
+            losses.append(tf.reduce_mean([paf, heatmap]))
+
+        loss = tf.reduce_sum(losses) / bs
+
+        self._paf_loss = paf_losses[-1]
+        self._heatmap_loss = heatmap_losses[-1]
+
+
+        #self._paf_loss = 0.0
+        #for paf in self._paf_tensors:
+        #    self._paf_loss += Loss.mse_loss(self._training_paf, paf)
+
+        #self._heatmap_loss = 0.0
+        #for heatmap in self._heatmap_tensors:
+        #    self._heatmap_loss += Loss.mse_loss(self._training_heatmap, heatmap)
+
+        #loss = self._paf_scale * self._paf_loss + \
+        #       self._heatmap_scale * self._heatmap_loss
         self._total_loss = self._model.build_final_loss(loss)
 
         # For Tensorboard
