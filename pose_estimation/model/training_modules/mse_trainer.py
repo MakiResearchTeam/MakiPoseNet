@@ -68,8 +68,7 @@ class MSETrainer:
         for layer_name in self._model_layers:
             self._layer_weights[layer_name] = self._model_layers[layer_name].get_params()
 
-        self._layers_weights_histograms = []
-        self._layers_grads_histograms = []
+        self._layers_histograms = []
 
     def add_summary(self, summary):
         self._tb_summaries.append(summary)
@@ -84,13 +83,9 @@ class MSETrainer:
         """
         self._tb_writer = writer
 
-    def add_layers_weights_histograms(self, layer_names):
+    def add_layers_histograms(self, layer_names):
         # noinspection PyAttributeOutsideInit
-        self._layers_weights_histograms = layer_names
-
-    def add_layers_grads_histograms(self, layer_names):
-        # noinspection PyAttributeOutsideInit
-        self._layers_grads_histograms = layer_names
+        self._layers_histograms = layer_names
 
     def close_tensorboard(self):
         """
@@ -193,16 +188,15 @@ class MSETrainer:
         assert len(self._tb_summaries) != 0, 'No summaries found.'
         print('Collecting histogram tensors...')
 
-        # Collect all weights histograms
-        for layer_name in self._layers_weights_histograms:
-            with tf.name_scope(f'weight/{layer_name}'):
-                for weight in self._layer_weights[layer_name]:
+        # Collect all layers histograms
+        for layer_name in self._layers_histograms:
+            for weight in self._layer_weights[layer_name]:
+                # Add weights histograms
+                with tf.name_scope(f'{layer_name}/weight'):
                     self.add_summary(tf.summary.histogram(name=weight.name, values=weight))
 
-        # Collect all grads histograms
-        for layer_name in self._layers_weights_histograms:
-            with tf.name_scope(f'grad/{layer_name}'):
-                for weight in self._layer_weights[layer_name]:
+                # Add grads histograms
+                with tf.name_scope(f'{layer_name}/weight'):
                     grad = self._var2grad.get(weight)
                     if grad is None:
                         print(f'Did not find gradient for layer={layer_name}, var={weight.name}')

@@ -32,8 +32,7 @@ class PEGym:
     SIZE_IMG = "im_hw"
 
     TB_CONFIG = 'tb_config'
-    GRAD_HIST = 'grad_hist_layers'
-    WEIGHT_HIST = 'weight_hist_layers'
+    LAYER_HISTS = 'layer_histograms'
 
     def __init__(self, config_path, gen_layer_fabric, sess):
         """
@@ -93,15 +92,10 @@ class PEGym:
             print('No config for tensorboard. Skipping the step.')
             return
 
-        layer_names = tb_config.get(PEGym.GRAD_HIST)
+        layer_names = tb_config.get(PEGym.LAYER_HISTS)
         if layer_names is None:
             layer_names = []
-        self._trainer.add_layers_grads_histograms(layer_names)
-
-        layer_names = tb_config.get(PEGym.WEIGHT_HIST)
-        if layer_names is None:
-            layer_names = []
-        self._trainer.add_layers_weights_histograms(layer_names)
+        self._trainer.add_layers_histograms(layer_names)
 
     def get_tb_path(self):
         return self._tb_path
