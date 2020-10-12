@@ -173,12 +173,16 @@ class MSETrainer:
 
         if self._gradients is None:
             training_vars = self._model.get_training_vars()
-            self._gradients = optimizer.compute_gradients(self._total_loss, training_vars)
+            # Returns list of tuples: [ (grad, var) ]
+            grads = optimizer.compute_gradients(self._total_loss, training_vars)
+            # Convert to a list of pure gradient tensors since this is what the `minimize` method
+            # requires for the `grad_loss` argument.
+            self._gradients = [grad for grad, var in grads]
             # Collect mapping from the variable to its grad for tensorboard
             self._var2grad = dict(zip(training_vars, self._gradients))
 
         self._train_op = optimizer.minimize(
-            self._total_loss, var_list=self._model.get_training_vars(),
+            loss=self._total_loss, var_list=self._model.get_training_vars(),
             global_step=global_step, grad_loss=self._gradients
         )
 
