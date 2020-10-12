@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from ..utils.preprocess import preprocess_input
 from pose_estimation.metrics.COCO_WholeBody import (MYeval_wholebody,
                                                     create_prediction_coco_json)
 from ..utils.visualize_tools import visualize_paf
@@ -52,7 +53,7 @@ class CocoTester(Tester):
     _CENTRAL_SIZE = 600
     _ZERO_VALUE = 0.0
 
-    def _init(self, config, normalization_method=None):
+    def _init(self, config):
 
         if type(self._config[CocoTester.TEST_IMAGE]) is not list:
             test_images_path = [self._config[CocoTester.TEST_IMAGE]]
@@ -72,8 +73,13 @@ class CocoTester(Tester):
             test_image = cv2.cvtColor(test_image, cv2.COLOR_BGR2RGB)
             im_shape = test_image.shape
 
-            if normalization_method is not None:
-                self._norm_images.append(normalization_method(test_image).reshape(1, *im_shape).astype(np.float32))
+            if self._norm_mode is not None:
+                self._norm_images.append(
+                    preprocess_input(
+                        test_image,
+                        mode=self._norm_mode
+                    ).reshape(1, *im_shape).astype(np.float32)
+                )
             else:
                 self._norm_images.append(
                     (test_image.reshape(1, *im_shape) / self._norm_div - self._norm_shift).astype(np.float32)
@@ -137,7 +143,10 @@ class CocoTester(Tester):
             self._path_to_val_images,
             return_number_of_predictions=True,
             n_threade=self._n_threade,
-            type_parall=self._type_parall
+            type_parall=self._type_parall,
+            mode=self._norm_mode,
+            divider=self._norm_div,
+            shift=self._norm_shift
         )
         # Process evaluation only if number of detection bigger that 0
         if num_detections > 0:

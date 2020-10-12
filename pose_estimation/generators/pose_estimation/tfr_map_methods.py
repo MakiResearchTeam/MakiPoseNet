@@ -1,6 +1,7 @@
 from makiflow.generators.pipeline.tfr.tfr_map_method import TFRMapMethod, TFRPostMapMethod
 from .data_preparation import IMAGE_FNAME, KEYPOINTS_FNAME, KEYPOINTS_MASK_FNAME, IMAGE_PROPERTIES_FNAME
 from .utils import check_bounds, apply_transformation, apply_transformation_batched
+from ...utils.preprocess import preprocess_input
 
 import tensorflow as tf
 import numpy as np
@@ -313,13 +314,26 @@ class AugmentationPostMethod(TFRPostMapMethod):
 class NormalizePostMethod(TFRPostMapMethod):
 
     def __init__(self,
-                 divider=127.5,
-                 shift=127.5,
+                 mode='tf',
+                 divider=None,
+                 shift=None,
                  use_float64=True):
         """
         Normalizes the tensor by dividing it by the `divider`.
         Parameters
         ----------
+        mode: One of "caffe", "tf" or "torch".
+            - caffe: will convert the images from RGB to BGR,
+                  then will zero-center each color channel with
+                  respect to the ImageNet dataset,
+                  without scaling.
+            - tf: will scale pixels between -1 and 1,
+                  sample-wise.
+            - torch: will scale pixels between 0 and 1 and then
+                  will normalize each channel with respect to the
+                  ImageNet dataset.
+            If equal to None, will be used `divider` and `shift` variables
+
         divider : float or int
             The number to divide the tensor by,
             Can be equal to None, i.e. will be not used,
@@ -336,19 +350,21 @@ class NormalizePostMethod(TFRPostMapMethod):
         """
         super().__init__()
         self.use_float64 = use_float64
+        self.mode = mode
 
-        if divider is None:
-            divider = 1.0
+        if mode is None:
+            if divider is None:
+                divider = 1.0
 
-        if shift is None:
-            shift = 0.0
+            if shift is None:
+                shift = 0.0
 
-        if use_float64:
-            self.divider = tf.constant(divider, dtype=tf.float64)
-            self.shift = tf.constant(shift, dtype=tf.float64)
-        else:
-            self.divider = tf.constant(divider, dtype=tf.float32)
-            self.shift = tf.constant(shift, dtype=tf.float32)
+            if use_float64:
+                self.divider = tf.constant(divider, dtype=tf.float64)
+                self.shift = tf.constant(shift, dtype=tf.float64)
+            else:
+                self.divider = tf.constant(divider, dtype=tf.float32)
+                self.shift = tf.constant(shift, dtype=tf.float32)
 
     def read_record(self, serialized_example) -> dict:
         if self._parent_method is not None:
@@ -357,43 +373,43 @@ class NormalizePostMethod(TFRPostMapMethod):
             element = serialized_example
 
         image_tensor = element[RIterator.IMAGE]
-        if self.use_float64:
-            image_tensor = tf.cast(image_tensor, dtype=tf.float64)
-            image_tensor = image_tensor / self.divider - self.shift
-            image_tensor = tf.cast(image_tensor, dtype=tf.float32)
+        if self.mode is None:
+            if self.use_float64:
+                image_tensor = tf.cast(image_tensor, dtype=tf.float64)
+                image_tensor = image_tensor / self.divider - self.shift
+                image_tensor = tf.cast(image_tensor, dtype=tf.float32)
+            else:
+                image_tensor = image_tensor / self.divider - self.shift
         else:
-            image_tensor = image_tensor / self.divider - self.shift
+            if self.use_float64:
+                image_tensor = tf.cast(image_tensor, dtype=tf.float64)
+                image_tensor = preprocess_input(image_tensor, mode=self.mode)
+                image_tensor = tf.cast(image_tensor, dtype=tf.float32)
+            else:
+                image_tensor = preprocess_input(image_tensor, mode=self.mode)
         element[RIterator.IMAGE] = image_tensor
 
         return element
 
 
 class RGB2BGRPostMethod(TFRPostMapMethod):
-    RGB2BGR_KEYPOINTS = 'RGB2BGR_tensor'
     RGB2BGR_IMAGE = 'BGR2RGB_input'
 
-    def __init__(self, using_for_image_tensor=False):
+    def __init__(self):
         """
         Used for swapping color channels in tensors from RGB to BGR format.
-        Parameters
-        ----------
-        using_for_image_tensor : bool
-            If true, swapping color channels will be used on input tensors.
+
         """
-        self.using_for_image_tensor = using_for_image_tensor
         super().__init__()
 
     def read_record(self, serialized_example) -> dict:
-        element = self._parent_method.read_record(serialized_example)
-        # for tensor
-        target = element[RIterator.KEYPOINTS]
+        if self._parent_method is not None:
+            element = self._parent_method.read_record(serialized_example)
+        else:
+            element = serialized_example
+        image = element[RIterator.IMAGE]
         # Swap channels
-        element[RIterator.KEYPOINTS] = tf.reverse(target, axis=[-1], name=RGB2BGRPostMethod.RGB2BGR_KEYPOINTS)
-        # for generator
-        if self.using_for_image_tensor:
-            image_tensor = element[RIterator.IMAGE]
-            # Swap channels
-            element[RIterator.IMAGE] = tf.reverse(image_tensor, axis=[-1], name=RGB2BGRPostMethod.RGB2BGR_IMAGE)
+        element[RIterator.IMAGE] = tf.reverse(image, axis=[-1], name=RGB2BGRPostMethod.RGB2BGR_IMAGE)
         return element
 
 

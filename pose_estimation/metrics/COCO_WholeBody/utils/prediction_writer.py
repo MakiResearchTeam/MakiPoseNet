@@ -1,5 +1,5 @@
 from pose_estimation.model.pe_model import PEModel
-
+from pose_estimation.utils.preprocess import preprocess_input, TF
 from tqdm import tqdm
 import numpy as np
 from pycocotools.coco import COCO
@@ -38,16 +38,27 @@ TYPE_PROCESS = 'process'
 
 # Methods to process image with multiprocessing
 def process_image(data):
-    W, H, image_paths = data
+    W, H, image_paths, mode, div, shift = data
     image = cv2.imread(image_paths)
     image = cv2.resize(image, (H, W))
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
-    image -= np.float32(127.5)
-    image /= np.float32(127.5)
-    return image
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    if mode is not None:
+        image = preprocess_input(image, mode=mode)
+    else:
+        image /= div
+        image -= shift
+    return image.astype(np.float32, copy=False)
 
 
-def start_process(image_paths: list, W: int, H: int, n_threade: int, type_parall: str):
+def start_process(
+        image_paths: list,
+        W: int, H: int,
+        n_threade: int,
+        type_parall: str,
+        mode: str,
+        divider : float,
+        shift : float
+    ):
     if type_parall == TYPE_THREAD:
         pool = dummy.Pool(processes=n_threade)
     elif type_parall == TYPE_PROCESS:
@@ -55,7 +66,12 @@ def start_process(image_paths: list, W: int, H: int, n_threade: int, type_parall
     else:
         raise TypeError(f'type {type_parall} is non known type for processing image in prediction writer!')
 
-    res = pool.map(process_image, [(W, H, image_paths[index]) for index in range(len(image_paths))])
+    res = pool.map(
+        process_image,
+        [(W, H, image_paths[index], mode, divider, shift)
+         for index in range(len(image_paths))
+         ]
+    )
 
     pool.close()
     pool.join()
@@ -72,7 +88,10 @@ def create_prediction_coco_json(
         path_to_images: str,
         return_number_of_predictions=False,
         n_threade=None,
-        type_parall=TYPE_THREAD
+        type_parall=TYPE_THREAD,
+        mode=TF,
+        divider=None,
+        shift=None
     ):
     """
     Create prediction JSON for evaluation on COCO dataset
@@ -104,6 +123,27 @@ def create_prediction_coco_json(
         Type of the parallel calculation for loading and preprocessing images,
         Can be `thread` or `process` values.
         By default equal to `thread`
+    mode: One of "caffe", "tf" or "torch".
+        - caffe: will convert the images from RGB to BGR,
+          then will zero-center each color channel with
+          respect to the ImageNet dataset,
+          without scaling.
+        - tf: will scale pixels between -1 and 1,
+          sample-wise.
+        - torch: will scale pixels between 0 and 1 and then
+          will normalize each channel with respect to the
+          ImageNet dataset.
+        But for control normalization, set this value to None and use `divider` and `shift`
+    divider : float
+        Value to divide image,
+        By default equal to None, i.e. will be not used.
+        NOTICE! `mode` parameter has bigger priority than this value,
+                i.e. while mode does not equal to None, this value never be used.
+    shift : float
+        Value to shift image (minus is taken into account),
+        By default equal to None, i.e. will be not used.
+        NOTICE! `mode` parameter has bigger priority than this value,
+                i.e. while mode does not equal to None, this value never be used.
 
     Return
     ------
@@ -147,7 +187,10 @@ def create_prediction_coco_json(
                     imgs_path_list,
                     W=W, H=H,
                     n_threade=n_threade,
-                    type_parall=type_parall
+                    type_parall=type_parall,
+                    mode=mode,
+                    shift=shift,
+                    divider=divider
                 )
             else:
                 norm_img_list = [
@@ -185,7 +228,10 @@ def create_prediction_coco_json(
             imgs_path_list,
             W=W, H=H,
             n_threade=n_threade,
-            type_parall=type_parall
+            type_parall=type_parall,
+            mode=mode,
+            shift=shift,
+            divider=divider
         )
 
         humans_predicted_list = model.predict(norm_img_list, resize_to=[W, H])[:uniq_images]

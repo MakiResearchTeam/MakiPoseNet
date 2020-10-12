@@ -21,12 +21,13 @@ class Tester(ABC):
     TYPE_PARALL = 'type_parall'
     NORMALIZATION_SHIFT = 'normalization_shift'
     NORMALIZATION_DIV = 'normalization_div'
+    NORM_MODE = 'norm_mode'
 
     NAME_RELAYOUR_ANNOT_JSON = "relayour_annot.json"
     NAME_PREDICTED_ANNOT_JSON = 'predicted_annot.json'
     AP_AR_DATA_TXT = 'ap_ar_data.txt'
 
-    def __init__(self, config: dict, sess, path_to_save_logs:str, img_size: tuple, normalization_method=None):
+    def __init__(self, config: dict, sess, path_to_save_logs:str, img_size: tuple):
         self._config = config[Tester.TEST_CONFIG]
 
         self._path_to_save_logs = os.path.join(path_to_save_logs, self.LOG_FOLDER)
@@ -50,6 +51,8 @@ class Tester(ABC):
         if self._norm_shift is None:
             self._norm_shift = 0.0
 
+        self._norm_mode = self._config[self.NORM_MODE]
+
         relayout_keypoints(
             img_size[1], img_size[0],
             self._config[self.ANNOT_GT_JSON], self._path_to_relayout_annot,
@@ -67,7 +70,7 @@ class Tester(ABC):
         # Placeholder that take in the data for the summary
         self._summary_inputs = {}
 
-        self._init(self._config, normalization_method=normalization_method)
+        self._init(self._config)
 
     def _init(self, config, normalization_method=None):
         pass
