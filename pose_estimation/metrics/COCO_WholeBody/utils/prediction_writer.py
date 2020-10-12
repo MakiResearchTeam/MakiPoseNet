@@ -38,15 +38,19 @@ TYPE_PROCESS = 'process'
 
 # Methods to process image with multiprocessing
 def process_image(data):
-    W, H, image_paths, mode, div, shift = data
+    W, H, image_paths, mode, div, shift, use_bgr2rgb = data
     image = cv2.imread(image_paths)
     image = cv2.resize(image, (H, W))
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    if use_bgr2rgb:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
     if mode is not None:
         image = preprocess_input(image, mode=mode)
     else:
         image /= div
         image -= shift
+
     return image.astype(np.float32, copy=False)
 
 
@@ -57,7 +61,8 @@ def start_process(
         type_parall: str,
         mode: str,
         divider : float,
-        shift : float
+        shift : float,
+        use_bgr2rgb: bool
     ):
     if type_parall == TYPE_THREAD:
         pool = dummy.Pool(processes=n_threade)
@@ -68,7 +73,7 @@ def start_process(
 
     res = pool.map(
         process_image,
-        [(W, H, image_paths[index], mode, divider, shift)
+        [(W, H, image_paths[index], mode, divider, shift, use_bgr2rgb)
          for index in range(len(image_paths))
          ]
     )
@@ -91,7 +96,8 @@ def create_prediction_coco_json(
         type_parall=TYPE_THREAD,
         mode=TF,
         divider=None,
-        shift=None
+        shift=None,
+        use_bgr2rgb=False
     ):
     """
     Create prediction JSON for evaluation on COCO dataset
@@ -144,6 +150,9 @@ def create_prediction_coco_json(
         By default equal to None, i.e. will be not used.
         NOTICE! `mode` parameter has bigger priority than this value,
                 i.e. while mode does not equal to None, this value never be used.
+    use_bgr2rgb : bool
+        If equal to true, loaded images will be converted into rgb,
+        otherwise they will be in bgr format
 
     Return
     ------
@@ -190,7 +199,8 @@ def create_prediction_coco_json(
                     type_parall=type_parall,
                     mode=mode,
                     shift=shift,
-                    divider=divider
+                    divider=divider,
+                    use_bgr2rgb=use_bgr2rgb
                 )
             else:
                 norm_img_list = [
@@ -231,7 +241,8 @@ def create_prediction_coco_json(
             type_parall=type_parall,
             mode=mode,
             shift=shift,
-            divider=divider
+            divider=divider,
+            use_bgr2rgb=use_bgr2rgb
         )
 
         humans_predicted_list = model.predict(norm_img_list, resize_to=[W, H])[:uniq_images]

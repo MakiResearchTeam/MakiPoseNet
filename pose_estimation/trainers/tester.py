@@ -22,6 +22,7 @@ class Tester(ABC):
     NORMALIZATION_SHIFT = 'normalization_shift'
     NORMALIZATION_DIV = 'normalization_div'
     NORM_MODE = 'norm_mode'
+    USE_BGR2RGB = 'use_bgr2rgb'
 
     NAME_RELAYOUR_ANNOT_JSON = "relayour_annot.json"
     NAME_PREDICTED_ANNOT_JSON = 'predicted_annot.json'
@@ -52,6 +53,7 @@ class Tester(ABC):
             self._norm_shift = 0.0
 
         self._norm_mode = self._config[self.NORM_MODE]
+        self._use_bgr2rgb = self._config[self.USE_BGR2RGB]
 
         relayout_keypoints(
             img_size[1], img_size[0],

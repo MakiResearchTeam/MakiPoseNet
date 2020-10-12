@@ -70,7 +70,8 @@ class CocoTester(Tester):
                 raise TypeError(CocoTester._EXCEPTION_IMAGE_WAS_NOT_FOUND.format(self._config[CocoTester.TEST_IMAGE]))
 
             test_image = cv2.resize(test_image, (self.W, self.H))
-            test_image = cv2.cvtColor(test_image, cv2.COLOR_BGR2RGB)
+            if self._use_bgr2rgb:
+                test_image = cv2.cvtColor(test_image, cv2.COLOR_BGR2RGB)
             im_shape = test_image.shape
 
             if self._norm_mode is not None:
@@ -88,7 +89,7 @@ class CocoTester(Tester):
             # The image has to have batch dimension
             self._test_images.append(test_image.reshape(1, *im_shape).astype(np.uint8))
             self._names.append(CocoTester.TEST_N.format(i))
-            self.add_image(self._names[-1], n_images=7)
+            self.add_image(self._names[-1], n_images=len(CocoTester.DRAW_LIST) + 2)
 
         self.add_scalar(CocoTester.ITERATION_COUNTER)
         self.add_scalar(CocoTester.AP_IOU_050)
@@ -146,7 +147,8 @@ class CocoTester(Tester):
             type_parall=self._type_parall,
             mode=self._norm_mode,
             divider=self._norm_div,
-            shift=self._norm_shift
+            shift=self._norm_shift,
+            use_bgr2rgb=self._use_bgr2rgb
         )
         # Process evaluation only if number of detection bigger that 0
         if num_detections > 0:
