@@ -44,7 +44,7 @@ class MSETrainer:
         self._training_heatmap = training_heatmap.get_data_tensor()
         self._paf_scale = 1.0
         self._heatmap_scale = 1.0
-        self._gradients = None
+
         self._loss_is_built = False
         self._optimizer = None
         self._sess = model.get_session()
@@ -58,6 +58,9 @@ class MSETrainer:
         # Counter for total number of training iterations.
         self._tb_counter = 0
         self._tb_summaries = []
+
+        self._grads_and_vars = None
+        self._gradients = None
 
         self._model_layers = self._model.get_layers()
         # Required for plotting histograms
@@ -171,19 +174,16 @@ class MSETrainer:
     def _create_train_op(self, optimizer, global_step):
         self._optimizer = optimizer
 
-        if self._gradients is None:
+        if self._grads_and_vars is None:
             training_vars = self._model.get_training_vars()
             # Returns list of tuples: [ (grad, var) ]
-            grads = optimizer.compute_gradients(self._total_loss, training_vars)
-            # Convert to a list of pure gradient tensors since this is what the `minimize` method
-            # requires for the `grad_loss` argument.
-            self._gradients = [grad for grad, var in grads]
+            self._grads_and_vars = optimizer.compute_gradients(self._total_loss, training_vars)
+            vars_and_grads = [(var, grad) for grad, var in self._grads_and_vars]
             # Collect mapping from the variable to its grad for tensorboard
-            self._var2grad = dict(zip(training_vars, self._gradients))
+            self._var2grad = dict(vars_and_grads)
 
-        self._train_op = optimizer.minimize(
-            loss=self._total_loss, var_list=self._model.get_training_vars(),
-            global_step=global_step, grad_loss=self._gradients
+        self._train_op = optimizer.apply_gradients(
+            grads_and_vars=self._grads_and_vars, global_step=global_step
         )
 
         self._sess.run(tf.variables_initializer(optimizer.variables()))
