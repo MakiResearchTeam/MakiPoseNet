@@ -55,7 +55,7 @@ class PEGym:
         self._gen_layer_fabric = gen_layer_fabric
         self._sess = sess
         self._setup_gym(config)
-        self._setup_tensorboard()
+        self._setup_tensorboard(config)
 
     def _setup_gym(self, config):
         self._create_gym_folder()
