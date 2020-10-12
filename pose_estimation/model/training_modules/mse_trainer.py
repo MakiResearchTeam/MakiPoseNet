@@ -88,7 +88,6 @@ class MSETrainer:
     def _build_loss(self):
         paf_losses = []
         heatmap_losses = []
-        bs = self._model.get_batch_size()
 
         for paf in self._paf_tensors:
             paf_losses.append(
@@ -106,10 +105,10 @@ class MSETrainer:
         losses = sum_heatmaps * self._heatmap_scale + \
                  sum_pafs * self._paf_scale
 
-        loss = losses / bs
+        loss = losses
 
-        self._paf_loss = sum_pafs / bs
-        self._heatmap_loss = sum_heatmaps / bs
+        self._paf_loss = sum_pafs
+        self._heatmap_loss = sum_heatmaps
 
 
         #self._paf_loss = 0.0
@@ -182,9 +181,10 @@ class MSETrainer:
         
         for i in range(epochs):
             it = tqdm(range(iter))
-            total_loss = 0
-            paf_loss = 0
-            heatmap_loss = 0
+            total_loss = 0.0
+            paf_loss = 0.0
+            heatmap_loss = 0.0
+
             for j in it:
                 b_total_loss, b_paf_loss, b_heatmap_loss, summary, _ = self._sess.run(
                     [self._total_loss, self._paf_loss, self._heatmap_loss, self._summary, train_op]
