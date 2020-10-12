@@ -61,7 +61,7 @@ def start_process(
         type_parall: str,
         mode: str,
         divider : float,
-        shift : float,
+        shift: float,
         use_bgr2rgb: bool
     ):
     if type_parall == TYPE_THREAD:
@@ -73,9 +73,10 @@ def start_process(
 
     res = pool.map(
         process_image,
-        [(W, H, image_paths[index], mode, divider, shift, use_bgr2rgb)
-         for index in range(len(image_paths))
-         ]
+        [
+            (W, H, image_paths[index], mode, divider, shift, use_bgr2rgb)
+            for index in range(len(image_paths))
+        ]
     )
 
     pool.close()
@@ -204,7 +205,16 @@ def create_prediction_coco_json(
                 )
             else:
                 norm_img_list = [
-                    process_image((W, H, imgs_path_list[index]))
+                    process_image(
+                        (
+                            W, H,
+                            imgs_path_list[index],
+                            mode,
+                            shift,
+                            divider,
+                            use_bgr2rgb
+                        )
+                    )
                     for index in range(len(imgs_path_list))
                 ]
 
@@ -234,16 +244,31 @@ def create_prediction_coco_json(
         remain_images = batch_size - uniq_images
         imgs_path_list += [imgs_path_list[-1]] * remain_images
 
-        norm_img_list = start_process(
-            imgs_path_list,
-            W=W, H=H,
-            n_threade=n_threade,
-            type_parall=type_parall,
-            mode=mode,
-            shift=shift,
-            divider=divider,
-            use_bgr2rgb=use_bgr2rgb
-        )
+        if type_parall is not None:
+            norm_img_list = start_process(
+                imgs_path_list,
+                W=W, H=H,
+                n_threade=n_threade,
+                type_parall=type_parall,
+                mode=mode,
+                shift=shift,
+                divider=divider,
+                use_bgr2rgb=use_bgr2rgb
+            )
+        else:
+            norm_img_list = [
+                process_image(
+                    (
+                        W, H,
+                        imgs_path_list[index],
+                        mode,
+                        shift,
+                        divider,
+                        use_bgr2rgb
+                    )
+                )
+                for index in range(len(imgs_path_list))
+            ]
 
         humans_predicted_list = model.predict(norm_img_list, resize_to=[W, H])[:uniq_images]
 
