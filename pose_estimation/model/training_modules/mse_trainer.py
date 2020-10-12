@@ -191,18 +191,18 @@ class MSETrainer:
 
     def _setup_tensorboard(self):
         assert len(self._tb_summaries) != 0, 'No summaries found.'
-        self._total_summary = tf.summary.merge(self._tb_summaries)
+        print('Collecting histogram tensors...')
 
         # Collect all weights histograms
         for layer_name in self._layers_weights_histograms:
             with tf.name_scope(f'weight/{layer_name}'):
-                for weight in self._model.get_layer(layer_name):
+                for weight in self._layer_weights:
                     self.add_summary(tf.summary.histogram(name=weight.name, values=weight))
 
         # Collect all grads histograms
         for layer_name in self._layers_weights_histograms:
             with tf.name_scope(f'grad/{layer_name}'):
-                for weight in self._model.get_layer(layer_name):
+                for weight in self._layer_weights:
                     grad = self._var2grad.get(weight)
                     if grad is None:
                         print(f'Did not find gradient for layer={layer_name}, var={weight.name}')
