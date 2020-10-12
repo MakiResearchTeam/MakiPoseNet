@@ -207,7 +207,7 @@ class MSETrainer:
                     if grad is None:
                         print(f'Did not find gradient for layer={layer_name}, var={weight.name}')
                         continue
-                    self.add_summary(tf.summary.histogram(name=weight.name, values=weight))
+                    self.add_summary(tf.summary.histogram(name=weight.name, values=grad))
 
         self._total_summary = tf.summary.merge(self._tb_summaries)
         self._tb_is_setup = True
