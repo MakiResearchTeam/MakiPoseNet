@@ -196,13 +196,13 @@ class MSETrainer:
         # Collect all weights histograms
         for layer_name in self._layers_weights_histograms:
             with tf.name_scope(f'weight/{layer_name}'):
-                for weight in self._layer_weights:
+                for weight in self._layer_weights[layer_name]:
                     self.add_summary(tf.summary.histogram(name=weight.name, values=weight))
 
         # Collect all grads histograms
         for layer_name in self._layers_weights_histograms:
             with tf.name_scope(f'grad/{layer_name}'):
-                for weight in self._layer_weights:
+                for weight in self._layer_weights[layer_name]:
                     grad = self._var2grad.get(weight)
                     if grad is None:
                         print(f'Did not find gradient for layer={layer_name}, var={weight.name}')
