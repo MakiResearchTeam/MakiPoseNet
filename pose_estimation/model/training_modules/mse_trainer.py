@@ -249,7 +249,7 @@ class MSETrainer:
             heatmap_loss = 0
             for j in it:
                 b_total_loss, b_paf_loss, b_heatmap_loss, summary, _ = self._sess.run(
-                    [self._total_loss, self._paf_loss, self._heatmap_loss, self._summary, train_op]
+                    [self._total_loss, self._paf_loss, self._heatmap_loss, self._total_summary, train_op]
                 )
                 total_loss = moving_average(total_loss, b_total_loss, j)
                 paf_loss = moving_average(paf_loss, b_paf_loss, j)
