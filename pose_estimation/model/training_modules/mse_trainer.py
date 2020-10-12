@@ -173,7 +173,7 @@ class MSETrainer:
 
         if self._gradients is None:
             training_vars = self._model.get_training_vars()
-            self._gradients = optimizer.get_gradients(training_vars)
+            self._gradients = optimizer.compute_gradients(self._total_loss, training_vars)
             # Collect mapping from the variable to its grad for tensorboard
             self._var2grad = dict(zip(training_vars, self._gradients))
 
