@@ -18,6 +18,7 @@ class PEGym:
     - model_config
     - training_config
     - testing_config
+    - tb_config
     """
     TRAIN_CONFIG = 'train_config'
     EPOCHS = 'epochs'
@@ -29,6 +30,9 @@ class PEGym:
     OPTIMIZER_INFO = 'optimizer_info'
     GEN_LAYER_INFO = "genlayer_config"
     SIZE_IMG = "im_hw"
+
+    TB_CONFIG = 'tb_config'
+    LAYER_HISTS = 'layer_histograms'
 
     def __init__(self, config_path, gen_layer_fabric, sess):
         """
@@ -50,6 +54,7 @@ class PEGym:
         self._gen_layer_fabric = gen_layer_fabric
         self._sess = sess
         self._setup_gym(config)
+        self._setup_tensorboard(config)
 
     def _setup_gym(self, config):
         self._create_gym_folder()
@@ -79,6 +84,18 @@ class PEGym:
         # Create model, trainer and set the tensorboard folder
         self._trainer, self._model = ModelAssembler.assemble(config, self._gen_layer_fabric, self._sess)
         self._trainer.set_tensorboard_writer(self._tester.get_writer())
+
+    def _setup_tensorboard(self, config):
+        print('Configuring tensorboard histograms...')
+        tb_config = config.get(PEGym.TB_CONFIG)
+        if tb_config is None:
+            print('No config for tensorboard. Skipping the step.')
+            return
+
+        layer_names = tb_config.get(PEGym.LAYER_HISTS)
+        if layer_names is None:
+            layer_names = []
+        self._trainer.add_layers_histograms(layer_names)
 
     def get_tb_path(self):
         return self._tb_path
