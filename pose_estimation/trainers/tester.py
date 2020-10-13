@@ -54,6 +54,8 @@ class Tester(ABC):
 
         self._norm_mode = self._config[self.NORM_MODE]
         self._use_bgr2rgb = self._config[self.USE_BGR2RGB]
+        self.W = img_size[1]
+        self.H = img_size[0]
 
         annot_gt = self._config[self.ANNOT_GT_JSON]
 
@@ -65,8 +67,6 @@ class Tester(ABC):
             )
 
             # Load ground-truth annot
-            self.W = img_size[1]
-            self.H = img_size[0]
             self.cocoGt = COCO(self._path_to_relayout_annot)
             self._path_to_val_images = self._config[self.PATH_TO_VAL_IMAGES]
         else:
