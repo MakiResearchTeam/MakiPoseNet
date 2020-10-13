@@ -55,17 +55,22 @@ class Tester(ABC):
         self._norm_mode = self._config[self.NORM_MODE]
         self._use_bgr2rgb = self._config[self.USE_BGR2RGB]
 
-        relayout_keypoints(
-            img_size[1], img_size[0],
-            self._config[self.ANNOT_GT_JSON], self._path_to_relayout_annot,
-            self._limit_annots
-        )
+        annot_gt = self._config[self.ANNOT_GT_JSON]
 
-        # Load ground-truth annot
-        self.W = img_size[1]
-        self.H = img_size[0]
-        self.cocoGt = COCO(self._path_to_relayout_annot)
-        self._path_to_val_images = self._config[self.PATH_TO_VAL_IMAGES]
+        if annot_gt is not None:
+            relayout_keypoints(
+                img_size[1], img_size[0],
+                self._config[self.ANNOT_GT_JSON], self._path_to_relayout_annot,
+                self._limit_annots
+            )
+
+            # Load ground-truth annot
+            self.W = img_size[1]
+            self.H = img_size[0]
+            self.cocoGt = COCO(self._path_to_relayout_annot)
+            self._path_to_val_images = self._config[self.PATH_TO_VAL_IMAGES]
+        else:
+            self.cocoGt = None
 
         # The summaries to write
         self._summaries = {}
@@ -74,7 +79,7 @@ class Tester(ABC):
 
         self._init(self._config)
 
-    def _init(self, config, normalization_method=None):
+    def _init(self, config):
         pass
 
     def add_image(self, name, n_images=1):
