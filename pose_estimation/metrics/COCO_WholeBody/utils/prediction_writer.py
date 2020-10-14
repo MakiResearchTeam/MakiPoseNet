@@ -169,8 +169,6 @@ def create_prediction_coco_json(
     img_ids = cocoGt.getImgIds()
 
     iterator = tqdm(range(len(img_ids)))
-    # Counter for generation unique IDs into annotation file
-    counter = 0
     # Store batched images and image ids
     imgs_path_list = []
     image_ids_list = []
@@ -226,12 +224,9 @@ def create_prediction_coco_json(
                         write_to_dict(
                             single_image_ids,
                             single_prediction.score,
-                            single_prediction.to_list(),
-                            counter
+                            single_prediction.to_list()
                         )
                     )
-
-                    counter += 1
             # Clear batched arrays
             imgs_path_list = []
             image_ids_list = []
@@ -278,12 +273,9 @@ def create_prediction_coco_json(
                     write_to_dict(
                         single_image_ids,
                         single_prediction.score,
-                        single_prediction.to_list(),
-                        counter
+                        single_prediction.to_list()
                     )
                 )
-
-                counter += 1
 
     with open(path_to_save, 'w') as fp:
         json.dump(cocoDt_json, fp)
@@ -292,7 +284,7 @@ def create_prediction_coco_json(
         return len(cocoDt_json)
 
 
-def write_to_dict(img_id: int, score: float, maki_keypoints: list, id: int) -> dict:
+def write_to_dict(img_id: int, score: float, maki_keypoints: list) -> dict:
     """
     Write data into dict for saving it later into JSON
 
@@ -301,6 +293,5 @@ def write_to_dict(img_id: int, score: float, maki_keypoints: list, id: int) -> d
         CATEGORY_ID: DEFAULT_CATEGORY_ID,
         IMAGE_ID: img_id,
         SCORE: score,
-        KEYPOINTS: maki_keypoints,
-        ID: id,
+        KEYPOINTS: maki_keypoints
     }
