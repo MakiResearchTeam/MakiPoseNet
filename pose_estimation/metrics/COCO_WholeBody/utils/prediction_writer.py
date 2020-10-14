@@ -47,7 +47,7 @@ def process_image(data):
 
     if mode is not None:
         image = preprocess_input(image, mode=mode)
-    else:
+    elif div is not None and shift is not None:
         image /= div
         image -= shift
 
