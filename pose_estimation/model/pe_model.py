@@ -228,7 +228,7 @@ class PEModel(PoseEstimatorInterface):
             for i in range(len(batched_peaks)):
                 single_peaks = batched_peaks[i].astype(np.float32)
                 single_heatmap = batched_heatmap[i].astype(np.float32)
-                single_paff = batched_paf[i].reshape(W, H, -1).astype(np.float32)
+                single_paff = batched_paf[i].reshape(H, W, -1).astype(np.float32)
 
                 # Estimate
                 humans_list = estimate_paf(single_peaks, single_heatmap, single_paff)
