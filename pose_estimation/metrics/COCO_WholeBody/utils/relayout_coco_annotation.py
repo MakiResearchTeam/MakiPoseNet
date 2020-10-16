@@ -102,16 +102,16 @@ def relayout_keypoints(
             v = np.array(new_keypoints[2::3])
 
             x = np.array(new_keypoints[0::3])
-            x = x[v > EPS]
+            #x = x[v > EPS]
 
             y = np.array(new_keypoints[1::3])
-            y = y[v > EPS]
-
-            if len(y) == 0 or len(x) == 0:
-                new_area = 0
-            else:
-                x0, x1, y0, y1 = np.min(x), np.max(x), np.min(y), np.max(y)
-                new_area = (x1 - x0) * (y1 - y0)
+            #y = y[v > EPS]
+            # TODO: Fix
+            #if len(y) == 0 or len(x) == 0:
+            #    new_area = 0
+            #else:
+            x0, x1, y0, y1 = np.min(x), np.max(x), np.min(y), np.max(y)
+            new_area = (x1 - x0) * (y1 - y0)
         else:
             raise TypeError(f'Unknown mode area type {mode_area_calculation}')
 
