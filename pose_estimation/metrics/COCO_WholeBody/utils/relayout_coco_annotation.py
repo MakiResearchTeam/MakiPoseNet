@@ -24,6 +24,9 @@ HEIGHT = 'height'
 WIDTH = 'width'
 
 
+EPS = 1e-3
+
+
 def relayout_keypoints(
         W: int, H: int,
         ann_file_path: str,
@@ -96,8 +99,14 @@ def relayout_keypoints(
         elif mode_area_calculation == BBOX:
             new_area = float(new_bbox[2] * new_bbox[3])
         elif mode_area_calculation == KEYPOINTS:
-            x = new_keypoints[0::3]
-            y = new_keypoints[1::3]
+            v = np.array(new_keypoints[2::3])
+
+            x = np.array(new_keypoints[0::3])
+            x = x[v > EPS]
+
+            y = np.array(new_keypoints[1::3])
+            y = y[v > EPS]
+
             x0, x1, y0, y1 = np.min(x), np.max(x), np.min(y), np.max(y)
             new_area = (x1 - x0) * (y1 - y0)
         else:
