@@ -209,7 +209,8 @@ class PEModel(PoseEstimatorInterface):
         """
         # Take predictions
         if resize_to is None:
-            resize_to = self.get_main_paf_tensor().shape.as_list()[1:3]
+            # Take `H`, `W` from input image
+            resize_to = x[0].shape[:2]
 
         batched_heatmap, batched_paf, batched_peaks = self._session.run(
             [self._smoother.get_output(), self._resized_paf, self._peaks],
