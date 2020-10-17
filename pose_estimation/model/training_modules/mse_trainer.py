@@ -6,6 +6,9 @@ from makiflow.models.common.utils import new_optimizer_used, loss_is_built
 from tqdm import tqdm
 
 
+EPS = 1e-6
+
+
 class MSETrainer:
     __MSG_LOSS_IS_BUILT = 'The loss tensor is already built. The next call of the fit method ' + \
                           'will rebuild it.'
@@ -44,6 +47,11 @@ class MSETrainer:
         self._training_heatmap = training_heatmap.get_data_tensor()
         self._paf_scale = 1.0
         self._heatmap_scale = 1.0
+
+        self._paf_single_shift = 1.0
+
+        self._heatmap_single_shift = 1.0
+        self._heatmap_single_scale = 2.0
 
         self._loss_is_built = False
         self._optimizer = None
@@ -148,13 +156,27 @@ class MSETrainer:
         heatmap_losses = []
 
         for paf in self._paf_tensors:
+            single_paf_loss = Loss.mse_loss(self._training_paf, paf, raw_tensor=True)
+
+            multiplayed_single_loss = tf.cast(
+                tf.math.greater(self._training_paf, EPS),
+                dtype=tf.float32
+            )
+
+            final_single_paf_loss = single_paf_loss * (multiplayed_single_loss + self._paf_single_shift)
             paf_losses.append(
-                Loss.mse_loss(self._training_paf, paf)
+                tf.reduce_mean(final_single_paf_loss)
             )
 
         for heatmap in self._heatmap_tensors:
+            single_heatmap_loss = Loss.mse_loss(self._training_heatmap, heatmap, raw_tensor=True)
+
+            mask_heatmap_single = self._training_heatmap * self._heatmap_single_scale + self._heatmap_single_shift
+
+            final_single_heatmap_loss = single_heatmap_loss * mask_heatmap_single
+
             heatmap_losses.append(
-                Loss.mse_loss(self._training_heatmap, heatmap)
+                tf.reduce_mean(final_single_heatmap_loss)
             )
 
         sum_pafs = tf.reduce_sum(paf_losses)
