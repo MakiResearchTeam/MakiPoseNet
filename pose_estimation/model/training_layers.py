@@ -439,6 +439,8 @@ class PAFLayer(MakiLayer):
                         name=self.PAF_RESIZE
                     )
                     # [batch, h, w, pairs * 2] --> [batch, h, w, pairs, 2]
+                    pafs_shape[1] = self.resize_to[0]
+                    pafs_shape[2] = self.resize_to[1]
                     pafs = tf.reshape(pafs, pafs_shape)
 
         return pafs
