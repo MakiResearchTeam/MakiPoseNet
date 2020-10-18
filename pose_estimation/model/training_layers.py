@@ -30,7 +30,7 @@ class BinaryHeatmapLayer(MakiLayer):
     
     def __init__(
             self,
-            im_size,
+            im_size: list,
             radius,
             map_dtype=tf.int32,
             vectorize=False,
@@ -42,7 +42,7 @@ class BinaryHeatmapLayer(MakiLayer):
         Parameters
         ----------
         im_size : 2d tuple
-            Contains width and height (w, h) of the image for which to generate the map.
+            Contains width and height (h, w) of the image for which to generate the map.
         radius : float
             Radius of a label-circle around the keypoint.
         map_dtype : tf.dtype
@@ -58,13 +58,13 @@ class BinaryHeatmapLayer(MakiLayer):
         assert resize_to is None or len(resize_to) == 2
 
         super().__init__(name, params=[], regularize_params=[], named_params_dict={})
-        self.im_size = im_size
+        self.im_size = [im_size[1], im_size[0]]
         self.resize_to = resize_to
         self.radius = tf.convert_to_tensor(radius, dtype=tf.float32)
         self.map_dtype = map_dtype
         self.vectorize = vectorize
         # Prepare the grid.
-        x_grid, y_grid = np.meshgrid(np.arange(im_size[0]), np.arange(im_size[1]))
+        x_grid, y_grid = np.meshgrid(np.arange(im_size[1]), np.arange(im_size[0]))
         xy_grid = np.stack([x_grid, y_grid], axis=-1)
         self.xy_grid = tf.convert_to_tensor(xy_grid, dtype=tf.float32)
 
@@ -205,14 +205,14 @@ class GaussHeatmapLayer(MakiLayer):
             resize_to=params[PAFLayer.RESIZE_TO]
         )
 
-    def __init__(self, im_size, delta, vectorize=False, resize_to=None, name='GaussHeatmapLayer'):
+    def __init__(self, im_size: list, delta, vectorize=False, resize_to=None, name='GaussHeatmapLayer'):
         """
         Generates hard keypoint maps using highly optimized vectorization.
 
         Parameters
         ----------
         im_size : 2d tuple
-            Contains width and height (w, h) of the image for which to generate the map.
+            Contains width and height (h, w) of the image for which to generate the map.
         delta : float
             Defines the spreadout of the heat around the point.
         vectorize : bool
@@ -226,12 +226,12 @@ class GaussHeatmapLayer(MakiLayer):
         assert resize_to is None or len(resize_to) == 2
 
         super().__init__(name, params=[], regularize_params=[], named_params_dict={})
-        self.im_size = im_size
+        self.im_size = [im_size[1], im_size[0]]
         self.resize_to = resize_to
         self.delta = tf.convert_to_tensor(delta, dtype=tf.float32)
         self.vectorize = vectorize
         # Prepare the grid.
-        x_grid, y_grid = np.meshgrid(np.arange(im_size[0]), np.arange(im_size[1]))
+        x_grid, y_grid = np.meshgrid(np.arange(im_size[1]), np.arange(im_size[0]))
         xy_grid = np.stack([x_grid, y_grid], axis=-1)
         self.xy_grid = tf.convert_to_tensor(xy_grid, dtype=tf.float32)
 
@@ -384,14 +384,14 @@ class PAFLayer(MakiLayer):
         dtype=tf.float32
     )
 
-    def __init__(self, im_size, sigma, skeleton, vectorize=False, resize_to=None, name='PAFLayer'):
+    def __init__(self, im_size: list, sigma, skeleton, vectorize=False, resize_to=None, name='PAFLayer'):
         """
         Generates part affinity fields for the given `skeleton`.
 
         Parameters
         ----------
         im_size : 2d tuple
-            Contains width and height (w, h) of the image for which to generate the map.
+            Contains width and height (h, w) of the image for which to generate the map.
         sigma : float
             Width of the affinity field. Corresponds to the width of the limb.
         skeleton : np.ndarray of shape [n_pairs, 2]
@@ -412,9 +412,9 @@ class PAFLayer(MakiLayer):
         self.sigma = sigma
         self.resize_to = resize_to
         self.skeleton = skeleton
-        self.im_size = im_size
+        self.im_size = [im_size[1], im_size[0]]
         self.vectorize = vectorize
-        x_grid, y_grid = np.meshgrid(np.arange(im_size[0]), np.arange(im_size[1]))
+        x_grid, y_grid = np.meshgrid(np.arange(im_size[1]), np.arange(im_size[0]))
         xy_grid = np.stack([x_grid, y_grid], axis=-1)
         self.xy_grid = tf.convert_to_tensor(xy_grid, dtype=tf.float32)
 

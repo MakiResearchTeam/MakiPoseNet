@@ -89,15 +89,15 @@ class LoadDataMethod(TFRMapMethod):
 
 class RandomCropMethod(TFRPostMapMethod):
 
-    def __init__(self, crop_w: int, crop_h: int, image_last_dimension=3):
+    def __init__(self, crop_h: int, crop_w: int, image_last_dimension=3):
         """
         Perform random crop of the input images and their corresponding uvmaps.
         Parameters
         ----------
-        crop_w : int
-            Width of the crop.
         crop_h : int
             Height of the crop.
+        crop_w : int
+            Width of the crop.
         image_last_dimension : int
             Number of channels of images, by default equal to 3
         """
