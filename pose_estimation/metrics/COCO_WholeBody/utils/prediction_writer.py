@@ -40,7 +40,7 @@ TYPE_PROCESS = 'process'
 def process_image(data):
     W, H, image_paths, mode, div, shift, use_bgr2rgb = data
     image = cv2.imread(image_paths)
-    image = cv2.resize(image, (H, W))
+    image = cv2.resize(image, (W, H))
 
     if use_bgr2rgb:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)

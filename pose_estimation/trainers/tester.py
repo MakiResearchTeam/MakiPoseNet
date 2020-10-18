@@ -61,7 +61,7 @@ class Tester(ABC):
 
         if annot_gt is not None:
             relayout_keypoints(
-                img_size[1], img_size[0],
+                self.W, self.H,
                 self._config[self.ANNOT_GT_JSON], self._path_to_relayout_annot,
                 self._limit_annots
             )
