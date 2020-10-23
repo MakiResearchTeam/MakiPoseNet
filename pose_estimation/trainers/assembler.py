@@ -46,7 +46,7 @@ class ModelAssembler:
         model = ModelAssembler.setup_model(config[ModelAssembler.MODEL_CONFIG], gen_layer, sess)
         paf, heatmap = ModelAssembler.build_paf_heatmap(config, gen_layer)
         trainer = ModelAssembler.setup_trainer(
-            config.get([ModelAssembler.LOSS]),
+            config.get(ModelAssembler.LOSS),
             model=model,
             training_paf=paf,
             training_heatmap=heatmap
