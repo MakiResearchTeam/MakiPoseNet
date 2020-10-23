@@ -28,6 +28,9 @@ class ModelAssembler:
     L2_REG = 'l2_reg'
     L2_REG_LAYERS = 'l2_reg_layers'
 
+    # Trainer config
+    LOSS = 'loss'
+
     # gen_layer config
     GENLAYER_CONFIG = 'genlayer_config'
     TFRECORDS_PATH = 'tfrecords_path'
@@ -41,7 +44,8 @@ class ModelAssembler:
         gen_layer = ModelAssembler.build_gen_layer(config[ModelAssembler.GENLAYER_CONFIG], gen_layer_fabric)
         model = ModelAssembler.setup_model(config[ModelAssembler.MODEL_CONFIG], gen_layer, sess)
         paf, heatmap = ModelAssembler.build_paf_heatmap(config, gen_layer)
-        trainer = MSETrainer(
+        trainer = ModelAssembler.setup_trainer(
+            config.get([ModelAssembler.LOSS]),
             model=model,
             training_paf=paf,
             training_heatmap=heatmap
@@ -119,3 +123,30 @@ class ModelAssembler:
         paf = paf_layer([keypoints, masks])
 
         return paf, heatmap
+
+    @staticmethod
+    def setup_trainer(config_data: dict, model: PEModel, training_paf, training_heatmap):
+        # TODO: Add separate class to build trainers
+        trainer = MSETrainer(
+            model=model,
+            training_paf=training_paf,
+            training_heatmap=training_heatmap
+        )
+
+        if config_data is not None:
+            heatmap_scale = config_data[MSETrainer.HEATMAP_SCALE]
+            paf_scale = config_data[MSETrainer.PAF_SCALE]
+
+            heatmap_single_scale = config_data[MSETrainer.HEATMAP_SINGLE_SCALE]
+            paf_single_scale = config_data[MSETrainer.PAF_SINGLE_SCALE]
+
+            trainer.set_loss_scales(
+                paf_scale=paf_scale,
+                heatmap_scale=heatmap_scale,
+                heatmap_single_scale=heatmap_single_scale,
+                paf_single_scale=paf_single_scale
+            )
+
+        return trainer
+
+
