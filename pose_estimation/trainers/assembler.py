@@ -30,6 +30,7 @@ class ModelAssembler:
 
     # Trainer config
     LOSS = 'loss'
+    PARAMETERS = 'parameters'
 
     # gen_layer config
     GENLAYER_CONFIG = 'genlayer_config'
@@ -134,11 +135,13 @@ class ModelAssembler:
         )
 
         if config_data is not None:
-            heatmap_scale = config_data[MSETrainer.HEATMAP_SCALE]
-            paf_scale = config_data[MSETrainer.PAF_SCALE]
+            config_trainer = config_data[ModelAssembler.PARAMETERS]
 
-            heatmap_single_scale = config_data[MSETrainer.HEATMAP_SINGLE_SCALE]
-            paf_single_scale = config_data[MSETrainer.PAF_SINGLE_SCALE]
+            heatmap_scale = config_trainer[MSETrainer.HEATMAP_SCALE]
+            paf_scale = config_trainer[MSETrainer.PAF_SCALE]
+
+            heatmap_single_scale = config_trainer[MSETrainer.HEATMAP_SINGLE_SCALE]
+            paf_single_scale = config_trainer[MSETrainer.PAF_SINGLE_SCALE]
 
             trainer.set_loss_scales(
                 paf_scale=paf_scale,
