@@ -8,6 +8,7 @@ import datetime
 import time
 from collections import defaultdict
 import copy
+from pycocotools.coco import COCO
 
 from .utils.eval_constants import MAKI_SKELET_K
 from .utils import KEYPOINTS
@@ -15,16 +16,19 @@ from .utils import KEYPOINTS
 
 class MYeval_wholebody:
 
-    def __init__(self, cocoGt=None, cocoDt=None, slice_certain_kp=None):
+    def __init__(self, cocoGt: COCO, cocoDt: COCO, slice_certain_kp=None):
         """
         Initialize CocoEval using coco APIs for gt and dt
 
         Parameters
         ----------
-        cocoGt: coco object
+        cocoGt: COCO object
             Coco object with ground truth annotations
-        cocoDt: coco object
+        cocoDt: COCO object
             Coco object with detection results
+        slice_certain_kp : list
+            List of the keypoints for which will be calculated the final evaluation score,
+            By default equal to None, i.e. score will be calculated for all keypoints
 
         """
         self.cocoGt = cocoGt                            # ground truth COCO API
@@ -52,8 +56,15 @@ class MYeval_wholebody:
         self.ious = {}                                  # ious between all gts and dts
 
         if cocoGt is not None:
-            self.params.imgIds = sorted(cocoGt.getImgIds())
-            self.params.catIds = sorted(cocoGt.getCatIds())
+            # If cocoDt has less img ids (stop evaluation on some image)
+            # we grab ids from cocoGt otherwise from cocoGt
+
+            if len(cocoGt.getImgIds()) == len(cocoDt.getImgIds()):
+                self.params.imgIds = sorted(cocoGt.getImgIds())
+                self.params.catIds = sorted(cocoGt.getCatIds())
+            else:
+                self.params.imgIds = sorted(cocoDt.getImgIds())
+                self.params.catIds = sorted(cocoDt.getCatIds())
 
     def _prepare(self):
         """

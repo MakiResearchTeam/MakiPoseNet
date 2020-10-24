@@ -30,8 +30,6 @@ COCO_URL = 'coco_url'
 FILE_NAME = 'file_name'
 DEFAULT_CATEGORY_ID = 1
 
-DEFAULT_NUM_THREADES = 4
-
 TYPE_THREAD = 'thread'
 TYPE_PROCESS = 'process'
 
@@ -173,115 +171,125 @@ def create_prediction_coco_json(
     imgs_path_list = []
     image_ids_list = []
     batch_size = model.get_batch_size()
+    try:
+        for i in iterator:
+            single_ids = img_ids[i]
+            # Take single image
+            single_img = cocoGt.loadImgs(single_ids)[0]
+            annIds = cocoGt.getAnnIds(imgIds=single_img[ID], iscrowd=None)
+            anns = cocoGt.loadAnns(annIds)
+            # Ignore images where are no people
+            if len(anns) == 0:
+                continue
 
-    for i in iterator:
-        single_ids = img_ids[i]
-        # Take single image
-        single_img = cocoGt.loadImgs(single_ids)[0]
-        annIds = cocoGt.getAnnIds(imgIds=single_img[ID], iscrowd=None)
-        anns = cocoGt.loadAnns(annIds)
-        # Ignore images where are no people
-        if len(anns) == 0:
-            continue
+            # Store path to img and its ids
+            imgs_path_list.append(os.path.join(path_to_images, single_img[FILE_NAME]))
+            image_ids_list += [single_ids]
 
-        # Store path to img and its ids
-        imgs_path_list.append(os.path.join(path_to_images, single_img[FILE_NAME]))
-        image_ids_list += [single_ids]
-
-        # Process batch of the images
-        if batch_size == len(imgs_path_list):
-            if type_parall is not None:
-                norm_img_list = start_process(
-                    imgs_path_list,
+            # Process batch of the images
+            if batch_size == len(imgs_path_list):
+                get_batched_result(
+                    cocoDt_json=cocoDt_json,
+                    image_ids_list=image_ids_list,
+                    imgs_path_list=imgs_path_list,
                     W=W, H=H,
+                    model=model,
                     n_threade=n_threade,
                     type_parall=type_parall,
                     mode=mode,
-                    shift=shift,
                     divider=divider,
+                    shift=shift,
                     use_bgr2rgb=use_bgr2rgb
                 )
-            else:
-                norm_img_list = [
-                    process_image(
-                        (
-                            W, H,
-                            imgs_path_list[index],
-                            mode,
-                            shift,
-                            divider,
-                            use_bgr2rgb
-                        )
-                    )
-                    for index in range(len(imgs_path_list))
-                ]
+                # Clear batched arrays
+                imgs_path_list = []
+                image_ids_list = []
+        iterator.close()
 
-            humans_predicted_list = model.predict(norm_img_list, resize_to=[H, W])
+        # Process images which remained
+        uniq_images = len(imgs_path_list)
 
-            for (single_humans_predicted_list, single_image_ids) in zip(humans_predicted_list, image_ids_list):
-                for single_prediction in single_humans_predicted_list:
-                    cocoDt_json.append(
-                        write_to_dict(
-                            single_image_ids,
-                            single_prediction.score,
-                            single_prediction.to_list()
-                        )
-                    )
-            # Clear batched arrays
-            imgs_path_list = []
-            image_ids_list = []
-    iterator.close()
+        if uniq_images > 0:
+            remain_images = batch_size - uniq_images
+            imgs_path_list += [imgs_path_list[-1]] * remain_images
 
-    # Process images which remained
-    uniq_images = len(imgs_path_list)
-
-    if uniq_images > 0:
-        remain_images = batch_size - uniq_images
-        imgs_path_list += [imgs_path_list[-1]] * remain_images
-
-        if type_parall is not None:
-            norm_img_list = start_process(
-                imgs_path_list,
+            get_batched_result(
+                cocoDt_json=cocoDt_json,
+                image_ids_list=image_ids_list,
+                imgs_path_list=imgs_path_list,
                 W=W, H=H,
+                model=model,
                 n_threade=n_threade,
                 type_parall=type_parall,
                 mode=mode,
-                shift=shift,
                 divider=divider,
+                shift=shift,
                 use_bgr2rgb=use_bgr2rgb
             )
-        else:
-            norm_img_list = [
-                process_image(
-                    (
-                        W, H,
-                        imgs_path_list[index],
-                        mode,
-                        shift,
-                        divider,
-                        use_bgr2rgb
-                    )
+    except Exception as ex:
+        print(ex)
+    finally:
+        with open(path_to_save, 'w') as fp:
+            json.dump(cocoDt_json, fp)
+
+        if return_number_of_predictions:
+            return len(cocoDt_json)
+
+
+def get_batched_result(
+        cocoDt_json: list,
+        image_ids_list: list,
+        imgs_path_list: list,
+        W: int, H: int,
+        model: PEModel,
+        n_threade=None,
+        type_parall=TYPE_THREAD,
+        mode=TF,
+        divider=None,
+        shift=None,
+        use_bgr2rgb=False):
+    """
+    Load certain images, get output from model and write it into dict with certain format
+
+    """
+
+    if type_parall is not None:
+        norm_img_list = start_process(
+            imgs_path_list,
+            W=W, H=H,
+            n_threade=n_threade,
+            type_parall=type_parall,
+            mode=mode,
+            shift=shift,
+            divider=divider,
+            use_bgr2rgb=use_bgr2rgb
+        )
+    else:
+        norm_img_list = [
+            process_image(
+                (
+                    W, H,
+                    imgs_path_list[index],
+                    mode,
+                    shift,
+                    divider,
+                    use_bgr2rgb
                 )
-                for index in range(len(imgs_path_list))
-            ]
+            )
+            for index in range(len(imgs_path_list))
+        ]
 
-        humans_predicted_list = model.predict(norm_img_list, resize_to=[W, H])[:uniq_images]
+    humans_predicted_list = model.predict(norm_img_list, resize_to=[H, W])
 
-        for (single_humans_predicted_list, single_image_ids) in zip(humans_predicted_list, image_ids_list):
-            for single_prediction in single_humans_predicted_list:
-                cocoDt_json.append(
-                    write_to_dict(
-                        single_image_ids,
-                        single_prediction.score,
-                        single_prediction.to_list()
-                    )
+    for (single_humans_predicted_list, single_image_ids) in zip(humans_predicted_list, image_ids_list):
+        for single_prediction in single_humans_predicted_list:
+            cocoDt_json.append(
+                write_to_dict(
+                    single_image_ids,
+                    single_prediction.score,
+                    single_prediction.to_list()
                 )
-
-    with open(path_to_save, 'w') as fp:
-        json.dump(cocoDt_json, fp)
-
-    if return_number_of_predictions:
-        return len(cocoDt_json)
+            )
 
 
 def write_to_dict(img_id: int, score: float, maki_keypoints: list) -> dict:
