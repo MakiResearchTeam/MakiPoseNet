@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from ..utils.preprocess import preprocess_input
 from pose_estimation.metrics.COCO_WholeBody import (MYeval_wholebody,
                                                     create_prediction_coco_json)
 from ..utils.visualize_tools import visualize_paf
@@ -52,7 +53,7 @@ class CocoTester(Tester):
     _CENTRAL_SIZE = 600
     _ZERO_VALUE = 0.0
 
-    def _init(self, config, normalization_method=None):
+    def _init(self, config):
 
         if type(self._config[CocoTester.TEST_IMAGE]) is not list:
             test_images_path = [self._config[CocoTester.TEST_IMAGE]]
@@ -69,22 +70,32 @@ class CocoTester(Tester):
                 raise TypeError(CocoTester._EXCEPTION_IMAGE_WAS_NOT_FOUND.format(self._config[CocoTester.TEST_IMAGE]))
 
             test_image = cv2.resize(test_image, (self.W, self.H))
-            test_image = cv2.cvtColor(test_image, cv2.COLOR_BGR2RGB)
+            if self._use_bgr2rgb:
+                test_image = cv2.cvtColor(test_image, cv2.COLOR_BGR2RGB)
             im_shape = test_image.shape
 
-            if normalization_method is not None:
-                self._norm_images.append(normalization_method(test_image).reshape(1, *im_shape).astype(np.float32))
+            if self._norm_mode is not None:
+                self._norm_images.append(
+                    preprocess_input(
+                        test_image,
+                        mode=self._norm_mode
+                    ).reshape(1, *im_shape).astype(np.float32)
+                )
             else:
-                self._norm_images.append(((test_image.reshape(1, *im_shape) - 127.5) / 127.5).astype(np.float32))
+                self._norm_images.append(
+                    (test_image.reshape(1, *im_shape) / self._norm_div - self._norm_shift).astype(np.float32)
+                )
 
             # The image has to have batch dimension
             self._test_images.append(test_image.reshape(1, *im_shape).astype(np.uint8))
             self._names.append(CocoTester.TEST_N.format(i))
-            self.add_image(self._names[-1], n_images=7)
+            self.add_image(self._names[-1], n_images=len(CocoTester.DRAW_LIST) + 2)
 
         self.add_scalar(CocoTester.ITERATION_COUNTER)
-        self.add_scalar(CocoTester.AP_IOU_050)
-        self.add_scalar(CocoTester.AR_IOU_050)
+
+        if self.cocoGt is not None:
+            self.add_scalar(CocoTester.AP_IOU_050)
+            self.add_scalar(CocoTester.AR_IOU_050)
 
     def evaluate(self, model, iteration):
 
@@ -96,7 +107,7 @@ class CocoTester(Tester):
             peaks, heatmap, paf = model.predict(
                 np.concatenate([single_norm] * model.get_batch_size(), axis=0),
                 using_estimate_alg=False,
-                resize_to=[self.W, self.H]
+                resize_to=[self.H, self.W]
             )
 
             drawed_paff = np.expand_dims(
@@ -123,39 +134,45 @@ class CocoTester(Tester):
                 )
             dict_summary_to_tb.update({self._names[i]: np.concatenate(single_batch, axis=0).astype(np.uint8)})
 
-        # Create folder to store AP/AR results
-        new_log_folder = os.path.join(self._path_to_save_logs, f"iter_{iteration}")
-        os.makedirs(new_log_folder, exist_ok=True)
-        save_predicted_json = os.path.join(new_log_folder, self.NAME_PREDICTED_ANNOT_JSON)
+        if self.cocoGt is not None:
+            # Create folder to store AP/AR results
+            new_log_folder = os.path.join(self._path_to_save_logs, f"iter_{iteration}")
+            os.makedirs(new_log_folder, exist_ok=True)
+            save_predicted_json = os.path.join(new_log_folder, self.NAME_PREDICTED_ANNOT_JSON)
 
-        num_detections = create_prediction_coco_json(
-            self.W, self.H, model,
-            self._path_to_relayout_annot,
-            save_predicted_json,
-            self._path_to_val_images,
-            return_number_of_predictions=True,
-            n_threade=self._n_threade
-        )
-        # Process evaluation only if number of detection bigger that 0
-        if num_detections > 0:
-            cocoDt = self.cocoGt.loadRes(save_predicted_json)
-            cocoEval = MYeval_wholebody(cocoDt=cocoDt, cocoGt=self.cocoGt)
-            cocoEval.evaluate()
-            cocoEval.accumulate()
-            cocoEval.summarize()
+            num_detections = create_prediction_coco_json(
+                self.W, self.H, model,
+                self._path_to_relayout_annot,
+                save_predicted_json,
+                self._path_to_val_images,
+                return_number_of_predictions=True,
+                n_threade=self._n_threade,
+                type_parall=self._type_parall,
+                mode=self._norm_mode,
+                divider=self._norm_div,
+                shift=self._norm_shift,
+                use_bgr2rgb=self._use_bgr2rgb
+            )
+            # Process evaluation only if number of detection bigger that 0
+            if num_detections > 0:
+                cocoDt = self.cocoGt.loadRes(save_predicted_json)
+                cocoEval = MYeval_wholebody(cocoDt=cocoDt, cocoGt=self.cocoGt)
+                cocoEval.evaluate()
+                cocoEval.accumulate()
+                cocoEval.summarize()
 
-            with open(os.path.join(new_log_folder, self.AP_AR_DATA_TXT), 'w') as fp:
-                fp.write(cocoEval.get_stats_str())
+                with open(os.path.join(new_log_folder, self.AP_AR_DATA_TXT), 'w') as fp:
+                    fp.write(cocoEval.get_stats_str())
 
-            # Take and write AP/AR values
-            a_prediction, a_recall = cocoEval.get_AP_AR_with_IoU_50()
-            dict_summary_to_tb.update({CocoTester.AP_IOU_050: a_prediction})
-            dict_summary_to_tb.update({CocoTester.AR_IOU_050: a_recall})
+                # Take and write AP/AR values
+                a_prediction, a_recall = cocoEval.get_AP_AR_with_IoU_50()
+                dict_summary_to_tb.update({CocoTester.AP_IOU_050: a_prediction})
+                dict_summary_to_tb.update({CocoTester.AR_IOU_050: a_recall})
 
-        else:
-            # If there is no detection, write zero values
-            dict_summary_to_tb.update({CocoTester.AP_IOU_050: self._ZERO_VALUE})
-            dict_summary_to_tb.update({CocoTester.AR_IOU_050: self._ZERO_VALUE})
+            else:
+                # If there is no detection, write zero values
+                dict_summary_to_tb.update({CocoTester.AP_IOU_050: self._ZERO_VALUE})
+                dict_summary_to_tb.update({CocoTester.AR_IOU_050: self._ZERO_VALUE})
 
         # Write data into tensorBoard
         self.write_summaries(

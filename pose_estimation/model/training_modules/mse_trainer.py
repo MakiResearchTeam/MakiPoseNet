@@ -6,13 +6,25 @@ from makiflow.models.common.utils import new_optimizer_used, loss_is_built
 from tqdm import tqdm
 
 
+EPS = 1e-6
+
+
 class MSETrainer:
+    MSE_LOSS = 'mse_loss'
+
+    PAF_SCALE = 'paf_scale'
+    HEATMAP_SCALE = 'heatmap_scale'
+    HEATMAP_SINGLE_SCALE = 'heatmap_single_scale'
+    PAF_SINGLE_SCALE = 'paf_single_scale'
+
     __MSG_LOSS_IS_BUILT = 'The loss tensor is already built. The next call of the fit method ' + \
                           'will rebuild it.'
 
     TOTAL_LOSS = 'Total loss'
     PAF_LOSS = 'PAF loss'
     HEATMAP_LOSS = 'Heatmap loss'
+
+    __IDENTITY = 1.0
 
     def __init__(self, model: PoseEstimatorInterface, training_paf: MakiTensor, training_heatmap: MakiTensor):
         """
@@ -44,6 +56,11 @@ class MSETrainer:
         self._training_heatmap = training_heatmap.get_data_tensor()
         self._paf_scale = 1.0
         self._heatmap_scale = 1.0
+
+        # Variables for weight mask,
+        # If equal to None, weight mask will be not used
+        self._paf_single_scale = None
+        self._heatmap_single_scale = None
 
         self._loss_is_built = False
         self._optimizer = None
@@ -112,7 +129,12 @@ class MSETrainer:
                 return layer_name
         raise ValueError(f'Could not find a layer-owner of the var = {var}')
 
-    def set_loss_scales(self, paf_scale, heatmap_scale):
+    def set_loss_scales(
+            self,
+            paf_scale=None,
+            heatmap_scale=None,
+            paf_single_scale=None,
+            heatmap_single_scale=None):
         """
         The paf loss and the heatmap loss will be scaled by these coefficients.
         Parameters
@@ -121,13 +143,28 @@ class MSETrainer:
             Scale for the paf loss.
         heatmap_scale : float
             Scale for the heatmap loss.
+        paf_single_scale : float
+            Scale for weights mask for every given paf into this model,
+            If equal to None, weights masks will be not used
+        heatmap_single_scale : float
+            Scale for weights mask for every given heatmap into this model,
+            If equal to None, weights masks will be not used
         """
         if self._loss_is_built:
             print(MSETrainer.__MSG_LOSS_IS_BUILT)
             self._loss_is_built = False
 
-        self._paf_scale = paf_scale
-        self._heatmap_scale = heatmap_scale
+        if paf_scale is not None:
+            self._paf_scale = paf_scale
+
+        if heatmap_scale is not None:
+            self._heatmap_scale = heatmap_scale
+
+        if heatmap_single_scale is not None:
+            self._heatmap_single_scale = heatmap_single_scale
+
+        if paf_single_scale is not None:
+            self._paf_single_scale = paf_single_scale
 
     def _minimize_loss(self, optimizer, global_step):
         if not self._loss_is_built:
@@ -144,16 +181,48 @@ class MSETrainer:
         return self._train_op
 
     def _build_loss(self):
-        self._paf_loss = 0.0
+        paf_losses = []
+        heatmap_losses = []
+
         for paf in self._paf_tensors:
-            self._paf_loss += Loss.mse_loss(self._training_paf, paf)
+            single_paf_loss = Loss.mse_loss(self._training_paf, paf, raw_tensor=True)
 
-        self._heatmap_loss = 0.0
+            if self._paf_single_scale is not None:
+                abs_training_paf = tf.abs(self._training_paf)
+
+                multiplayed_single_loss = tf.cast(
+                    tf.math.greater(abs_training_paf, EPS),
+                    dtype=tf.float32
+                )
+
+                scale_for_loss = multiplayed_single_loss * self._paf_single_scale + self.__IDENTITY
+
+                single_paf_loss = single_paf_loss * scale_for_loss
+
+            paf_losses.append(
+                tf.reduce_mean(single_paf_loss)
+            )
+
         for heatmap in self._heatmap_tensors:
-            self._heatmap_loss += Loss.mse_loss(self._training_heatmap, heatmap)
+            single_heatmap_loss = Loss.mse_loss(self._training_heatmap, heatmap, raw_tensor=True)
 
-        loss = self._paf_scale * self._paf_loss + \
-               self._heatmap_scale * self._heatmap_loss
+            if self._heatmap_single_scale is not None:
+                # Create mask for scaling loss
+                # Add 1.0 for saving values that are equal to 0 (approximately equal to 0)
+                mask_heatmap_single = self._training_heatmap * self._heatmap_single_scale + self.__IDENTITY
+
+                single_heatmap_loss = single_heatmap_loss * mask_heatmap_single
+
+            heatmap_losses.append(
+                tf.reduce_mean(single_heatmap_loss)
+            )
+
+        self._paf_loss = tf.reduce_sum(paf_losses)
+        self._heatmap_loss = tf.reduce_sum(heatmap_losses)
+
+        loss = self._heatmap_loss * self._heatmap_scale + \
+               self._paf_loss * self._paf_scale
+
         self._total_loss = self._model.build_final_loss(loss)
 
         # For Tensorboard
@@ -235,12 +304,13 @@ class MSETrainer:
         total_losses = []
         heatmap_losses = []
         paf_losses = []
-        
+
         for i in range(epochs):
             it = tqdm(range(iter))
-            total_loss = 0
-            paf_loss = 0
-            heatmap_loss = 0
+            total_loss = 0.0
+            paf_loss = 0.0
+            heatmap_loss = 0.0
+
             for j in it:
                 b_total_loss, b_paf_loss, b_heatmap_loss, summary, _ = self._sess.run(
                     [self._total_loss, self._paf_loss, self._heatmap_loss, self._total_summary, train_op]

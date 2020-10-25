@@ -40,3 +40,7 @@ class PoseEstimatorInterface(MakiCore, ABC):
     @abstractmethod
     def get_heatmap_makitensor(self):
         pass
+
+    @abstractmethod
+    def get_batch_size(self):
+        pass

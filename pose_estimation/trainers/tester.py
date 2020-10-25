@@ -18,12 +18,17 @@ class Tester(ABC):
     PATH_TO_VAL_IMAGES = "path_to_val_images"
     LIMIT_ANNOT = 'limit_annot'
     N_THREADE = 'n_threade'
+    TYPE_PARALL = 'type_parall'
+    NORMALIZATION_SHIFT = 'normalization_shift'
+    NORMALIZATION_DIV = 'normalization_div'
+    NORM_MODE = 'norm_mode'
+    USE_BGR2RGB = 'use_bgr2rgb'
 
     NAME_RELAYOUR_ANNOT_JSON = "relayour_annot.json"
     NAME_PREDICTED_ANNOT_JSON = 'predicted_annot.json'
     AP_AR_DATA_TXT = 'ap_ar_data.txt'
 
-    def __init__(self, config: dict, sess, path_to_save_logs:str, img_size: tuple, normalization_method=None):
+    def __init__(self, config: dict, sess, path_to_save_logs:str, img_size: tuple):
         self._config = config[Tester.TEST_CONFIG]
 
         self._path_to_save_logs = os.path.join(path_to_save_logs, self.LOG_FOLDER)
@@ -37,26 +42,44 @@ class Tester(ABC):
         # Init stuff for measure metric
         self._limit_annots = self._config[self.LIMIT_ANNOT]
         self._n_threade = self._config[self.N_THREADE]
-        relayout_keypoints(
-            img_size[1], img_size[0],
-            self._config[self.ANNOT_GT_JSON], self._path_to_relayout_annot,
-            self._limit_annots
-        )
+        self._type_parall = self._config[self.TYPE_PARALL]
 
-        # Load ground-truth annot
+        self._norm_div = self._config[self.NORMALIZATION_DIV]
+        if self._norm_div is None:
+            self._norm_div = 1.0
+
+        self._norm_shift = self._config[self.NORMALIZATION_SHIFT]
+        if self._norm_shift is None:
+            self._norm_shift = 0.0
+
+        self._norm_mode = self._config[self.NORM_MODE]
+        self._use_bgr2rgb = self._config[self.USE_BGR2RGB]
         self.W = img_size[1]
         self.H = img_size[0]
-        self.cocoGt = COCO(self._path_to_relayout_annot)
-        self._path_to_val_images = self._config[self.PATH_TO_VAL_IMAGES]
+
+        annot_gt = self._config[self.ANNOT_GT_JSON]
+
+        if annot_gt is not None:
+            relayout_keypoints(
+                self.W, self.H,
+                self._config[self.ANNOT_GT_JSON], self._path_to_relayout_annot,
+                self._limit_annots
+            )
+
+            # Load ground-truth annot
+            self.cocoGt = COCO(self._path_to_relayout_annot)
+            self._path_to_val_images = self._config[self.PATH_TO_VAL_IMAGES]
+        else:
+            self.cocoGt = None
 
         # The summaries to write
         self._summaries = {}
         # Placeholder that take in the data for the summary
         self._summary_inputs = {}
 
-        self._init(self._config, normalization_method=normalization_method)
+        self._init(self._config)
 
-    def _init(self, config, normalization_method=None):
+    def _init(self, config):
         pass
 
     def add_image(self, name, n_images=1):

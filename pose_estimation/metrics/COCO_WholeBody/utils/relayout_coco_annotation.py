@@ -24,7 +24,16 @@ HEIGHT = 'height'
 WIDTH = 'width'
 
 
-def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str, limit_number=None):
+EPS = 1e-3
+
+
+def relayout_keypoints(
+        W: int, H: int,
+        ann_file_path: str,
+        path_to_save: str,
+        limit_number=None,
+        mode_area_calculation=SEGMENTATION
+    ):
     with open(ann_file_path, 'r') as fp:
         cocoGt_json = json.load(fp)
     cocoGt = COCO(ann_file_path)
@@ -35,15 +44,20 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str, li
     used_ids = dict([(elem[ID], False) for elem in cocoGt_json[IMAGES]])
 
     Maki_cocoGt_json = copy.deepcopy(cocoGt_json)
+    # Clear information ablut annotations and images
+    # In next for loop, we write new information
     Maki_cocoGt_json[ANNOTATIONS] = []
     Maki_cocoGt_json[IMAGES] = []
 
     if limit_number is None:
         iterator = tqdm(range(len(cocoGt_json[ANNOTATIONS])))
+
     elif type(limit_number) == int:
-        iterator = tqdm(range(min(limit_number, len(cocoGt_json[ANNOTATIONS])) ))
+        iterator = tqdm(range(  min(limit_number, len(cocoGt_json[ANNOTATIONS])) ))
+
     else:
-        raise TypeError(f'limit_number should have type int, but it has {type(limit_number)} and value {limit_number}')
+        raise TypeError(f'limit_number should have type int, but it has {type(limit_number)} '
+                        f'and value {limit_number}')
 
     for i in iterator:
         single_anns = cocoGt_json[ANNOTATIONS][i]
@@ -66,7 +80,7 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str, li
         # Just skip it
         # TODO: Do something with this images
         if type(new_segmentation) == dict:
-            break
+            continue
 
         # Scale segmentation points
         for m in range(len(new_segmentation)):
@@ -74,13 +88,24 @@ def relayout_keypoints(W: int, H: int, ann_file_path: str, path_to_save: str, li
             single_new_seg_coord = single_new_seg_coord.astype(np.float32).reshape(-1).tolist()
             new_segmentation[m] = single_new_seg_coord
 
-        # Calculate new value for 'area'
-        new_area = float(np.sum(
-            cocoGt.annToMask({
-                SEGMENTATION: new_segmentation,
-                IMAGE_ID: single_anns[IMAGE_ID]
-            })
-        ))
+        if mode_area_calculation == SEGMENTATION:
+            # Calculate new value for 'area'
+            new_area = float(np.sum(
+                cocoGt.annToMask({
+                    SEGMENTATION: new_segmentation,
+                    IMAGE_ID: single_anns[IMAGE_ID]
+                })
+            ))
+        elif mode_area_calculation == BBOX:
+            new_area = float(new_bbox[2] * new_bbox[3])
+        elif mode_area_calculation == KEYPOINTS:
+            x = np.array(new_keypoints[0::3])
+            y = np.array(new_keypoints[1::3])
+
+            x0, x1, y0, y1 = np.min(x), np.max(x), np.min(y), np.max(y)
+            new_area = (x1 - x0) * (y1 - y0)
+        else:
+            raise TypeError(f'Unknown mode area type {mode_area_calculation}')
 
         # Fill our annotation with new information
         Maki_cocoGt_json[ANNOTATIONS].append(single_anns)

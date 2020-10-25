@@ -8,6 +8,7 @@ import datetime
 import time
 from collections import defaultdict
 import copy
+from pycocotools.coco import COCO
 
 from .utils.eval_constants import MAKI_SKELET_K
 from .utils import KEYPOINTS
@@ -15,20 +16,28 @@ from .utils import KEYPOINTS
 
 class MYeval_wholebody:
 
-    def __init__(self, cocoGt=None, cocoDt=None):
+    def __init__(self, cocoGt: COCO, cocoDt: COCO, slice_certain_kp=None):
         """
         Initialize CocoEval using coco APIs for gt and dt
 
         Parameters
         ----------
-        cocoGt: coco object
+        cocoGt: COCO object
             Coco object with ground truth annotations
-        cocoDt: coco object
+        cocoDt: COCO object
             Coco object with detection results
+        slice_certain_kp : list
+            List of the keypoints for which will be calculated the final evaluation score,
+            By default equal to None, i.e. score will be calculated for all keypoints
 
         """
         self.cocoGt = cocoGt                            # ground truth COCO API
         self.cocoDt = cocoDt                            # detections COCO API
+
+        if slice_certain_kp is None:                    # Variable to grab certain kp
+            self.slice_certain_kp = None
+        else:
+            self.slice_certain_kp = np.array(slice_certain_kp)
 
         self.params = {}                                # evaluation parameters
 
@@ -46,9 +55,16 @@ class MYeval_wholebody:
 
         self.ious = {}                                  # ious between all gts and dts
 
-        if not cocoGt is None:
-            self.params.imgIds = sorted(cocoGt.getImgIds())
-            self.params.catIds = sorted(cocoGt.getCatIds())
+        if cocoGt is not None:
+            # If cocoDt has less img ids (stop evaluation on some image)
+            # we grab ids from cocoGt otherwise from cocoGt
+
+            if len(cocoGt.getImgIds()) == len(cocoDt.getImgIds()):
+                self.params.imgIds = sorted(cocoGt.getImgIds())
+                self.params.catIds = sorted(cocoGt.getCatIds())
+            else:
+                self.params.imgIds = sorted(cocoDt.getImgIds())
+                self.params.catIds = sorted(cocoDt.getCatIds())
 
     def _prepare(self):
         """
@@ -64,14 +80,13 @@ class MYeval_wholebody:
             gts = self.cocoGt.loadAnns(self.cocoGt.getAnnIds(imgIds=p.imgIds))
             dts = self.cocoDt.loadAnns(self.cocoDt.getAnnIds(imgIds=p.imgIds))
 
-        # Ignore images where no keypoints, i. e. skip them or set ignore flag
+        # Ignore images where no keypoints or alot people on single image, i. e. set ignore flag
         for gt in gts:
-            if gt.get(KEYPOINTS) is None:
-                continue
+            g = np.array(gt[KEYPOINTS])
 
-            whole_body_gt = gt[KEYPOINTS]
+            if self.slice_certain_kp is not None:
+                g = g.reshape(-1, 3)[self.slice_certain_kp].reshape(-1)
 
-            g = np.array(whole_body_gt)
             vg = g[2::3]
             k1 = np.count_nonzero(vg > 0)
 
@@ -139,16 +154,19 @@ class MYeval_wholebody:
         ious = np.zeros((len(dts), len(gts)))
 
         sigmas = np.array(MAKI_SKELET_K)
+        if self.slice_certain_kp is not None:
+            sigmas = sigmas[self.slice_certain_kp]
+
         vars = (sigmas * 2) ** 2
         k = len(sigmas)
 
         # compute oks between each detection and ground truth object
         for j, gt in enumerate(gts):
-            if gt.get(KEYPOINTS) is None:
-                continue
             # create bounds for ignore regions(double the gt bbox)
-            whole_body_gt = gt[KEYPOINTS]
-            g = np.array(whole_body_gt)
+            g = np.array(gt[KEYPOINTS])
+
+            if self.slice_certain_kp is not None:
+                g =  g.reshape(-1, 3)[self.slice_certain_kp].reshape(-1)
 
             xg = g[0::3]
             yg = g[1::3]
@@ -164,8 +182,10 @@ class MYeval_wholebody:
             y1 = bb[1] + bb[3] * 2
 
             for i, dt in enumerate(dts):
-                whole_body_dt = dt[KEYPOINTS]
-                d = np.array(whole_body_dt)
+                d = np.array(dt[KEYPOINTS])
+
+                if self.slice_certain_kp is not None:
+                    d = d.reshape(-1, 3)[self.slice_certain_kp].reshape(-1)
 
                 xd = d[0::3]
                 yd = d[1::3]
@@ -203,7 +223,7 @@ class MYeval_wholebody:
             return None
 
         for g in gt:
-            if g.get(KEYPOINTS) is not None and (g['ignore'] or (g['area'] < aRng[0] or g['area'] > aRng[1])):
+            if g['ignore'] or (g['area'] < aRng[0] or g['area'] > aRng[1]):
                 g['_ignore'] = 1
             else:
                 g['_ignore'] = 0
