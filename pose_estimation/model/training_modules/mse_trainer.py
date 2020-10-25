@@ -44,29 +44,73 @@ class MSETrainer:
         self._training_heatmap = training_heatmap.get_data_tensor()
         self._paf_scale = 1.0
         self._heatmap_scale = 1.0
+
         self._loss_is_built = False
         self._optimizer = None
         self._sess = model.get_session()
         assert self._sess is not None
+
+        self._setup_tensorboard_vars()
+
+    def _setup_tensorboard_vars(self):
+        self._tb_is_setup = False
         self._tb_writer = None
         # Counter for total number of training iterations.
         self._tb_counter = 0
+        self._tb_summaries = []
+
+        self._grads_and_vars = None
+        self._gradients = None
+
+        self._model_layers = self._model.get_layers()
+        # Required for plotting histograms
+        self._layer_weights = {}
+        for layer_name in self._model_layers:
+            self._layer_weights[layer_name] = self._model_layers[layer_name].get_params()
+
+        self._layers_histograms = []
+
+    def add_summary(self, summary):
+        self._tb_summaries.append(summary)
 
     def set_tensorboard_writer(self, writer):
         """
         Creates logging file for the Tensorboard in the given `logdir_path` directory.
         Parameters
         ----------
-        logdir_path : str
+        writer : tf.FileWriter
             Path to the log directory.
         """
         self._tb_writer = writer
+
+    def add_layers_histograms(self, layer_names):
+        # noinspection PyAttributeOutsideInit
+        self._layers_histograms = layer_names
 
     def close_tensorboard(self):
         """
         Closes the logging writer for the Tensorboard
         """
         self._tb_writer.close()
+
+    # Currently not used
+    def _find_layer_owner_name(self, var):
+        """
+        Searches for a layer-owner name of the tf.Variable `var`.
+        Parameters
+        ----------
+        var : tf.Variable
+            Variable which owner's name to find.
+
+        Returns
+        -------
+        str
+            Name of the layer-owner.
+        """
+        for layer_name in self._layer_weights:
+            if var is self._layer_weights[layer_name]:
+                return layer_name
+        raise ValueError(f'Could not find a layer-owner of the var = {var}')
 
     def set_loss_scales(self, paf_scale, heatmap_scale):
         """
@@ -85,6 +129,20 @@ class MSETrainer:
         self._paf_scale = paf_scale
         self._heatmap_scale = heatmap_scale
 
+    def _minimize_loss(self, optimizer, global_step):
+        if not self._loss_is_built:
+            self._build_loss()
+            self._loss_is_built = True
+            loss_is_built()
+
+        if self._optimizer != optimizer:
+            self._create_train_op(optimizer, global_step)
+
+        if not self._tb_is_setup:
+            self._setup_tensorboard()
+
+        return self._train_op
+
     def _build_loss(self):
         self._paf_loss = 0.0
         for paf in self._paf_tensors:
@@ -100,29 +158,53 @@ class MSETrainer:
 
         # For Tensorboard
         paf_loss_summary = tf.summary.scalar(MSETrainer.PAF_LOSS, self._paf_loss)
+        self.add_summary(paf_loss_summary)
+
         heatmap_loss_summary = tf.summary.scalar(MSETrainer.HEATMAP_LOSS, self._heatmap_loss)
+        self.add_summary(heatmap_loss_summary)
+
         total_loss_summary = tf.summary.scalar(MSETrainer.TOTAL_LOSS, self._total_loss)
-        self._summary = tf.summary.merge([
-            paf_loss_summary,
-            heatmap_loss_summary,
-            total_loss_summary
-        ])
+        self.add_summary(total_loss_summary)
 
-    def _minimize_loss(self, optimizer, global_step):
-        if not self._loss_is_built:
-            self._build_loss()
-            self._loss_is_built = True
-            loss_is_built()
+    def _create_train_op(self, optimizer, global_step):
+        self._optimizer = optimizer
 
-        if self._optimizer != optimizer:
-            self._optimizer = optimizer
-            self._train_op = optimizer.minimize(
-                self._total_loss, var_list=self._model.get_training_vars(), global_step=global_step
-            )
-            self._sess.run(tf.variables_initializer(optimizer.variables()))
-            new_optimizer_used()
+        if self._grads_and_vars is None:
+            training_vars = self._model.get_training_vars()
+            # Returns list of tuples: [ (grad, var) ]
+            self._grads_and_vars = optimizer.compute_gradients(self._total_loss, training_vars)
+            vars_and_grads = [(var, grad) for grad, var in self._grads_and_vars]
+            # Collect mapping from the variable to its grad for tensorboard
+            self._var2grad = dict(vars_and_grads)
 
-        return self._train_op
+        self._train_op = optimizer.apply_gradients(
+            grads_and_vars=self._grads_and_vars, global_step=global_step
+        )
+
+        self._sess.run(tf.variables_initializer(optimizer.variables()))
+        new_optimizer_used()
+
+    def _setup_tensorboard(self):
+        assert len(self._tb_summaries) != 0, 'No summaries found.'
+        print('Collecting histogram tensors...')
+
+        # Collect all layers histograms
+        for layer_name in self._layers_histograms:
+            for weight in self._layer_weights[layer_name]:
+                # Add weights histograms
+                with tf.name_scope(f'{layer_name}/weight'):
+                    self.add_summary(tf.summary.histogram(name=weight.name, values=weight))
+
+                # Add grads histograms
+                with tf.name_scope(f'{layer_name}/grad'):
+                    grad = self._var2grad.get(weight)
+                    if grad is None:
+                        print(f'Did not find gradient for layer={layer_name}, var={weight.name}')
+                        continue
+                    self.add_summary(tf.summary.histogram(name=weight.name, values=grad))
+
+        self._total_summary = tf.summary.merge(self._tb_summaries)
+        self._tb_is_setup = True
 
     def fit(self, optimizer, epochs=1, iter=10, print_period=None, global_step=None):
         """
@@ -161,7 +243,7 @@ class MSETrainer:
             heatmap_loss = 0
             for j in it:
                 b_total_loss, b_paf_loss, b_heatmap_loss, summary, _ = self._sess.run(
-                    [self._total_loss, self._paf_loss, self._heatmap_loss, self._summary, train_op]
+                    [self._total_loss, self._paf_loss, self._heatmap_loss, self._total_summary, train_op]
                 )
                 total_loss = moving_average(total_loss, b_total_loss, j)
                 paf_loss = moving_average(paf_loss, b_paf_loss, j)
