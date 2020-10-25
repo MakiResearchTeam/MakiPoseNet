@@ -24,7 +24,7 @@ class MSETrainer:
     PAF_LOSS = 'PAF loss'
     HEATMAP_LOSS = 'Heatmap loss'
 
-    __EDENTITY = 1.0
+    __IDENTITY = 1.0
 
     def __init__(self, model: PoseEstimatorInterface, training_paf: MakiTensor, training_heatmap: MakiTensor):
         """
@@ -195,7 +195,7 @@ class MSETrainer:
                     dtype=tf.float32
                 )
 
-                scale_for_loss = multiplayed_single_loss * self._paf_single_scale + self.__EDENTITY
+                scale_for_loss = multiplayed_single_loss * self._paf_single_scale + self.__IDENTITY
 
                 single_paf_loss = single_paf_loss * scale_for_loss
 
@@ -209,7 +209,7 @@ class MSETrainer:
             if self._heatmap_single_scale is not None:
                 # Create mask for scaling loss
                 # Add 1.0 for saving values that are equal to 0 (approximately equal to 0)
-                mask_heatmap_single = self._training_heatmap * self._heatmap_single_scale + self.__EDENTITY
+                mask_heatmap_single = self._training_heatmap * self._heatmap_single_scale + self.__IDENTITY
 
                 single_heatmap_loss = single_heatmap_loss * mask_heatmap_single
 
