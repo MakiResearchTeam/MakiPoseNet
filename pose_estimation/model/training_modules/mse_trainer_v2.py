@@ -1,12 +1,13 @@
 import tensorflow as tf
 from ..core import PETrainer
-from makiflow.core import Loss
-
+from makiflow.core import Loss, TrainerBuilder
 
 EPS = 1e-6
 
 
 class MSETrainer(PETrainer):
+    TYPE = 'MSETrainer'
+
     __IDENTITY = 1.0
 
     def _build_loss(self):
@@ -16,36 +17,36 @@ class MSETrainer(PETrainer):
         paf_losses = []
         heatmap_losses = []
         for paf in super().get_paf_tensors():
-            single_paf_loss = Loss.mse_loss(train_paf, paf, raw_tensor=True)
+            paf_loss = Loss.mse_loss(train_paf, paf, raw_tensor=True)
 
-            if self._paf_single_scale is not None:
+            if self._paf_weight is not None:
                 abs_training_paf = tf.abs(train_paf)
 
-                multiplied_single_loss = tf.cast(
+                mask = tf.cast(
                     tf.math.greater(abs_training_paf, EPS),
                     dtype=tf.float32
                 )
 
-                scale_for_loss = multiplied_single_loss * self._paf_single_scale + self.__IDENTITY
+                weights_mask = mask * self._paf_weight + self.__IDENTITY
 
-                single_paf_loss = single_paf_loss * scale_for_loss
+                paf_loss = paf_loss * weights_mask
 
             paf_losses.append(
-                tf.reduce_mean(single_paf_loss)
+                tf.reduce_mean(paf_loss)
             )
 
         for heatmap in super().get_heatmap_tensors():
-            single_heatmap_loss = Loss.mse_loss(train_heatmap, heatmap, raw_tensor=True)
+            heatmap_loss = Loss.mse_loss(train_heatmap, heatmap, raw_tensor=True)
 
-            if self._heatmap_single_scale is not None:
+            if self._heatmap_weight is not None:
                 # Create mask for scaling loss
                 # Add 1.0 for saving values that are equal to 0 (approximately equal to 0)
-                mask_heatmap_single = train_heatmap * self._heatmap_single_scale + self.__IDENTITY
+                weight_mask = train_heatmap * self._heatmap_weight + self.__IDENTITY
 
-                single_heatmap_loss = single_heatmap_loss * mask_heatmap_single
+                heatmap_loss = heatmap_loss * weight_mask
 
             heatmap_losses.append(
-                tf.reduce_mean(single_heatmap_loss)
+                tf.reduce_mean(heatmap_loss)
             )
 
         self._paf_loss = tf.reduce_sum(paf_losses)
@@ -59,3 +60,6 @@ class MSETrainer(PETrainer):
         super().track_loss(self._heatmap_loss, PETrainer.HEATMAP_LOSS)
 
         return loss
+
+
+TrainerBuilder.register_trainer(MSETrainer)
