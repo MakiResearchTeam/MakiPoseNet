@@ -1,8 +1,9 @@
-from ..model import PEModel, MSETrainer
+from ..model import PEModel, MSETrainer, PETrainer
 from ..generators.pose_estimation import RIterator
-from ..model.training_layers import BinaryHeatmapLayer, GaussHeatmapLayer, PAFLayer
-from makiflow.base import MakiRestorable
-from makiflow.base import MakiTensor
+from pose_estimation.model.training_modules.training_layers import BinaryHeatmapLayer, GaussHeatmapLayer, PAFLayer
+from makiflow.core import MakiRestorable, TrainerBuilder
+from makiflow.core import MakiTensor
+from makiflow.layers import InputLayer
 
 
 def to_makitensor(x, name):
@@ -22,15 +23,15 @@ class ModelAssembler:
     ARCH_PATH = 'arch_path'
     WEIGHTS_PATH = 'weights_path'
     PRETRAINED_LAYERS = 'pretrained_layers'
-    UNTRAINABLE_LAYERS = 'untrainable_layers'
+
+    # Trainer config
+    TRAINER_CONFIG = 'trainer_config'
+    TRAINER_INFO = 'trainer_info'
     L1_REG = 'l1_reg'
     L1_REG_LAYERS = 'l1_reg_layers'
     L2_REG = 'l2_reg'
     L2_REG_LAYERS = 'l2_reg_layers'
-
-    # Trainer config
-    LOSS = 'loss'
-    PARAMETERS = 'parameters'
+    UNTRAINABLE_LAYERS = 'untrainable_layers'
 
     # gen_layer config
     GENLAYER_CONFIG = 'genlayer_config'
@@ -46,10 +47,11 @@ class ModelAssembler:
         model = ModelAssembler.setup_model(config[ModelAssembler.MODEL_CONFIG], gen_layer, sess)
         paf, heatmap = ModelAssembler.build_paf_heatmap(config, gen_layer)
         trainer = ModelAssembler.setup_trainer(
-            config.get(ModelAssembler.LOSS),
+            config[ModelAssembler.TRAINER_CONFIG],
             model=model,
             training_paf=paf,
-            training_heatmap=heatmap
+            training_heatmap=heatmap,
+            gen_layer=gen_layer
         )
         return trainer, model
 
@@ -65,7 +67,14 @@ class ModelAssembler:
 
     @staticmethod
     def setup_model(model_config, gen_layer, sess):
-        model = PEModel.from_json(model_config[ModelAssembler.ARCH_PATH], gen_layer)
+        shape = gen_layer.get_shape()
+        # Change batch_size to 1
+        shape[0] = 1
+        name = gen_layer.get_name()
+
+        input_layer = InputLayer(input_shape=shape, name=name)
+
+        model = PEModel.from_json(model_config[ModelAssembler.ARCH_PATH], input_layer)
         model.set_session(sess)
 
         # Load pretrained weights
@@ -73,29 +82,6 @@ class ModelAssembler:
         pretrained_layers = model_config[ModelAssembler.PRETRAINED_LAYERS]
         if weights_path is not None:
             model.load_weights(weights_path, layer_names=pretrained_layers)
-
-        untrainable_layers = model_config[ModelAssembler.UNTRAINABLE_LAYERS]
-        if untrainable_layers is not None:
-            layers = []
-            for layer_name in untrainable_layers:
-                layers += [(layer_name, False)]
-            model.set_layers_trainable(layers)
-
-        # Set l1 regularization
-        l1_reg = model_config[ModelAssembler.L1_REG]
-        if l1_reg is not None:
-            l1_reg = float(l1_reg)
-            l1_reg_layers = model_config[ModelAssembler.L1_REG_LAYERS]
-            reg_config = [(layer, l1_reg) for layer in l1_reg_layers]
-            model.set_l1_reg(reg_config)
-
-        # Set l2 regularization
-        l2_reg = model_config[ModelAssembler.L2_REG]
-        if l2_reg is not None:
-            l2_reg = float(l2_reg)
-            l2_reg_layers = model_config[ModelAssembler.L2_REG_LAYERS]
-            reg_config = [(layer, l2_reg) for layer in l2_reg_layers]
-            model.set_l2_reg(reg_config)
 
         return model
 
@@ -126,29 +112,39 @@ class ModelAssembler:
         return paf, heatmap
 
     @staticmethod
-    def setup_trainer(config_data: dict, model: PEModel, training_paf, training_heatmap):
-        # TODO: Add separate class to build trainers
-        trainer = MSETrainer(
+    def setup_trainer(config_data: dict, model: PEModel, training_paf, training_heatmap, gen_layer):
+        trainer = TrainerBuilder.trainer_from_dict(
             model=model,
-            training_paf=training_paf,
-            training_heatmap=training_heatmap
+            train_inputs=[gen_layer],
+            label_tensors={
+                PETrainer.TRAINING_HEATMAP: training_heatmap.get_data_tensor(),
+                PETrainer.TRAINING_PAF: training_paf.get_data_tensor()
+            },
+            info_dict=config_data[ModelAssembler.TRAINER_INFO]
         )
 
-        if config_data is not None:
-            config_trainer = config_data[ModelAssembler.PARAMETERS]
+        untrainable_layers = config_data[ModelAssembler.UNTRAINABLE_LAYERS]
+        if untrainable_layers is not None:
+            layers = []
+            for layer_name in untrainable_layers:
+                layers += [(layer_name, False)]
+            trainer.set_layers_trainable(layers)
 
-            heatmap_scale = config_trainer[MSETrainer.HEATMAP_SCALE]
-            paf_scale = config_trainer[MSETrainer.PAF_SCALE]
+        # Set l1 regularization
+        l1_reg = config_data[ModelAssembler.L1_REG]
+        if l1_reg is not None:
+            l1_reg = float(l1_reg)
+            l1_reg_layers = config_data[ModelAssembler.L1_REG_LAYERS]
+            reg_config = [(layer, l1_reg) for layer in l1_reg_layers]
+            trainer.set_l1_reg(reg_config)
 
-            heatmap_single_scale = config_trainer[MSETrainer.HEATMAP_SINGLE_SCALE]
-            paf_single_scale = config_trainer[MSETrainer.PAF_SINGLE_SCALE]
-
-            trainer.set_loss_scales(
-                paf_scale=paf_scale,
-                heatmap_scale=heatmap_scale,
-                heatmap_single_scale=heatmap_single_scale,
-                paf_single_scale=paf_single_scale
-            )
+        # Set l2 regularization
+        l2_reg = config_data[ModelAssembler.L2_REG]
+        if l2_reg is not None:
+            l2_reg = float(l2_reg)
+            l2_reg_layers = config_data[ModelAssembler.L2_REG_LAYERS]
+            reg_config = [(layer, l2_reg) for layer in l2_reg_layers]
+            trainer.set_l2_reg(reg_config)
 
         return trainer
 

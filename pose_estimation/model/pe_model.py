@@ -2,7 +2,7 @@ import json
 import numpy as np
 import tensorflow as tf
 
-from .main_modules import PoseEstimatorInterface
+from .core import PoseEstimatorInterface
 from .utils.algorithm_connect_skelet import estimate_paf, merge_similar_skelets
 from .utils.smoother import Smoother
 from makiflow.core import MakiTensor, MakiModel
@@ -10,12 +10,6 @@ from makiflow.core.inference.maki_builder import MakiBuilder
 
 
 class PEModel(PoseEstimatorInterface):
-
-    def get_feed_dict_config(self) -> dict:
-        return {
-            self._in_x: 0
-        }
-
     INPUT_MT = 'input_mt'
     OUTPUT_HEATMAP_MT = 'output_heatmap_mt'
     OUTPUT_PAF_MT = 'output_paf_mt'
@@ -25,6 +19,10 @@ class PEModel(PoseEstimatorInterface):
 
     _DEFAULT_KERNEL_MAX_POOL = [1, 3, 3, 1]
 
+    def get_feed_dict_config(self) -> dict:
+        return {
+            self._in_x: 0
+        }
 
     @staticmethod
     def from_json(path_to_model: str, input_tensor: MakiTensor = None):

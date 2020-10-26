@@ -16,11 +16,12 @@ class PEGym:
     - heatmap_config
     - paf_config
     - model_config
+    - trainer_config
     - training_config
     - testing_config
     - tb_config
     """
-    TRAIN_CONFIG = 'train_config'
+    TRAIN_CONFIG = 'training_config'
     EPOCHS = 'epochs'
     ITERS = 'iters'
     TEST_PERIOD = 'test_period'
@@ -53,6 +54,7 @@ class PEGym:
         self._train_config = config[PEGym.TRAIN_CONFIG]
         self._gen_layer_fabric = gen_layer_fabric
         self._sess = sess
+
         self._setup_gym(config)
         self._setup_tensorboard(config)
 
@@ -85,6 +87,20 @@ class PEGym:
         self._trainer, self._model = ModelAssembler.assemble(config, self._gen_layer_fabric, self._sess)
         self._trainer.set_tensorboard_writer(self._tester.get_writer())
 
+    def _create_gym_folder(self):
+        print(PEGym.MSG_CREATE_FOLDER)
+        orig_path = self._train_config[PEGym.GYM_FOLDER]
+        path = orig_path
+        counter = 1
+        while os.path.isdir(path):
+            new_path = orig_path + f'_{counter}'
+            counter += 1
+            print(PEGym.WRN_GYM_FOLDER_EXISTS.format(path, new_path))
+            path = new_path
+
+        self._train_config[PEGym.GYM_FOLDER] = path
+        os.makedirs(path, exist_ok=True)
+
     def _setup_tensorboard(self, config):
         print('Configuring tensorboard histograms...')
         tb_config = config.get(PEGym.TB_CONFIG)
@@ -100,19 +116,7 @@ class PEGym:
     def get_tb_path(self):
         return self._tb_path
 
-    def _create_gym_folder(self):
-        print(PEGym.MSG_CREATE_FOLDER)
-        orig_path = self._train_config[PEGym.GYM_FOLDER]
-        path = orig_path
-        counter = 1
-        while os.path.isdir(path):
-            new_path = orig_path + f'_{counter}'
-            counter += 1
-            print(PEGym.WRN_GYM_FOLDER_EXISTS.format(path, new_path))
-            path = new_path
 
-        self._train_config[PEGym.GYM_FOLDER] = path
-        os.makedirs(path, exist_ok=True)
 
     def get_model(self):
         """
