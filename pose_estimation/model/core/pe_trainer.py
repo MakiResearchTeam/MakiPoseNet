@@ -30,7 +30,7 @@ class PETrainer(MakiTrainer, ABC):
             }
         }
 
-    def set_params(self, params):
+    def setup_params(self, params):
         heatmap_scale = params[PETrainer.HEATMAP_SCALE]
         paf_scale = params[PETrainer.PAF_SCALE]
 
