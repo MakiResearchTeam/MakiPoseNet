@@ -8,8 +8,8 @@ EPS = 1e-6
 class PETrainer(MakiTrainer, ABC):
     PAF_SCALE = 'paf_scale'
     HEATMAP_SCALE = 'heatmap_scale'
-    HEATMAP_WEIGHT = 'heatmap_single_scale'
-    PAF_WEIGHT = 'paf_single_scale'
+    HEATMAP_WEIGHT = 'heatmap_weight'
+    PAF_WEIGHT = 'paf_weight'
 
     PAF_LOSS = 'PAF_loss'
     HEATMAP_LOSS = 'Heatmap_loss'
