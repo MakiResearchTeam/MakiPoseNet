@@ -85,7 +85,8 @@ class PEGym:
 
         # Create model, trainer and set the tensorboard folder
         self._trainer, self._model = ModelAssembler.assemble(config, self._gen_layer_fabric, self._sess)
-        self._trainer.set_tensorboard_writer(self._tester.get_writer())
+        self._hermes = self._trainer.get_hermes()
+        self._hermes.set_tensorboard_writer(self._tester.get_writer())
 
     def _create_gym_folder(self):
         print(PEGym.MSG_CREATE_FOLDER)
@@ -111,12 +112,10 @@ class PEGym:
         layer_names = tb_config.get(PEGym.LAYER_HISTS)
         if layer_names is None:
             layer_names = []
-        self._trainer.add_layers_histograms(layer_names)
+        self._hermes.set_layers_histograms(layer_names)
 
     def get_tb_path(self):
         return self._tb_path
-
-
 
     def get_model(self):
         """
