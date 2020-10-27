@@ -46,8 +46,8 @@ class PETrainer(MakiTrainer, ABC):
 
     def _init(self):
         super()._init()
-        self._paf_scale = None
-        self._heatmap_scale = None
+        self._paf_scale = 1.0
+        self._heatmap_scale = 1.0
         self._heatmap_weight = None
         self._paf_weight = None
 
