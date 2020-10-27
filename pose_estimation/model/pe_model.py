@@ -95,6 +95,7 @@ class PEModel(PoseEstimatorInterface):
         self._in_x = input_x
         self._paf_list = output_paf_list
         self._heatmap_list = output_heatmap_list
+        self._index_of_main_paf = len(output_paf_list) - 1
         super().__init__(outputs=output_paf_list + output_heatmap_list, inputs=[input_x])
         self._init_tensors_for_prediction()
 
@@ -250,6 +251,12 @@ class PEModel(PoseEstimatorInterface):
         Return list of mf.MakiTensor which are the heatmap calculation tensor
         """
         return self._heatmap_list
+
+    def get_batch_size(self):
+        """
+        Return batch size
+        """
+        return self._inputs[0].get_shape()[0]
 
     def _get_model_info(self):
         """
