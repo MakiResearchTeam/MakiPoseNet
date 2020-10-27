@@ -146,6 +146,7 @@ class ModelAssembler:
             reg_config = [(layer, l2_reg) for layer in l2_reg_layers]
             trainer.set_l2_reg(reg_config)
 
+        trainer.compile()
         return trainer
 
 
