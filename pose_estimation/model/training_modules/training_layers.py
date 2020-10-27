@@ -1,5 +1,5 @@
-from makiflow.base.maki_entities.maki_layer import MakiRestorable
-from makiflow.base import MakiLayer
+from makiflow.core import MakiRestorable
+from makiflow.core import MakiLayer
 import tensorflow as tf
 import numpy as np
 
