@@ -16,11 +16,12 @@ class PEGym:
     - heatmap_config
     - paf_config
     - model_config
+    - trainer_config
     - training_config
     - testing_config
     - tb_config
     """
-    TRAIN_CONFIG = 'train_config'
+    TRAIN_CONFIG = 'training_config'
     EPOCHS = 'epochs'
     ITERS = 'iters'
     TEST_PERIOD = 'test_period'
@@ -53,6 +54,7 @@ class PEGym:
         self._train_config = config[PEGym.TRAIN_CONFIG]
         self._gen_layer_fabric = gen_layer_fabric
         self._sess = sess
+
         self._setup_gym(config)
         self._setup_tensorboard(config)
 
@@ -83,22 +85,8 @@ class PEGym:
 
         # Create model, trainer and set the tensorboard folder
         self._trainer, self._model = ModelAssembler.assemble(config, self._gen_layer_fabric, self._sess)
-        self._trainer.set_tensorboard_writer(self._tester.get_writer())
-
-    def _setup_tensorboard(self, config):
-        print('Configuring tensorboard histograms...')
-        tb_config = config.get(PEGym.TB_CONFIG)
-        if tb_config is None:
-            print('No config for tensorboard. Skipping the step.')
-            return
-
-        layer_names = tb_config.get(PEGym.LAYER_HISTS)
-        if layer_names is None:
-            layer_names = []
-        self._trainer.add_layers_histograms(layer_names)
-
-    def get_tb_path(self):
-        return self._tb_path
+        self._hermes = self._trainer.get_hermes()
+        self._hermes.set_tensorboard_writer(self._tester.get_writer())
 
     def _create_gym_folder(self):
         print(PEGym.MSG_CREATE_FOLDER)
@@ -113,6 +101,21 @@ class PEGym:
 
         self._train_config[PEGym.GYM_FOLDER] = path
         os.makedirs(path, exist_ok=True)
+
+    def _setup_tensorboard(self, config):
+        print('Configuring tensorboard histograms...')
+        tb_config = config.get(PEGym.TB_CONFIG)
+        if tb_config is None:
+            print('No config for tensorboard. Skipping the step.')
+            return
+
+        layer_names = tb_config.get(PEGym.LAYER_HISTS)
+        if layer_names is None:
+            layer_names = []
+        self._hermes.set_layers_histograms(layer_names)
+
+    def get_tb_path(self):
+        return self._tb_path
 
     def get_model(self):
         """

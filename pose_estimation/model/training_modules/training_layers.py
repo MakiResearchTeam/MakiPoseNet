@@ -1,5 +1,5 @@
-from makiflow.base.maki_entities.maki_layer import MakiRestorable
-from makiflow.base import MakiLayer
+from makiflow.core import MakiRestorable
+from makiflow.core import MakiLayer
 import tensorflow as tf
 import numpy as np
 
@@ -68,7 +68,7 @@ class BinaryHeatmapLayer(MakiLayer):
         xy_grid = np.stack([x_grid, y_grid], axis=-1)
         self.xy_grid = tf.convert_to_tensor(xy_grid, dtype=tf.float32)
 
-    def _forward(self, x, computation_mode=MakiRestorable.TRAINING_MODE):
+    def forward(self, x, computation_mode=MakiRestorable.TRAINING_MODE):
         with tf.name_scope(computation_mode):
             with tf.name_scope(self.get_name()):
                 keypoints, masks = x
@@ -84,8 +84,8 @@ class BinaryHeatmapLayer(MakiLayer):
                     )
         return maps
 
-    def _training_forward(self, x):
-        return self._forward(x)
+    def training_forward(self, x):
+        return self.forward(x)
 
     def __build_heatmap_batch(self, kp, masks, radius):
         # Build maps for keypoints of the same class for multiple people
@@ -235,7 +235,7 @@ class GaussHeatmapLayer(MakiLayer):
         xy_grid = np.stack([x_grid, y_grid], axis=-1)
         self.xy_grid = tf.convert_to_tensor(xy_grid, dtype=tf.float32)
 
-    def _forward(self, x, computation_mode=MakiRestorable.TRAINING_MODE):
+    def forward(self, x, computation_mode=MakiRestorable.TRAINING_MODE):
         with tf.name_scope(computation_mode):
             with tf.name_scope(self.get_name()):
                 keypoints, masks = x
@@ -251,8 +251,8 @@ class GaussHeatmapLayer(MakiLayer):
                     )
         return maps
 
-    def _training_forward(self, x):
-        return self._forward(x)
+    def training_forward(self, x):
+        return self.forward(x)
 
     def to_dict(self):
         raise NotImplementedError()
@@ -418,7 +418,7 @@ class PAFLayer(MakiLayer):
         xy_grid = np.stack([x_grid, y_grid], axis=-1)
         self.xy_grid = tf.convert_to_tensor(xy_grid, dtype=tf.float32)
 
-    def _forward(self, x, computation_mode=MakiRestorable.TRAINING_MODE):
+    def forward(self, x, computation_mode=MakiRestorable.TRAINING_MODE):
         with tf.name_scope(computation_mode):
             with tf.name_scope(self.get_name()):
                 keypoints, masks = x
@@ -445,8 +445,8 @@ class PAFLayer(MakiLayer):
 
         return pafs
 
-    def _training_forward(self, x):
-        return self._forward(x)
+    def training_forward(self, x):
+        return self.forward(x)
 
     def to_dict(self):
         return {}   

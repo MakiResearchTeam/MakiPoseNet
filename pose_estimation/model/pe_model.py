@@ -1,18 +1,15 @@
 import json
 import numpy as np
 import tensorflow as tf
-from scipy.ndimage.filters import maximum_filter
-import cv2
 
-from .main_modules import PoseEstimatorInterface
+from .core import PoseEstimatorInterface
 from .utils.algorithm_connect_skelet import estimate_paf, merge_similar_skelets
-from makiflow.base.maki_entities import MakiCore
-from makiflow.base.maki_entities import MakiTensor
 from .utils.smoother import Smoother
+from makiflow.core import MakiTensor, MakiModel
+from makiflow.core.inference.maki_builder import MakiBuilder
 
 
 class PEModel(PoseEstimatorInterface):
-
     INPUT_MT = 'input_mt'
     OUTPUT_HEATMAP_MT = 'output_heatmap_mt'
     OUTPUT_PAF_MT = 'output_paf_mt'
@@ -22,6 +19,10 @@ class PEModel(PoseEstimatorInterface):
 
     _DEFAULT_KERNEL_MAX_POOL = [1, 3, 3, 1]
 
+    def get_feed_dict_config(self) -> dict:
+        return {
+            self._in_x: 0
+        }
 
     @staticmethod
     def from_json(path_to_model: str, input_tensor: MakiTensor = None):
@@ -37,15 +38,15 @@ class PEModel(PoseEstimatorInterface):
         json_info = json.loads(json_value)
 
         # Take model information
-        output_heatmap_mt_names = json_info[MakiCore.MODEL_INFO][PEModel.OUTPUT_HEATMAP_MT]
-        output_paf_mt_names = json_info[MakiCore.MODEL_INFO][PEModel.OUTPUT_PAF_MT]
+        output_heatmap_mt_names = json_info[MakiModel.MODEL_INFO][PEModel.OUTPUT_HEATMAP_MT]
+        output_paf_mt_names = json_info[MakiModel.MODEL_INFO][PEModel.OUTPUT_PAF_MT]
 
-        input_mt_name = json_info[MakiCore.MODEL_INFO][PEModel.INPUT_MT]
-        model_name = json_info[MakiCore.MODEL_INFO][PEModel.NAME]
-        graph_info = json_info[MakiCore.GRAPH_INFO]
+        input_mt_name = json_info[MakiModel.MODEL_INFO][PEModel.INPUT_MT]
+        model_name = json_info[MakiModel.MODEL_INFO][PEModel.NAME]
+        graph_info = json_info[MakiModel.GRAPH_INFO]
 
         # Restore all graph variables of saved model
-        inputs_and_outputs = MakiCore.restore_graph(
+        inputs_and_outputs = MakiBuilder.restore_graph(
             output_heatmap_mt_names + output_paf_mt_names,
             graph_info,
             input_layer=input_tensor
@@ -91,20 +92,11 @@ class PEModel(PoseEstimatorInterface):
             Name of this model
         """
         self.name = str(name)
-
+        self._in_x = input_x
+        self._paf_list = output_paf_list
+        self._heatmap_list = output_heatmap_list
         self._index_of_main_paf = len(output_paf_list) - 1
-
-        graph_tensors = {}
-
-        for elem in output_paf_list:
-            graph_tensors.update(elem.get_previous_tensors())
-            graph_tensors.update(elem.get_self_pair())
-
-        for elem in output_heatmap_list:
-            graph_tensors.update(elem.get_previous_tensors())
-            graph_tensors.update(elem.get_self_pair())
-
-        super().__init__(graph_tensors, outputs=output_paf_list + output_heatmap_list, inputs=[input_x])
+        super().__init__(outputs=output_paf_list + output_heatmap_list, inputs=[input_x])
         self._init_tensors_for_prediction()
 
     def _init_tensors_for_prediction(self):
@@ -242,85 +234,37 @@ class PEModel(PoseEstimatorInterface):
         else:
             return batched_peaks, batched_heatmap, batched_paf
 
-    def get_session(self):
-        """
-        TODO: Move this method into MakiModel
-        Return tf.Session that is set for this model
-
-        """
-        return self._session
-
     def get_main_paf_tensor(self):
-
         return self._output_data_tensors[self._index_of_main_paf]
 
     def get_main_heatmap_tensor(self):
-
         return self._output_data_tensors[-1]
 
-    def get_paf_tensors(self):
-        """
-        Return list of tf.Tensors which are paf (party affinity fields) calculation tensor
-
-        """
-        return self._output_data_tensors[: (self._index_of_main_paf + 1)]
-
-    def get_paf_makitensor(self):
+    def get_paf_makitensors(self):
         """
         Return list of mf.MakiTensors which are the paf (party affinity fields) calculation tensor
-
         """
-        return self._outputs[: (self._index_of_main_paf + 1)]
+        return self._paf_list
 
-    def get_heatmap_tensors(self):
-        """
-        Return list of tf.Tensors which are the heatmap calculation
-
-        """
-        return self._output_data_tensors[(self._index_of_main_paf + 1):]
-
-    def get_heatmap_makitensor(self):
+    def get_heatmap_makitensors(self):
         """
         Return list of mf.MakiTensor which are the heatmap calculation tensor
-
         """
-        return self._outputs[(self._index_of_main_paf + 1):]
-
-    def get_training_vars(self):
-        """
-        Return list of training variables
-
-        """
-        return self._trainable_vars
-
-    def training_on(self):
-        """
-        Init variables for training
-
-        """
-        self._setup_for_training()
-
-    def build_final_loss(self, loss):
-
-        final_loss = self._build_final_loss(loss)
-
-        return final_loss
+        return self._heatmap_list
 
     def get_batch_size(self):
         """
         Return batch size
-
         """
         return self._inputs[0].get_shape()[0]
 
     def _get_model_info(self):
         """
         Return information about model for saving architecture in JSON file
-
         """
         input_mt = self._inputs[0]
-        output_heatmap_mt_names = [elem.get_name() for elem in self.get_heatmap_makitensor()]
-        output_paf_mt_names = [elem.get_name() for elem in self.get_paf_makitensor()]
+        output_heatmap_mt_names = [elem.get_name() for elem in self.get_heatmap_makitensors()]
+        output_paf_mt_names = [elem.get_name() for elem in self.get_paf_makitensors()]
 
         return {
             PEModel.INPUT_MT: input_mt.get_name(),

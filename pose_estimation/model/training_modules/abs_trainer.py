@@ -5,8 +5,8 @@ from makiflow.core import Loss, TrainerBuilder
 EPS = 1e-6
 
 
-class MSETrainer(PETrainer):
-    TYPE = 'MSETrainer'
+class ABSTrainer(PETrainer):
+    TYPE = 'ABSTrainer'
 
     __IDENTITY = 1.0
 
@@ -17,7 +17,7 @@ class MSETrainer(PETrainer):
         paf_losses = []
         heatmap_losses = []
         for paf in super().get_paf_tensors():
-            paf_loss = Loss.mse_loss(train_paf, paf, raw_tensor=True)
+            paf_loss = Loss.abs_loss(train_paf, paf, raw_tensor=True)
 
             if self._paf_weight is not None:
                 abs_training_paf = tf.abs(train_paf)
@@ -36,7 +36,7 @@ class MSETrainer(PETrainer):
             )
 
         for heatmap in super().get_heatmap_tensors():
-            heatmap_loss = Loss.mse_loss(train_heatmap, heatmap, raw_tensor=True)
+            heatmap_loss = Loss.abs_loss(train_heatmap, heatmap, raw_tensor=True)
 
             if self._heatmap_weight is not None:
                 # Create mask for scaling loss
@@ -62,4 +62,4 @@ class MSETrainer(PETrainer):
         return loss
 
 
-TrainerBuilder.register_trainer(MSETrainer)
+TrainerBuilder.register_trainer(ABSTrainer)
