@@ -237,6 +237,8 @@ class CocoPreparator:
             keypoints_mask_tensors.append(all_kp[..., -1:].astype(np.float32))
             
             image_tensors.append(image.astype(np.float32))
+            # TODO: Something wrong with shapes
+            print(image_mask.shape)
             image_masks.append(image_mask)
             image_properties_tensors.append(np.array(image.shape).astype(np.float32))
             
