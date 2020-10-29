@@ -194,7 +194,7 @@ class CocoPreparator:
                 single_person_data = anns[people_n]
 
                 if single_person_data["iscrowd" or people_n >= self._max_people]:
-                    human_mask.append(self._coco.annToMask(single_person_data))
+                    human_mask.append(self._coco.annToMask(single_person_data).astype(np.float32))
                     continue
                 # skip this person if parts number is too low or if
                 # segmentation area is too small
@@ -203,7 +203,7 @@ class CocoPreparator:
 
                 if np.sum(all_kp[:, 0, -1]) < 5 or single_person_data["area"] < 32 * 32 or \
                     (criteria is not None and not criteria(all_kp[..., -1:])):
-                    human_mask.append(self._coco.annToMask(single_person_data))
+                    human_mask.append(self._coco.annToMask(single_person_data).astype(np.float32))
                     continue
 
                 # all_kp - (n_keypoints, n_people, 3), concatenate by n_people axis
@@ -220,7 +220,7 @@ class CocoPreparator:
                 # Assume that is gray-scale image, so convert it to rgb
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
 
-            image_mask = np.sum(human_mask, axis=0)
+            image_mask = np.sum(human_mask, axis=0).astype(np.float32)
             image_mask[image_mask > 0.0] = 1.0
 
             image, all_kp, image_mask = self.__rescale_image(image, all_kp, image_mask)
