@@ -1,26 +1,24 @@
-
 from __future__ import absolute_import
 import tensorflow as tf
 from makiflow.generators.pipeline.tfr.utils import _tensor_to_byte_feature
 
-
 # Save form
 SAVE_FORM = "{0}_{1}.tfrecord"
-
 
 # Feature names
 IMAGE_FNAME = 'IMAGE_FNAME'
 KEYPOINTS_FNAME = 'KEYPOINTS_FNAME'
 KEYPOINTS_MASK_FNAME = 'KEYPOINTS_MASK_FNAME'
 IMAGE_PROPERTIES_FNAME = 'IMAGE_PROPERTIES_FNAME'
+ABSENT_HUMAN_MASK_FNAME = 'ABSENT_HUMAN_MASK_FNAME'
 
 
 # Serialize into data point
 def serialize_pose_estimation_data_point(
-        image_tensor, 
-        keypoints_tensor, 
-        keypoints_mask_tensor, 
-        image_properties_tensor, 
+        image_tensor,
+        keypoints_tensor,
+        keypoints_mask_tensor,
+        image_properties_tensor,
         sess=None
 ):
     feature = {
@@ -40,23 +38,23 @@ def record_pose_estimation_train_data(
         keypoints_tensors,
         keypoints_mask_tensors,
         image_properties_tensors,
-        tfrecord_path, 
+        tfrecord_path,
         sess=None
 ):
     with tf.io.TFRecordWriter(tfrecord_path) as writer:
         for i, (image_tensor, keypoints_tensor, keypoints_mask_tensor, image_properties_tensor) in enumerate(
-            zip(
-            image_tensors,
-            keypoints_tensors,
-            keypoints_mask_tensors,
-            image_properties_tensors
-            )
+                zip(
+                    image_tensors,
+                    keypoints_tensors,
+                    keypoints_mask_tensors,
+                    image_properties_tensors
+                )
         ):
             serialized_data_point = serialize_pose_estimation_data_point(
                 image_tensor=image_tensor,
                 keypoints_tensor=keypoints_tensor,
                 keypoints_mask_tensor=keypoints_mask_tensor,
-                image_properties_tensor=image_properties_tensor,        
+                image_properties_tensor=image_properties_tensor,
                 sess=sess
             )
             writer.write(serialized_data_point)
@@ -64,8 +62,8 @@ def record_pose_estimation_train_data(
 
 # Record data into multiple tfrecords
 def record_mp_pose_estimation_train_data(
-    image_tensors, keypoints_tensors, keypoints_mask_tensors, image_properties_tensors,
-    prefix, dp_per_record,  sess=None):
+        image_tensors, keypoints_tensors, keypoints_mask_tensors, image_properties_tensors,
+        prefix, dp_per_record, sess=None):
     """
     Creates tfrecord dataset where each tfrecord contains `dp_per_second` data points
 
@@ -88,4 +86,3 @@ def record_mp_pose_estimation_train_data(
             tfrecord_path=tfrecord_name,
             sess=sess
         )
-

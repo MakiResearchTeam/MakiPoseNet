@@ -1,5 +1,6 @@
 from makiflow.generators.pipeline.tfr.tfr_map_method import TFRMapMethod, TFRPostMapMethod
-from .data_preparation import IMAGE_FNAME, KEYPOINTS_FNAME, KEYPOINTS_MASK_FNAME, IMAGE_PROPERTIES_FNAME
+from .data_preparation import IMAGE_FNAME, KEYPOINTS_FNAME, KEYPOINTS_MASK_FNAME, IMAGE_PROPERTIES_FNAME, \
+    ABSENT_HUMAN_MASK_FNAME
 from .utils import check_bounds, apply_transformation, apply_transformation_batched
 from ...utils.preprocess import preprocess_input
 
@@ -13,6 +14,7 @@ class RIterator:
     KEYPOINTS_MASK = 'KEYPOINTS_MASK'
     IMAGE_PROPERTIES = 'IMAGE_PROPERTIES'
     HEATMAP = 'HEATMAP'
+    ABSENT_HUMAN_MASK = 'ABSENT_HUMAN_MASK'
 
 
 class LoadDataMethod(TFRMapMethod):
@@ -59,7 +61,8 @@ class LoadDataMethod(TFRMapMethod):
             IMAGE_FNAME: tf.io.FixedLenFeature((), tf.string),
             KEYPOINTS_FNAME: tf.io.FixedLenFeature((), tf.string),
             KEYPOINTS_MASK_FNAME: tf.io.FixedLenFeature((), tf.string),
-            IMAGE_PROPERTIES_FNAME: tf.io.FixedLenFeature((), tf.string)
+            IMAGE_PROPERTIES_FNAME: tf.io.FixedLenFeature((), tf.string),
+            ABSENT_HUMAN_MASK_FNAME: tf.io.FixedLenFeature((), tf.string)
         }
 
         example = tf.io.parse_single_example(serialized_example, r_feature_description)
@@ -71,6 +74,7 @@ class LoadDataMethod(TFRMapMethod):
         keypoints_mask_tensor = tf.io.parse_tensor(example[KEYPOINTS_MASK_FNAME], out_type=self.keypoints_mask_dtype)
         image_properties_tensor = tf.io.parse_tensor(example[IMAGE_PROPERTIES_FNAME],
                                                      out_type=self.image_properties_dtype)
+        absent_human_mask = tf.io.parse_tensor(example[IMAGE_FNAME], out_type=self.image_dtype)
 
         # Give the data its shape because it doesn't have it right after being extracted
         keypoints_tensor.set_shape(self.shape_keypoints)
@@ -81,7 +85,8 @@ class LoadDataMethod(TFRMapMethod):
             RIterator.IMAGE: image_tensor,
             RIterator.KEYPOINTS: keypoints_tensor,
             RIterator.KEYPOINTS_MASK: keypoints_mask_tensor,
-            RIterator.IMAGE_PROPERTIES: image_properties_tensor
+            RIterator.IMAGE_PROPERTIES: image_properties_tensor,
+            RIterator.ABSENT_HUMAN_MASK: absent_human_mask
         }
 
         return output_dict
@@ -105,33 +110,39 @@ class RandomCropMethod(TFRPostMapMethod):
         self._crop_w = crop_w
         self._crop_h = crop_h
         self._image_crop_size = [crop_h, crop_w, image_last_dimension]
+        self._ah_mask_crop_size = [crop_h, crop_w, 1]
         self._image_crop_size_tf = tf.constant(np.array([crop_h, crop_w, image_last_dimension], dtype=np.int32))
+        self._ah_mask_crop_size_tf = tf.constant(np.array([crop_h, crop_w, 1], dtype=np.int32))
 
     def read_record(self, serialized_example) -> dict:
         element = self._parent_method.read_record(serialized_example)
         image = element[RIterator.IMAGE]
         keypoints = element[RIterator.KEYPOINTS]
         keypoints_mask = element[RIterator.KEYPOINTS_MASK]
+        absent_human_mask = element[RIterator.ABSENT_HUMAN_MASK]
 
         # This is an adapted code from the original TensorFlow's `random_crop` method
         limit = tf.shape(image) - self._image_crop_size_tf + 1
         offset = tf.random_uniform(
             shape=[3],
             dtype=tf.int32,
-            # it is unlikely that a tensor with shape more that 10000 will appear
+            # it is unlikely that a tensor with shape more than 10000 will appear
             maxval=10000
         ) % limit
 
         cropped_image = tf.slice(image, offset, self._image_crop_size_tf)
-        cropped_keypoints = keypoints - tf.cast(tf.stack([offset[1], offset[0]]), dtype=tf.float32)
+        cropped_mask = tf.slice(absent_human_mask, offset, self._ah_mask_crop_size_tf)
         # After slicing the tensors doesn't have proper shape. They get instead [None, None, None].
         # We can't use tf.Tensors for setting shape because they are note iterable what causes errors.
         cropped_image.set_shape(self._image_crop_size)
+        cropped_mask.set_shape(self._ah_mask_crop_size)
 
+        cropped_keypoints = keypoints - tf.cast(tf.stack([offset[1], offset[0]]), dtype=tf.float32)
         # Check which keypoints are beyond the image
         correct_keypoints_mask = keypoints_mask * check_bounds(cropped_keypoints, self._image_crop_size_tf)
 
         element[RIterator.IMAGE] = cropped_image
+        element[RIterator.ABSENT_HUMAN_MASK] = cropped_mask
         element[RIterator.KEYPOINTS] = cropped_keypoints
         element[RIterator.KEYPOINTS_MASK] = correct_keypoints_mask
         return element
@@ -247,6 +258,7 @@ class AugmentationPostMethod(TFRPostMapMethod):
         image = element[RIterator.IMAGE]
         keypoints = element[RIterator.KEYPOINTS]
         keypoints_mask = element[RIterator.KEYPOINTS_MASK]
+        absent_human_mask = element[RIterator.ABSENT_HUMAN_MASK]
 
         image_shape = image.get_shape().as_list()
         angle = None
@@ -267,6 +279,18 @@ class AugmentationPostMethod(TFRPostMapMethod):
 
             transformed_image, transformed_keypoints = apply_transformation(
                 image,
+                keypoints,
+                use_rotation=self.use_rotation,
+                angle=angle,
+                use_shift=self.use_shift,
+                dx=dx,
+                dy=dy,
+                use_zoom=self.use_zoom,
+                zoom_scale=zoom
+            )
+
+            transformed_mask, transformed_keypoints = apply_transformation(
+                absent_human_mask,
                 keypoints,
                 use_rotation=self.use_rotation,
                 angle=angle,
@@ -302,12 +326,25 @@ class AugmentationPostMethod(TFRPostMapMethod):
                 use_zoom=self.use_zoom,
                 zoom_scale_batched=zoom
             )
+
+            transformed_mask, transformed_keypoints = apply_transformation(
+                absent_human_mask,
+                keypoints,
+                use_rotation=self.use_rotation,
+                angle=angle,
+                use_shift=self.use_shift,
+                dx=dx,
+                dy=dy,
+                use_zoom=self.use_zoom,
+                zoom_scale=zoom
+            )
             # Check which keypoints are beyond the image
             correct_keypoints_mask = keypoints_mask * check_bounds(transformed_keypoints, image_shape[1:])
 
         element[RIterator.IMAGE] = transformed_image
         element[RIterator.KEYPOINTS] = transformed_keypoints
         element[RIterator.KEYPOINTS_MASK] = correct_keypoints_mask
+        element[RIterator.ABSENT_HUMAN_MASK] = transformed_mask
         return element
 
 
@@ -552,16 +589,16 @@ class FlipPostMethod(TFRPostMapMethod):
         keypoints_map = [x[1] for x in keypoints_map]
         self._keypoints_map = keypoints_map
 
-    def flip(self, image, keypoints, masks):
+    def flip(self, image, absent_human_mask, keypoints, masks):
         """
         Parameters
         ----------
         keypoints : tf.Tensor of shape [batch, c, n_people, 2]
             Tensor of keypoints coordinates.
         """
-        # Flip the image
+        # Flip the image and its corresponding absent human mask
         flipped_im = tf.image.flip_left_right(image)
-
+        flipped_ah_mask = tf.image.flip_left_right(absent_human_mask)
         # Flip keypoints
         _, height, width, _ = image.get_shape().as_list()
         move = np.array([[[width, 0]]], dtype='float32')
@@ -573,7 +610,7 @@ class FlipPostMethod(TFRPostMapMethod):
         # Reorder points and their masks
         keypoints = tf.gather(keypoints, self._keypoints_map, axis=1)
         masks = tf.gather(masks, self._keypoints_map, axis=1)
-        return flipped_im, keypoints, masks
+        return flipped_im, flipped_ah_mask, keypoints, masks
 
     def read_record(self, serialized_example) -> dict:
         if self._parent_method is not None:
@@ -581,12 +618,13 @@ class FlipPostMethod(TFRPostMapMethod):
         else:
             element = serialized_example
         image = element[RIterator.IMAGE]
+        absent_human_mask = [RIterator.ABSENT_HUMAN_MASK]
         keypoints = element[RIterator.KEYPOINTS]
         masks = element[RIterator.KEYPOINTS_MASK]
 
         p = tf.random_uniform(minval=0, maxval=1.0, shape=[])
-        true_fn = lambda: self.flip(image, keypoints, masks)
-        false_fn = lambda: (image, keypoints, masks)
+        true_fn = lambda: self.flip(image, absent_human_mask, keypoints, masks)
+        false_fn = lambda: (image, absent_human_mask, keypoints, masks)
         image, keypoints, masks = tf.cond(p < self._rate, true_fn, false_fn)
 
         element[RIterator.IMAGE] = image

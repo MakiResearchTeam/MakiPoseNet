@@ -13,6 +13,7 @@ class MSETrainer(PETrainer):
     def _build_loss(self):
         train_paf = super().get_train_paf()
         train_heatmap = super().get_train_heatmap()
+        train_mask = super().get_train_mask()
 
         paf_losses = []
         heatmap_losses = []
