@@ -211,14 +211,13 @@ class CocoPreparator:
                 continue
 
             all_kp = np.concatenate(all_kp, axis=1)
-            print(all_kp.shape)
             # Fill dimension n_people to maximum value according to self._max_people 
             # By placing zeros in other additional dimensions
-            not_enougth = self._max_people - all_kp.shape[0]
+            not_enougth = self._max_people - all_kp.shape[1]
             if not_enougth > 0:
                 zeros_arr = np.zeros([all_kp.shape[0], not_enougth, all_kp.shape[-1]]).astype(np.float32)
                 all_kp = np.concatenate([all_kp, zeros_arr], axis=1)
-            print(all_kp.shape)
+            
             if len(image.shape) != 3:
                 # Assume that is gray-scale image, so convert it to rgb
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
