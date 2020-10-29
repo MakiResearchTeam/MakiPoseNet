@@ -90,7 +90,7 @@ def record_mp_pose_estimation_train_data(
 
         record_pose_estimation_train_data(
             image_tensors=image_tensor_batched,
-            image_mask_tensor=image_mask_tensor_batched,
+            image_mask_tensors=image_mask_tensor_batched,
             keypoints_tensors=keypoints_tensor_batched,
             keypoints_mask_tensors=keypoints_mask_tensor_batched,
             image_properties_tensors=image_properties_tensor_batched,
