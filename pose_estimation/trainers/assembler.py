@@ -113,12 +113,15 @@ class ModelAssembler:
 
     @staticmethod
     def setup_trainer(config_data: dict, model: PEModel, training_paf, training_heatmap, gen_layer):
+        iterator = gen_layer.get_iterator()
+        absent_human_masks = iterator[RIterator.ABSENT_HUMAN_MASK]
         trainer = TrainerBuilder.trainer_from_dict(
             model=model,
             train_inputs=[gen_layer],
             label_tensors={
                 PETrainer.TRAINING_HEATMAP: training_heatmap.get_data_tensor(),
-                PETrainer.TRAINING_PAF: training_paf.get_data_tensor()
+                PETrainer.TRAINING_PAF: training_paf.get_data_tensor(),
+                PETrainer.TRAINING_MASK: absent_human_masks
             },
             info_dict=config_data[ModelAssembler.TRAINER_INFO]
         )
