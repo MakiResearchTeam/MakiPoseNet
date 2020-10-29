@@ -131,7 +131,7 @@ class RandomCropMethod(TFRPostMapMethod):
         ) % limit
 
         cropped_image = tf.slice(image, offset, self._image_crop_size_tf)
-        cropped_image_mask = tf.slice(image_mask, offset, self._image_crop_size_tf)
+        cropped_image_mask = tf.slice(image_mask, offset[:2], self._image_crop_size_tf)
         cropped_keypoints = keypoints - tf.cast(tf.stack([offset[1], offset[0]]), dtype=tf.float32)
         # After slicing the tensors doesn't have proper shape. They get instead [None, None, None].
         # We can't use tf.Tensors for setting shape because they are note iterable what causes errors.
