@@ -40,6 +40,9 @@ def get_rotate_matrix(image, angle):
     Get rotation matrix for image with certain angle
 
     """
+    if isinstance(image, list):
+        image = image[0]
+
     shift_x = image.get_shape()[1].value // 2
     shift_y = image.get_shape()[0].value // 2
 
@@ -62,6 +65,9 @@ def get_rotate_matrix_batched(images, angle_batched):
     Get rotation matrix for every image in the batch with certain angle in the angle_batched array
 
     """
+    if isinstance(images, list):
+        images = images[0]
+
     return tf.stack(
         [get_rotate_matrix(images[i], angle_batched[i]) for i in range(images.get_shape().as_list()[0])]
     )
@@ -130,13 +136,16 @@ def apply_transformation(
 
     Returns
     -------
-    tf.Tensor
+    List
         Batch of the transformed image
     tf.Tensor
         Batch of the transformed keypoints
-
     """
-    image = tf.convert_to_tensor(image, dtype=tf.float32)
+    if isinstance(image, list):
+        for i in range(len(image)):
+            image[i] = tf.convert_to_tensor(image[i], dtype=tf.float32)
+    else:
+        image = tf.convert_to_tensor(image, dtype=tf.float32)
 
     zoom_matrix = None
     shift_matrix = None
@@ -181,12 +190,13 @@ def apply_transformation(
 
     proj_matrix = tf.contrib.image.matrices_to_flat_transforms(tf.transpose(full_matrix))
 
-    transformed_image = tf.contrib.image.transform([image], proj_matrix)[0]
+    if isinstance(image, list):
+        transformed_image = tf.contrib.image.transform(image, proj_matrix)
+    else:
+        transformed_image = tf.contrib.image.transform([image], proj_matrix)[0]
     transformed_kp = tf.matmul(kp, tf.linalg.inv(full_matrix))
 
     return transformed_image, transformed_kp[..., :2]
-
-
 
 
 def apply_transformation_batched(
@@ -211,8 +221,13 @@ def apply_transformation_batched(
         Batch of transformed keypoints
 
     """
-    images = tf.convert_to_tensor(images, dtype=tf.float32)
-    N = images.get_shape().as_list()[0]
+    if isinstance(images, list):
+        for i in range(len(images)):
+            images[i] = tf.convert_to_tensor(images[i], dtype=tf.float32)
+        N = images[0].get_shape().as_list()[0]
+    else:
+        images = tf.convert_to_tensor(images, dtype=tf.float32)
+        N = images.get_shape().as_list()[0]
 
     zoom_matrix = None
     shift_matrix = None
@@ -262,7 +277,13 @@ def apply_transformation_batched(
         ]
     )
 
-    transformed_image = tf.contrib.image.transform(images, proj_matrix)
+    if isinstance(images, list):
+        transformed_image = []
+        for i in range(len(images)):
+            transformed_image.append(tf.contrib.image.transform(images[i], proj_matrix))
+    else:
+        transformed_image = tf.contrib.image.transform(images, proj_matrix)
+
     transformed_kp = tf.stack(
         [
             tf.matmul(kp[j], tf.linalg.inv(full_matrix[j]))

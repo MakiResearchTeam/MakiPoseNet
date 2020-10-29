@@ -162,6 +162,7 @@ class CocoPreparator:
         iterator = tqdm(range(count_images))
 
         image_tensors = []
+        image_masks = []
         keypoints_tensors = []
         keypoints_mask_tensors = []
         image_properties_tensors = []
@@ -178,35 +179,57 @@ class CocoPreparator:
             annIds = self._coco.getAnnIds(imgIds=img_obj['id'], iscrowd=None)
             anns = self._coco.loadAnns(annIds)
 
-            if len(anns) == 0 or len(anns) > self._max_people:
+            if len(anns) == 0:
                 continue
+            # TODO: self._max_people
 
-            all_kp = self.take_default_skelet(anns[0])
+            # Sort from the biggest person to the smallest one
+            sorted_annot = np.argsort([-a['area'] for a in anns], kind='mergesort')
 
-            for people_n in range(1, len(anns)):
-                all_kp_single = self.take_default_skelet(anns[people_n])
+            # Shape (n_keypoints, 1, 3)
+            all_kp = self.take_default_skelet(sorted_annot[0])
+            human_mask = []
+
+            for people_n in range(1, len(sorted_annot)):
+                single_person_data = sorted_annot[people_n]
+
+                if single_person_data["iscrowd" or people_n >= self._max_people]:
+                    human_mask.append(self._coco.annot.annToMask(single_person_data))
+                    continue
+                # skip this person if parts number is too low or if
+                # segmentation area is too small
+                # Shape (n_keypoints, 1, 3)
+                all_kp_single = self.take_default_skelet(single_person_data)
+
+                if np.sum(all_kp[:, 0, -1]) < 5 or single_person_data["area"] < 32 * 32 or \
+                    (criteria is not None and not criteria(all_kp[..., -1:])):
+                    human_mask.append(self._coco.annot.annToMask(single_person_data))
+                    continue
+
                 # all_kp - (n_keypoints, n_people, 3), concatenate by n_people axis
                 all_kp = np.concatenate([all_kp, all_kp_single], axis=1)
 
-            # Skip image if it's not suitable by critetia function
-            if criteria is not None and not criteria(all_kp[..., -1:]):
-                continue
-
             # Fill dimension n_people to maximum value according to self._max_people 
             # By placing zeros in other additional dimensions
-            not_enougth = self._max_people - len(anns)
-            zeros_arr = np.zeros([all_kp.shape[0], not_enougth, all_kp.shape[-1]]).astype(np.float32)
-            all_kp = np.concatenate([all_kp, zeros_arr], axis=1)
+            not_enougth = self._max_people - all_kp.shape[0]
+            if not_enougth > 0:
+                zeros_arr = np.zeros([all_kp.shape[0], not_enougth, all_kp.shape[-1]]).astype(np.float32)
+                all_kp = np.concatenate([all_kp, zeros_arr], axis=1)
 
             if len(image.shape) != 3:
                 # Assume that is gray-scale image, so convert it to rgb
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-            image, all_kp = self.__rescale_image(image, all_kp)
+
+            image_mask = np.sum(human_mask, axis=0)
+            image_mask[image_mask > 0.0] = 1.0
+
+            image, all_kp, image_mask = self.__rescale_image(image, all_kp, image_mask)
 
             keypoints_tensors.append(all_kp[..., :2].astype(np.float32))
             keypoints_mask_tensors.append(all_kp[..., -1:].astype(np.float32))
             
             image_tensors.append(image.astype(np.float32))
+            image_masks.append(image_mask)
             image_properties_tensors.append(np.array(image.shape).astype(np.float32))
             
             counter += 1
@@ -216,6 +239,7 @@ class CocoPreparator:
                 print('Save part of the tfrecords...')
                 record_mp_pose_estimation_train_data(
                     image_tensors=image_tensors,
+                    image_masks=image_masks,
                     keypoints_tensors=keypoints_tensors,
                     keypoints_mask_tensors=keypoints_mask_tensors,
                     image_properties_tensors=image_properties_tensors,
@@ -224,6 +248,7 @@ class CocoPreparator:
                 )
 
                 image_tensors = []
+                image_masks = []
                 keypoints_tensors = []
                 keypoints_mask_tensors = []
                 image_properties_tensors = []
@@ -238,6 +263,7 @@ class CocoPreparator:
             print('Save part of the tfrecords...')
             record_mp_pose_estimation_train_data(
                 image_tensors=image_tensors,
+                image_masks=image_masks,
                 keypoints_tensors=keypoints_tensors,
                 keypoints_mask_tensors=keypoints_mask_tensors,
                 image_properties_tensors=image_properties_tensors,
@@ -247,7 +273,7 @@ class CocoPreparator:
 
         iterator.close()
 
-    def __rescale_image(self, image, keypoints):
+    def __rescale_image(self, image, keypoints, image_mask):
         """
         Rescale image to minimum size, 
         if one of the dimension of the image (height and width) is smaller than `self._min_image_size`
@@ -259,10 +285,11 @@ class CocoPreparator:
             scale = self._min_image_size / min_dim
             w, h = round(w * scale), round(h * scale)
             image = cv2.resize(image, (w, h))
+            image_mask = cv2.resize(image_mask, (w, h))
             # Ignore dimension of visibility of the keypoints 
             keypoints[..., :-1] *= scale
         
-        return image, keypoints
+        return image, keypoints, image_mask
 
     @staticmethod
     def take_default_skelet(single_human_anns):
