@@ -221,6 +221,7 @@ class CocoPreparator:
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
 
             image_mask = np.sum(human_mask, axis=0).astype(np.float32)
+            print(image_mask.shape)
             image_mask[image_mask > 0.0] = 1.0
 
             image, all_kp, image_mask = self.__rescale_image(image, all_kp, image_mask)
