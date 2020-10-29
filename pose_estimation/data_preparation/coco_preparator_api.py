@@ -200,7 +200,7 @@ class CocoPreparator:
                 # Shape (n_keypoints, 1, 3)
                 all_kp_single = self.take_default_skelet(single_person_data)
 
-                if np.sum(all_kp[:, 0, -1]) < 5 or single_person_data["area"] < 32 * 32 or \
+                if np.sum(all_kp_single[:, 0, -1]) < 5 or single_person_data["area"] < 32 * 32 or \
                     (criteria is not None and not criteria(all_kp_single[..., -1:])):
                     human_mask.append(self._coco.annToMask(single_person_data).astype(np.float32))
                     continue
