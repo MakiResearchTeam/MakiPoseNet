@@ -191,7 +191,9 @@ def apply_transformation(
     proj_matrix = tf.contrib.image.matrices_to_flat_transforms(tf.transpose(full_matrix))
 
     if isinstance(image, list):
-        transformed_image = tf.contrib.image.transform(image, proj_matrix)
+        transformed_image = []
+        for i in range(len(image)):
+            transformed_image.append(tf.contrib.image.transform(image[i], proj_matrix))
     else:
         transformed_image = tf.contrib.image.transform([image], proj_matrix)[0]
     transformed_kp = tf.matmul(kp, tf.linalg.inv(full_matrix))
