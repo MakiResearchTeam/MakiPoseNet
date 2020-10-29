@@ -586,9 +586,4 @@ class PAFLayer(MakiLayer):
         cf = cf_l * cf_sigma
         # Multiply the mask with the direction vector.
         paf = tf.expand_dims(cf, axis=-1) * v[:, 0]
-
-        # Make sure we did not generate paf for a trash vector.
-        multiplier = tf.cast(tf.greater(l, 2e-5), dtype='float32')
-        # If everything was okay, the paf will be multiplied by 1.0
-        paf = paf * multiplier
         return paf * tf.reduce_min(points_mask)
