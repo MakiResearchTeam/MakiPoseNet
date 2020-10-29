@@ -30,7 +30,7 @@ class MSETrainer(PETrainer):
 
                 weights_mask = mask * self._paf_weight + self.__IDENTITY
 
-                paf_loss = paf_loss * weights_mask
+                paf_loss = paf_loss * weights_mask * train_mask
 
             paf_losses.append(
                 tf.reduce_mean(paf_loss)
@@ -44,7 +44,7 @@ class MSETrainer(PETrainer):
                 # Add 1.0 for saving values that are equal to 0 (approximately equal to 0)
                 weight_mask = train_heatmap * self._heatmap_weight + self.__IDENTITY
 
-                heatmap_loss = heatmap_loss * weight_mask
+                heatmap_loss = heatmap_loss * weight_mask * train_mask
 
             heatmap_losses.append(
                 tf.reduce_mean(heatmap_loss)
