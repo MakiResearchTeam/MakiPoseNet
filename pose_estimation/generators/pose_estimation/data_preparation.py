@@ -51,11 +51,11 @@ def record_pose_estimation_train_data(
         for i, (image_tensor, image_mask_tensor, keypoints_tensor,
                 keypoints_mask_tensor, image_properties_tensor) in enumerate(
             zip(
-            image_tensors,
-            image_mask_tensors,
-            keypoints_tensors,
-            keypoints_mask_tensors,
-            image_properties_tensors
+                image_tensors,
+                image_mask_tensors,
+                keypoints_tensors,
+                keypoints_mask_tensors,
+                image_properties_tensors
             )
         ):
             serialized_data_point = serialize_pose_estimation_data_point(

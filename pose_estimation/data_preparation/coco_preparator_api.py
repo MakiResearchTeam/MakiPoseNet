@@ -186,11 +186,10 @@ class CocoPreparator:
             # Sort from the biggest person to the smallest one
             sorted_annot_ids = np.argsort([-a['area'] for a in anns], kind='mergesort')
 
-            # Shape (n_keypoints, 1, 3)
-            all_kp = self.take_default_skelet(anns[sorted_annot_ids[0]])
+            all_kp = []
             human_mask = []
 
-            for people_n in sorted_annot_ids[1:]:
+            for people_n in sorted_annot_ids:
                 single_person_data = anns[people_n]
 
                 if single_person_data["iscrowd" or people_n >= self._max_people]:
@@ -207,15 +206,17 @@ class CocoPreparator:
                     continue
 
                 # all_kp - (n_keypoints, n_people, 3), concatenate by n_people axis
-                all_kp = np.concatenate([all_kp, all_kp_single], axis=1)
+                all_kp.append(all_kp_single)
 
+            all_kp = np.stack(all_kp, axis=1)
+            print(all_kp.shape)
             # Fill dimension n_people to maximum value according to self._max_people 
             # By placing zeros in other additional dimensions
             not_enougth = self._max_people - all_kp.shape[0]
             if not_enougth > 0:
                 zeros_arr = np.zeros([all_kp.shape[0], not_enougth, all_kp.shape[-1]]).astype(np.float32)
                 all_kp = np.concatenate([all_kp, zeros_arr], axis=1)
-
+            print(all_kp.shape)
             if len(image.shape) != 3:
                 # Assume that is gray-scale image, so convert it to rgb
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
