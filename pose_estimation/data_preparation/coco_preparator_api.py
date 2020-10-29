@@ -194,7 +194,7 @@ class CocoPreparator:
                 single_person_data = anns[people_n]
 
                 if single_person_data["iscrowd" or people_n >= self._max_people]:
-                    human_mask.append(self._coco.annot.annToMask(single_person_data))
+                    human_mask.append(self._coco.annToMask(single_person_data))
                     continue
                 # skip this person if parts number is too low or if
                 # segmentation area is too small
@@ -203,7 +203,7 @@ class CocoPreparator:
 
                 if np.sum(all_kp[:, 0, -1]) < 5 or single_person_data["area"] < 32 * 32 or \
                     (criteria is not None and not criteria(all_kp[..., -1:])):
-                    human_mask.append(self._coco.annot.annToMask(single_person_data))
+                    human_mask.append(self._coco.annToMask(single_person_data))
                     continue
 
                 # all_kp - (n_keypoints, n_people, 3), concatenate by n_people axis
