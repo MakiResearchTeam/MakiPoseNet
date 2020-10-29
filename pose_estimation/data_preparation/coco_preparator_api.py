@@ -220,9 +220,14 @@ class CocoPreparator:
                 # Assume that is gray-scale image, so convert it to rgb
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
 
-            image_mask = np.sum(human_mask, axis=0).astype(np.float32)
-            print(image_mask.shape)
-            image_mask[image_mask > 0.0] = 1.0
+            if len(human_mask) > 0:
+                image_mask = np.sum(human_mask, axis=0).astype(np.float32)
+                image_mask[image_mask > 0.0] = 1.0
+
+                # Reverse
+                image_mask = np.ones((*image.shape[:2], 1)).astype(np.float32) - np.expand_dims(image_mask, axis=-1)
+            else:
+                image_mask = np.ones((*image.shape[:2], 1)).astype(np.float32)
 
             image, all_kp, image_mask = self.__rescale_image(image, all_kp, image_mask)
 
