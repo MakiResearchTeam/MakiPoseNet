@@ -52,8 +52,7 @@ class PETrainer(MakiTrainer, ABC):
             print('`resize` parameter is not set. Setting it to False.')
             resize = False
 
-        if resize:
-            self.set_resize()
+        self.set_resize(resize)
 
     # noinspection PyAttributeOutsideInit
     def set_loss_scales(
