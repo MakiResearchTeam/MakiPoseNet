@@ -567,9 +567,10 @@ class PAFLayer(MakiLayer):
         h, w, _ = self.xy_grid.get_shape()
         # Flatten the field. It is needed for the later matrix multiplication.
         xy_flat = tf.reshape(self.xy_grid, [-1, 2])
-        l = tf.maximum(tf.linalg.norm(p2 - p1), 1e-10)
+        l = tf.maximum(tf.linalg.norm(p2 - p1), 1e-5)
         v = (p2 - p1) / l
         v_orth = tf.matmul(PAFLayer.ROT90_MAT, v)
+
         # Generate a mask for the points between `p1` and `p2`.
         c1 = tf.cast(0. <= tf.matmul(xy_flat - p1[:,0], v), tf.float32)
         c2 = tf.cast(tf.matmul(xy_flat - p1[:,0], v) <= l, tf.float32)
@@ -583,6 +584,11 @@ class PAFLayer(MakiLayer):
         cf_sigma = tf.reshape(cf_sigma, [h, w])
         
         cf = cf_l * cf_sigma
-        # Mutiply the mask with the direction vector.
+        # Multiply the mask with the direction vector.
         paf = tf.expand_dims(cf, axis=-1) * v[:, 0]
+
+        # Make sure we did not generate paf for a trash vector.
+        multiplier = tf.cast(tf.greater(l, 2e-5), dtype='float32')
+        # If everything was okay, the paf will be multiplied by 1.0
+        paf = paf * multiplier
         return paf * tf.reduce_min(points_mask)
