@@ -184,14 +184,14 @@ class CocoPreparator:
             # TODO: self._max_people
 
             # Sort from the biggest person to the smallest one
-            sorted_annot = np.argsort([-a['area'] for a in anns], kind='mergesort')
+            sorted_annot_ids = np.argsort([-a['area'] for a in anns], kind='mergesort')
 
             # Shape (n_keypoints, 1, 3)
-            all_kp = self.take_default_skelet(sorted_annot[0])
+            all_kp = self.take_default_skelet(anns[sorted_annot_ids[0]])
             human_mask = []
 
-            for people_n in range(1, len(sorted_annot)):
-                single_person_data = sorted_annot[people_n]
+            for people_n in sorted_annot_ids[1:]:
+                single_person_data = anns[people_n]
 
                 if single_person_data["iscrowd" or people_n >= self._max_people]:
                     human_mask.append(self._coco.annot.annToMask(single_person_data))
