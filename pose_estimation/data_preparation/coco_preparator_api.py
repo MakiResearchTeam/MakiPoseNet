@@ -207,8 +207,10 @@ class CocoPreparator:
 
                 # all_kp - (n_keypoints, n_people, 3), concatenate by n_people axis
                 all_kp.append(all_kp_single)
+            if len(all_kp) == 0:
+                continue
 
-            all_kp = np.stack(all_kp, axis=1)
+            all_kp = np.concatenate(all_kp, axis=1)
             print(all_kp.shape)
             # Fill dimension n_people to maximum value according to self._max_people 
             # By placing zeros in other additional dimensions
