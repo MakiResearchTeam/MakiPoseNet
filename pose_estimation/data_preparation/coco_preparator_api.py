@@ -293,7 +293,7 @@ class CocoPreparator:
             scale = self._min_image_size / min_dim
             w, h = round(w * scale), round(h * scale)
             image = cv2.resize(image, (w, h))
-            image_mask = np.expand_dims(cv2.resize(image_mask, (w, h)))
+            image_mask = np.expand_dims(cv2.resize(image_mask, (w, h)), axis=-1)
             # Ignore dimension of visibility of the keypoints 
             keypoints[..., :-1] *= scale
         
