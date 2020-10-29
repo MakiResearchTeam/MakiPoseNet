@@ -55,7 +55,7 @@ class CocoPreparator:
             image_folder_path,
             max_people=8,
             min_image_size=512, 
-            criteria_throw=0.4
+            criteria_throw=0.25
     ):
         """
         Parameters
@@ -237,8 +237,6 @@ class CocoPreparator:
             keypoints_mask_tensors.append(all_kp[..., -1:].astype(np.float32))
             
             image_tensors.append(image.astype(np.float32))
-            # TODO: Something wrong with shapes
-            print(image_mask.shape)
             image_masks.append(image_mask)
             image_properties_tensors.append(np.array(image.shape).astype(np.float32))
             
@@ -295,7 +293,7 @@ class CocoPreparator:
             scale = self._min_image_size / min_dim
             w, h = round(w * scale), round(h * scale)
             image = cv2.resize(image, (w, h))
-            image_mask = cv2.resize(image_mask, (w, h))
+            image_mask = np.expand_dims(cv2.resize(image_mask, (w, h)))
             # Ignore dimension of visibility of the keypoints 
             keypoints[..., :-1] *= scale
         
