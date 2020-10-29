@@ -14,11 +14,12 @@ class MSETrainer(PETrainer):
         train_paf = super().get_train_paf()
         train_heatmap = super().get_train_heatmap()
         train_mask = super().get_train_mask()
+        train_mask_paf = tf.expand_dims(train_mask, axis=-1)
 
         paf_losses = []
         heatmap_losses = []
         for paf in super().get_paf_tensors():
-            paf_loss = Loss.mse_loss(train_paf, paf, raw_tensor=True) * train_mask
+            paf_loss = Loss.mse_loss(train_paf, paf, raw_tensor=True) * train_mask_paf
 
             if self._paf_weight is not None:
                 abs_training_paf = tf.abs(train_paf)
