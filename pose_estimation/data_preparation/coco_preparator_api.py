@@ -217,7 +217,7 @@ class CocoPreparator:
             if not_enougth > 0:
                 zeros_arr = np.zeros([all_kp.shape[0], not_enougth, all_kp.shape[-1]]).astype(np.float32)
                 all_kp = np.concatenate([all_kp, zeros_arr], axis=1)
-            
+
             if len(image.shape) != 3:
                 # Assume that is gray-scale image, so convert it to rgb
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
