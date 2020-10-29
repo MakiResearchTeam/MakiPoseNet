@@ -1,12 +1,9 @@
-
 from __future__ import absolute_import
 import tensorflow as tf
 from makiflow.generators.pipeline.tfr.utils import _tensor_to_byte_feature
 
-
 # Save form
 SAVE_FORM = "{0}_{1}.tfrecord"
-
 
 # Feature names
 IMAGE_FNAME = 'IMAGE_FNAME'
@@ -14,6 +11,7 @@ ABSENT_HUMAN_MASK_FNAME = 'ABSENT_HUMAN_MASK_FNAME'
 KEYPOINTS_FNAME = 'KEYPOINTS_FNAME'
 KEYPOINTS_MASK_FNAME = 'KEYPOINTS_MASK_FNAME'
 IMAGE_PROPERTIES_FNAME = 'IMAGE_PROPERTIES_FNAME'
+ABSENT_HUMAN_MASK_FNAME = 'ABSENT_HUMAN_MASK_FNAME'
 
 
 # Serialize into data point
@@ -22,7 +20,7 @@ def serialize_pose_estimation_data_point(
         image_mask_tensor,
         keypoints_tensor, 
         keypoints_mask_tensor, 
-        image_properties_tensor, 
+        image_properties_tensor,
         sess=None
 ):
     feature = {
@@ -44,7 +42,7 @@ def record_pose_estimation_train_data(
         keypoints_tensors,
         keypoints_mask_tensors,
         image_properties_tensors,
-        tfrecord_path, 
+        tfrecord_path,
         sess=None
 ):
     with tf.io.TFRecordWriter(tfrecord_path) as writer:
@@ -63,7 +61,7 @@ def record_pose_estimation_train_data(
                 image_mask_tensor=image_mask_tensor,
                 keypoints_tensor=keypoints_tensor,
                 keypoints_mask_tensor=keypoints_mask_tensor,
-                image_properties_tensor=image_properties_tensor,        
+                image_properties_tensor=image_properties_tensor,
                 sess=sess
             )
             writer.write(serialized_data_point)
@@ -97,4 +95,3 @@ def record_mp_pose_estimation_train_data(
             tfrecord_path=tfrecord_name,
             sess=sess
         )
-

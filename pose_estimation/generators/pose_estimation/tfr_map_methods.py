@@ -16,6 +16,7 @@ class RIterator:
     KEYPOINTS_MASK = 'KEYPOINTS_MASK'
     IMAGE_PROPERTIES = 'IMAGE_PROPERTIES'
     HEATMAP = 'HEATMAP'
+    ABSENT_HUMAN_MASK = 'ABSENT_HUMAN_MASK'
 
 
 class LoadDataMethod(TFRMapMethod):
@@ -128,7 +129,7 @@ class RandomCropMethod(TFRPostMapMethod):
         offset = tf.random_uniform(
             shape=[3],
             dtype=tf.int32,
-            # it is unlikely that a tensor with shape more that 10000 will appear
+            # it is unlikely that a tensor with shape more than 10000 will appear
             maxval=10000
         ) % limit
 
@@ -571,16 +572,16 @@ class FlipPostMethod(TFRPostMapMethod):
         keypoints_map = [x[1] for x in keypoints_map]
         self._keypoints_map = keypoints_map
 
-    def flip(self, image, keypoints, masks):
+    def flip(self, image, absent_human_mask, keypoints, masks):
         """
         Parameters
         ----------
         keypoints : tf.Tensor of shape [batch, c, n_people, 2]
             Tensor of keypoints coordinates.
         """
-        # Flip the image
+        # Flip the image and its corresponding absent human mask
         flipped_im = tf.image.flip_left_right(image)
-
+        flipped_ah_mask = tf.image.flip_left_right(absent_human_mask)
         # Flip keypoints
         _, height, width, _ = image.get_shape().as_list()
         move = np.array([[[width, 0]]], dtype='float32')
@@ -592,7 +593,7 @@ class FlipPostMethod(TFRPostMapMethod):
         # Reorder points and their masks
         keypoints = tf.gather(keypoints, self._keypoints_map, axis=1)
         masks = tf.gather(masks, self._keypoints_map, axis=1)
-        return flipped_im, keypoints, masks
+        return flipped_im, flipped_ah_mask, keypoints, masks
 
     def read_record(self, serialized_example) -> dict:
         if self._parent_method is not None:
@@ -600,12 +601,13 @@ class FlipPostMethod(TFRPostMapMethod):
         else:
             element = serialized_example
         image = element[RIterator.IMAGE]
+        absent_human_mask = [RIterator.ABSENT_HUMAN_MASK]
         keypoints = element[RIterator.KEYPOINTS]
         masks = element[RIterator.KEYPOINTS_MASK]
 
         p = tf.random_uniform(minval=0, maxval=1.0, shape=[])
-        true_fn = lambda: self.flip(image, keypoints, masks)
-        false_fn = lambda: (image, keypoints, masks)
+        true_fn = lambda: self.flip(image, absent_human_mask, keypoints, masks)
+        false_fn = lambda: (image, absent_human_mask, keypoints, masks)
         image, keypoints, masks = tf.cond(p < self._rate, true_fn, false_fn)
 
         element[RIterator.IMAGE] = image
