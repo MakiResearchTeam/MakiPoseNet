@@ -192,7 +192,7 @@ class CocoPreparator:
             for people_n in sorted_annot_ids:
                 single_person_data = anns[people_n]
 
-                if single_person_data["iscrowd" or people_n >= self._max_people]:
+                if single_person_data["iscrowd"] or len(all_kp) >= self._max_people:
                     human_mask.append(self._coco.annToMask(single_person_data).astype(np.float32))
                     continue
                 # skip this person if parts number is too low or if
