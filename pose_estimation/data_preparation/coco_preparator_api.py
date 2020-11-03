@@ -2,6 +2,7 @@ from pycocotools.coco import COCO
 import numpy as np
 from tqdm import tqdm
 import skimage.io as io
+from scipy.spatial.distance import cdist
 import matplotlib.pyplot as plt
 import os
 import cv2
@@ -134,7 +135,7 @@ class CocoPreparator:
         plt.imshow(I)
         plt.show()
     
-    def save_records(self, prefix, images_pr, criteria=None, stop_after_part=None):
+    def save_records(self, prefix, images_pr, stop_after_part=None):
         """
         Parameters
         ----------
@@ -144,17 +145,11 @@ class CocoPreparator:
             Images per record. It is better to choose such a number that
             the records take about 200-300 mb of memory for the best pipeline
             performance.
-        criteria : python function
-            A function which takes keypoints masks and return a boolean. If True, the image
-            is included. If `criteria` is set to None, a default criteria is taken.
         stop_after_part : int
             Generation of the tfrecords will be stopped after certain part,
             This parameters is usually used for creation a smaller tfrecord dataset
             (for example, for testing)
         """
-
-        if criteria is None:
-            criteria = self.__default_criteria
 
         ids_img = self._coco.getImgIds()
         count_images = len(ids_img)
@@ -181,7 +176,6 @@ class CocoPreparator:
 
             if len(anns) == 0:
                 continue
-            # TODO: self._max_people
 
             # Sort from the biggest person to the smallest one
             sorted_annot_ids = np.argsort([-a['area'] for a in anns], kind='mergesort')
@@ -189,10 +183,15 @@ class CocoPreparator:
             all_kp = []
             human_mask = []
 
+            # To keep previous center point of human position
+            prev_center = []
+
             for people_n in sorted_annot_ids:
                 single_person_data = anns[people_n]
 
                 if single_person_data["iscrowd"] or len(all_kp) >= self._max_people:
+                    # add mask of this person. we don't want to show the network
+                    # unlabeled people
                     human_mask.append(self._coco.annToMask(single_person_data).astype(np.float32))
                     continue
                 # skip this person if parts number is too low or if
@@ -200,13 +199,43 @@ class CocoPreparator:
                 # Shape (n_keypoints, 1, 3)
                 all_kp_single = self.take_default_skelet(single_person_data)
 
-                if np.sum(all_kp_single[:, 0, -1]) < 5 or single_person_data["area"] < 32 * 32 or \
-                    (criteria is not None and not criteria(all_kp_single[..., -1:])):
+                if np.sum(all_kp_single[:, 0, -1]) < 5 or single_person_data["area"] < 32 * 32:
+                    # add mask of this person. we don't want to show the network
+                    # unlabeled people
                     human_mask.append(self._coco.annToMask(single_person_data).astype(np.float32))
                     continue
 
-                # all_kp - (n_keypoints, n_people, 3), concatenate by n_people axis
+                person_center = [
+                    single_person_data["bbox"][0] + single_person_data["bbox"][2] / 2,
+                    single_person_data["bbox"][1] + single_person_data["bbox"][3] / 2
+                ]
+
+                # skip this person if the distance to existing person is too small
+
+                too_close = False
+                for pc in prev_center:
+                    a = np.expand_dims(pc[:2], axis=0)
+                    b = np.expand_dims(person_center, axis=0)
+                    dist = cdist(a, b)[0]
+                    if dist < pc[2]*0.3:
+                        too_close = True
+                        break
+
+                if too_close:
+                    # add mask of this person. we don't want to show the network
+                    # unlabeled people
+                    human_mask.append(self._coco.annToMask(single_person_data).astype(np.float32))
+                    continue
+
+                prev_center.append(
+                    np.append(
+                        person_center,
+                        max(single_person_data["bbox"][2], single_person_data["bbox"][3])
+                    )
+                )
+
                 all_kp.append(all_kp_single)
+
             if len(all_kp) == 0:
                 continue
 
@@ -406,25 +435,3 @@ class CocoPreparator:
         all_kp_single = np.expand_dims(all_kp_single, axis=1)
 
         return all_kp_single
-
-    def __default_criteria(self, keypoints_masks):
-        """
-        This criteria checking number of keypoints on the image and their relation to the number of all keypoints,
-        All images with a lower relations will be thrown
-
-        """
-        # keypoints_masks - (n_keypoints, n_people, 1)
-        check_ans = False
-        n_keypoints = keypoints_masks.shape[0]
-        # Transpose - (n_keypoints, n_people, 1) --> (n_people, n_keypoints, 1)
-        keypoints_masks = np.transpose(keypoints_masks, axes=[1, 0, 2])
-        # Calculate number of maximum visible points of `n_people`
-        num_vis_points = np.sum(keypoints_masks > CocoPreparator.EPSILON, axis=(1, 2))
-        # num_vis_points_percent - (n_people, 1) - which is shows number of visible points (in percent)
-        num_vis_points_percent = np.max(num_vis_points) / n_keypoints
-
-        if num_vis_points_percent > self.__criteria_throw:
-            check_ans = True
-        
-        return check_ans
-
