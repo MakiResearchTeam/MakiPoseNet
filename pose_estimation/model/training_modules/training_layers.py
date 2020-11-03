@@ -241,6 +241,7 @@ class GaussHeatmapLayer(MakiLayer):
                 keypoints, masks = x
 
                 maps = self.__build_heatmap_batch(keypoints, masks, self.delta)
+                maps = self.__add_background_heatmap(maps)
 
                 if self.resize_to is not None:
                     maps = tf.image.resize_area(
@@ -308,6 +309,17 @@ class GaussHeatmapLayer(MakiLayer):
             message = f'Expected keypoints dimensionality to be 4, but got {len(kp.get_shape())}.' + \
                 f'Keypoints shape: {kp.get_shape()}'
             raise Exception(message)
+
+    # noinspection PyMethodMayBeStatic
+    def __add_background_heatmap(self, heatmap):
+        # mask - [b, h, w, c]
+        # [b, h, w]
+        heatmap_reduced = tf.reduce_max(heatmap, axis=-1)
+        # [b, h, w, 1]
+        heatmap_reduced = tf.expand_dims(heatmap_reduced, axis=-1)
+        ones = tf.ones_like(heatmap_reduced)
+        background_heatmap = ones - heatmap_reduced
+        return tf.concat([heatmap, background_heatmap], axis=-1)
 
     @staticmethod
     def __build_heatmap_mp(kp, masks, radius, destination_call):
