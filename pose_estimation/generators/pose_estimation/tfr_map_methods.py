@@ -608,8 +608,9 @@ class FlipPostMethod(TFRPostMapMethod):
         p = tf.random_uniform(minval=0, maxval=1.0, shape=[])
         true_fn = lambda: self.flip(image, absent_human_mask, keypoints, masks)
         false_fn = lambda: (image, absent_human_mask, keypoints, masks)
-        image, keypoints, masks = tf.cond(p < self._rate, true_fn, false_fn)
+        image, absent_human_mask, keypoints, masks = tf.cond(p < self._rate, true_fn, false_fn)
 
+        element[RIterator.ABSENT_HUMAN_MASK] = absent_human_mask
         element[RIterator.IMAGE] = image
         element[RIterator.KEYPOINTS] = keypoints
         element[RIterator.KEYPOINTS_MASK] = masks

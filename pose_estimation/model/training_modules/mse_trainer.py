@@ -14,11 +14,12 @@ class MSETrainer(PETrainer):
         train_paf = super().get_train_paf()
         train_heatmap = super().get_train_heatmap()
         train_mask = super().get_train_mask()
+        train_mask_paf = tf.expand_dims(train_mask, axis=-1)
 
         paf_losses = []
         heatmap_losses = []
         for paf in super().get_paf_tensors():
-            paf_loss = Loss.mse_loss(train_paf, paf, raw_tensor=True)
+            paf_loss = Loss.mse_loss(train_paf, paf, raw_tensor=True) * train_mask_paf
 
             if self._paf_weight is not None:
                 abs_training_paf = tf.abs(train_paf)
@@ -30,21 +31,21 @@ class MSETrainer(PETrainer):
 
                 weights_mask = mask * self._paf_weight + self.__IDENTITY
 
-                paf_loss = paf_loss * weights_mask * train_mask
+                paf_loss = paf_loss * weights_mask
 
             paf_losses.append(
                 tf.reduce_mean(paf_loss)
             )
 
         for heatmap in super().get_heatmap_tensors():
-            heatmap_loss = Loss.mse_loss(train_heatmap, heatmap, raw_tensor=True)
+            heatmap_loss = Loss.mse_loss(train_heatmap, heatmap, raw_tensor=True) * train_mask
 
             if self._heatmap_weight is not None:
                 # Create mask for scaling loss
                 # Add 1.0 for saving values that are equal to 0 (approximately equal to 0)
                 weight_mask = train_heatmap * self._heatmap_weight + self.__IDENTITY
 
-                heatmap_loss = heatmap_loss * weight_mask * train_mask
+                heatmap_loss = heatmap_loss * weight_mask
 
             heatmap_losses.append(
                 tf.reduce_mean(heatmap_loss)

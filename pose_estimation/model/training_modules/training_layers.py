@@ -241,6 +241,7 @@ class GaussHeatmapLayer(MakiLayer):
                 keypoints, masks = x
 
                 maps = self.__build_heatmap_batch(keypoints, masks, self.delta)
+                maps = self.__add_background_heatmap(maps)
 
                 if self.resize_to is not None:
                     maps = tf.image.resize_area(
@@ -308,6 +309,17 @@ class GaussHeatmapLayer(MakiLayer):
             message = f'Expected keypoints dimensionality to be 4, but got {len(kp.get_shape())}.' + \
                 f'Keypoints shape: {kp.get_shape()}'
             raise Exception(message)
+
+    # noinspection PyMethodMayBeStatic
+    def __add_background_heatmap(self, heatmap):
+        # mask - [b, h, w, c]
+        # [b, h, w]
+        heatmap_reduced = tf.reduce_max(heatmap, axis=-1)
+        # [b, h, w, 1]
+        heatmap_reduced = tf.expand_dims(heatmap_reduced, axis=-1)
+        ones = tf.ones_like(heatmap_reduced)
+        background_heatmap = ones - heatmap_reduced
+        return tf.concat([heatmap, background_heatmap], axis=-1)
 
     @staticmethod
     def __build_heatmap_mp(kp, masks, radius, destination_call):
@@ -567,9 +579,10 @@ class PAFLayer(MakiLayer):
         h, w, _ = self.xy_grid.get_shape()
         # Flatten the field. It is needed for the later matrix multiplication.
         xy_flat = tf.reshape(self.xy_grid, [-1, 2])
-        l = tf.maximum(tf.linalg.norm(p2 - p1), 1e-10)
+        l = tf.maximum(tf.linalg.norm(p2 - p1), 1e-5)
         v = (p2 - p1) / l
         v_orth = tf.matmul(PAFLayer.ROT90_MAT, v)
+
         # Generate a mask for the points between `p1` and `p2`.
         c1 = tf.cast(0. <= tf.matmul(xy_flat - p1[:,0], v), tf.float32)
         c2 = tf.cast(tf.matmul(xy_flat - p1[:,0], v) <= l, tf.float32)
@@ -583,6 +596,6 @@ class PAFLayer(MakiLayer):
         cf_sigma = tf.reshape(cf_sigma, [h, w])
         
         cf = cf_l * cf_sigma
-        # Mutiply the mask with the direction vector.
+        # Multiply the mask with the direction vector.
         paf = tf.expand_dims(cf, axis=-1) * v[:, 0]
         return paf * tf.reduce_min(points_mask)

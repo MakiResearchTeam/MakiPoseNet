@@ -111,10 +111,10 @@ class PETrainer(MakiTrainer, ABC):
     def _setup_label_placeholders(self):
         model = super().get_model()
 
-        inference_paf = model.get_paf_makitensors()
+        inference_paf = model.get_paf_makitensors()[0]
         paf_shape = inference_paf.get_shape()
 
-        inference_heatmap = model.get_heatmap_makitensors()
+        inference_heatmap = model.get_heatmap_makitensors()[0]
         heatmap_shape = inference_heatmap.get_shape()
 
         mask_shape = heatmap_shape[:-1] + [1]
@@ -180,7 +180,7 @@ class PETrainer(MakiTrainer, ABC):
     def __resize_training_tensor(self, tensor):
         model = super().get_model()
 
-        inference_heatmap = model.get_heatmap_makitensors()
+        inference_heatmap = model.get_heatmap_makitensors()[0]
         # [b, h, w, c]
         heatmap_shape = inference_heatmap.get_shape()
         # [h, w]
