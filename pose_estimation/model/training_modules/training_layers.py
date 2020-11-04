@@ -17,10 +17,14 @@ class BinaryHeatmapLayer(MakiLayer):
 
     @staticmethod
     def build(params: dict):
+        map_dtype = params.get(BinaryHeatmapLayer.MAP_DTYPE)
+        if map_dtype is None:
+            map_dtype = tf.float32
+
         return BinaryHeatmapLayer(
             im_size=params[BinaryHeatmapLayer.IM_SIZE],
             delta=params[BinaryHeatmapLayer.DELTA],
-            map_dtype=params[BinaryHeatmapLayer.MAP_DTYPE],
+            map_dtype=map_dtype,
             vectorize=params[BinaryHeatmapLayer.VECTORIZE],
             resize_to=params[PAFLayer.RESIZE_TO]
         )
