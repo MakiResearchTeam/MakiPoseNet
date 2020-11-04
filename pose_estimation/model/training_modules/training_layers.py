@@ -32,7 +32,7 @@ class BinaryHeatmapLayer(MakiLayer):
             self,
             im_size: list,
             delta,
-            map_dtype=tf.int32,
+            map_dtype=tf.float32,
             vectorize=False,
             resize_to=None,
             name='BinaryHeatmapLayer'):
