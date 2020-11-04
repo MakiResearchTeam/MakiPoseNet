@@ -74,6 +74,7 @@ class BinaryHeatmapLayer(MakiLayer):
                 keypoints, masks = x
 
                 maps = self.__build_heatmap_batch(keypoints, masks, self.radius)
+                maps = self.__add_background_heatmap(maps)
 
                 if self.resize_to is not None:
                     maps = tf.image.resize_area(
@@ -177,7 +178,6 @@ class BinaryHeatmapLayer(MakiLayer):
             Radius of the classification (heat) region.
         """
         xy_grid = self.xy_grid
-        print(kp.get_shape())
         grid_size = xy_grid.get_shape()[:2]
         heatmap = tf.ones((grid_size[0], grid_size[1]), dtype=self.map_dtype)
 
@@ -185,6 +185,16 @@ class BinaryHeatmapLayer(MakiLayer):
         bool_location_map = tf.cast(bool_location_map, dtype=self.map_dtype)
         masks = tf.cast(masks, dtype=self.map_dtype)
         return heatmap * bool_location_map * tf.reduce_min(masks)
+
+    # noinspection PyMethodMayBeStatic
+    def __add_background_heatmap(self, heatmap):
+        # mask - [b, h, w, c]
+        # [b, h, w]
+        heatmap_reduced = tf.reduce_max(heatmap, axis=-1)
+        # [b, h, w, 1]
+        heatmap_reduced = tf.expand_dims(heatmap_reduced, axis=-1)
+        background_heatmap = 1.0 - heatmap_reduced
+        return tf.concat([heatmap, background_heatmap], axis=-1)
 
 
 class GaussHeatmapLayer(MakiLayer):
@@ -317,8 +327,7 @@ class GaussHeatmapLayer(MakiLayer):
         heatmap_reduced = tf.reduce_max(heatmap, axis=-1)
         # [b, h, w, 1]
         heatmap_reduced = tf.expand_dims(heatmap_reduced, axis=-1)
-        ones = tf.ones_like(heatmap_reduced)
-        background_heatmap = ones - heatmap_reduced
+        background_heatmap = 1.0 - heatmap_reduced
         return tf.concat([heatmap, background_heatmap], axis=-1)
 
     @staticmethod
@@ -360,7 +369,6 @@ class GaussHeatmapLayer(MakiLayer):
             Radius of the classification (heat) region.
         """
         xy_grid = self.xy_grid
-        print(masks.get_shape())
 
         heatmap = tf.exp(
             -((xy_grid[..., 0] - kp[0])**2 + (xy_grid[..., 1] - kp[1])**2) / delta**2
