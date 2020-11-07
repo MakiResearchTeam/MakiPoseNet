@@ -16,7 +16,6 @@ class RIterator:
     KEYPOINTS_MASK = 'KEYPOINTS_MASK'
     IMAGE_PROPERTIES = 'IMAGE_PROPERTIES'
     HEATMAP = 'HEATMAP'
-    ABSENT_HUMAN_MASK = 'ABSENT_HUMAN_MASK'
 
 
 class LoadDataMethod(TFRMapMethod):
@@ -258,6 +257,10 @@ class AugmentationPostMethod(TFRPostMapMethod):
             element = self._parent_method.read_record(serialized_example)
         else:
             element = serialized_example
+
+        if not self.use_shift and not self.use_zoom and not self.use_rotation:
+            return element
+
         image = element[RIterator.IMAGE]
         image_mask = element[RIterator.ABSENT_HUMAN_MASK]
         keypoints = element[RIterator.KEYPOINTS]

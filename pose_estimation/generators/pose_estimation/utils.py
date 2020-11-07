@@ -20,7 +20,6 @@ def check_bounds(keypoints, image_size):
     return check_min_xy * check_xy
 
 
-
 def add_z_dim(x):
     """
     Add additional dimension filled in with ones
@@ -35,9 +34,16 @@ def add_z_dim(x):
     )
 
 
-def get_rotate_matrix(image, angle):
+def create_shift_matrix_to_center(image):
     """
-    Get rotation matrix for image with certain angle
+    Create two matrixes to shift image to center and back to previous location
+
+    Returns
+    -------
+    tf.Tensor
+        Shift to center
+    tf.Tensor
+        Shift back to previous location
 
     """
     if isinstance(image, list):
@@ -50,6 +56,18 @@ def get_rotate_matrix(image, angle):
 
     shift_back = get_shift_matrix(shift_x, shift_y)
 
+    return shift_center, shift_back
+
+def get_rotate_matrix(image, angle):
+    """
+    Get rotation matrix for image with certain angle
+
+    """
+    if isinstance(image, list):
+        image = image[0]
+
+    shift_center, shift_back = create_shift_matrix_to_center(image)
+
     rot_matrix = tf.stack([
         [       tf.math.cos(angle), tf.math.sin(angle), 0.0],
         [(-1) * tf.math.sin(angle), tf.math.cos(angle), 0.0],
@@ -59,6 +77,7 @@ def get_rotate_matrix(image, angle):
     full_matrix = tf.matmul(tf.matmul(shift_back, rot_matrix), shift_center)
 
     return full_matrix
+
 
 def get_rotate_matrix_batched(images, angle_batched):
     """
@@ -98,25 +117,30 @@ def get_shift_matrix_batched(dx_batched, dy_batched):
     )
 
 
-def get_zoom_matrix(zoom):
+def get_zoom_matrix(image, zoom):
     """
     Get zoom matrix with certain scale `zoom`
 
     """
-    return tf.stack([
+    shift_center, shift_back = create_shift_matrix_to_center(image)
+
+    zoom_matrix = tf.stack([
         [zoom, 0.0,  0.0],
         [0.0,  zoom, 0.0],
         [0.0,  0.0,  1.0]
     ])
 
+    full_matrix = tf.matmul(tf.matmul(shift_back, zoom_matrix), shift_center)
+    return full_matrix
 
-def get_zoom_matrix_batched(zoom_batched):
+
+def get_zoom_matrix_batched(images, zoom_batched):
     """
     Get batched zoom matrix for every scale in the `zoom_batched` array
 
     """
     return tf.stack(
-        [get_zoom_matrix(zoom_batched[i]) for i in range(zoom_batched.get_shape().as_list()[0])]
+        [get_zoom_matrix(images[i], zoom_batched[i]) for i in range(images.get_shape().as_list()[0])]
     )
 
 
@@ -153,7 +177,7 @@ def apply_transformation(
 
     if use_zoom and zoom_scale is not None:
         zoom_scale = tf.convert_to_tensor(zoom_scale, dtype=tf.float32)
-        zoom_matrix = get_zoom_matrix(zoom_scale)
+        zoom_matrix = get_zoom_matrix(image, zoom_scale)
 
     if use_shift and dx is not None and dy is not None:
         dx = tf.convert_to_tensor(dx, dtype=tf.float32)
@@ -237,7 +261,7 @@ def apply_transformation_batched(
 
     if use_zoom and zoom_scale_batched is not None:
         zoom_scale_batched = tf.convert_to_tensor(zoom_scale_batched, dtype=tf.float32)
-        zoom_matrix = get_zoom_matrix_batched(zoom_scale_batched)
+        zoom_matrix = get_zoom_matrix_batched(images, zoom_scale_batched)
 
     if use_shift and dx_batched is not None and dy_batched is not None:
         dx_batched = tf.convert_to_tensor(dx_batched, dtype=tf.float32)
