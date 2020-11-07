@@ -139,6 +139,9 @@ def get_zoom_matrix_batched(images, zoom_batched):
     Get batched zoom matrix for every scale in the `zoom_batched` array
 
     """
+    if isinstance(images, list):
+        images = images[0]
+
     return tf.stack(
         [get_zoom_matrix(images[i], zoom_batched[i]) for i in range(images.get_shape().as_list()[0])]
     )
