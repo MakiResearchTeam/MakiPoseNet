@@ -6,6 +6,24 @@ DEGREE2RAD = 180.0 / np.pi
 
 
 def check_bounds(keypoints, image_size):
+    """
+    Check range of keypoints and return mask for further usage
+
+    Parameters
+    ----------
+    keypoints : tf.Tensor
+        Tensor of the keypoints, where last axis is x and y coordinate
+    image_size : list
+        List of [H, W] of the image size
+
+    Returns
+    -------
+    tf.Tensor
+        Binary mask, where:
+            0 - correspond to non-visible point
+            1 - visible point
+
+    """
     image_size = tf.convert_to_tensor(image_size)
     check_min_x = tf.cast(keypoints[..., 1] > 0.0, dtype=tf.float32)
     check_min_y = tf.cast(keypoints[..., 0] > 0.0, dtype=tf.float32)

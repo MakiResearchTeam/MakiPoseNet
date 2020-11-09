@@ -696,3 +696,107 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
         image = tf.cast(image, tf.float32)
 
         return image
+
+
+class ResizePostMethod(TFRPostMapMethod):
+    _EXCEPTION_INTERPOLATION_IS_NOT_FOUND = "Interpolation {} don't exist"
+
+    INTERPOLATION_BILINEAR = 'bilinear'
+    INTERPOLATION_NEAREST_NEIGHBOR = 'nearest_neighbor'
+    INTERPOLATION_AREA = 'area'
+    INTERPOLATION_BICUBIC = 'bicubic'
+
+    FIELD_INTERPOLATION = 'interpolation'
+
+    NAME2METHOD = {
+        INTERPOLATION_BILINEAR: tf.image.resize_bilinear,
+        INTERPOLATION_NEAREST_NEIGHBOR: tf.image.resize_nearest_neighbor,
+        INTERPOLATION_AREA: tf.image.resize_area,
+        INTERPOLATION_BICUBIC: tf.image.resize_bicubic,
+    }
+
+    def __init__(self, resize_to: list, interpolation='bilinear'):
+        """
+        Resize image to certain size
+
+        Parameters
+        ----------
+        resize_to : list
+            List [H_new, W_new] - new size for image after resize operation
+        interpolation : str
+            One of type resize images. ('bilinear', 'nearest_neighbor', 'area', 'bicubic')
+
+        """
+        super().__init__()
+        self._resize_to = resize_to
+        self._interpolation = interpolation
+
+    def read_record(self, serialized_example) -> dict:
+        if self._parent_method is not None:
+            element = self._parent_method.read_record(serialized_example)
+        else:
+            element = serialized_example
+        image = element[RIterator.IMAGE]
+        image_mask = element[RIterator.ABSENT_HUMAN_MASK]
+        keypoints = element[RIterator.KEYPOINTS]
+        keypoints_mask = element[RIterator.KEYPOINTS_MASK]
+
+        interpolation_method = ResizePostMethod.NAME2METHOD.get(self._interpolation)
+        if interpolation_method is not None:
+            # Resize image and image mask
+            if len(image.get_shape().as_list() == 4):
+                # Batched
+                old_hw = tf.shape(image)[1:-1]
+                resized_image = interpolation_method(image, self._resize_to)
+                resized_mask = interpolation_method(image_mask, self._resize_to)
+            else:
+                # Single
+                old_hw = tf.shape(image)[:-1]
+                resized_image = interpolation_method(image, self._resize_to)[0]
+                resized_mask = interpolation_method(image_mask, self._resize_to)[0]
+
+            # new / old
+            scale_for_keypoints = tf.stack(
+                [
+                    self._resize_to[1] / old_hw[1],
+                    self._resize_to[0] / old_hw[0]
+                ],
+                axis=0
+            )
+
+            scaled_keypoints = keypoints * scale_for_keypoints
+
+        else:
+            raise Exception(
+                ResizePostMethod._EXCEPTION_INTERPOLATION_IS_NOT_FOUND.format(self._interpolation)
+            )
+
+        element[RIterator.IMAGE] = resized_image
+        element[RIterator.ABSENT_HUMAN_MASK] = resized_mask
+        element[RIterator.KEYPOINTS] = scaled_keypoints
+        # Check which keypoints are beyond the image
+        element[RIterator.KEYPOINTS_MASK] = keypoints_mask * check_bounds(scaled_keypoints, self._resize_to)
+        return element
+
+
+class ApplyMaskToImagePostMethod(TFRPostMapMethod):
+
+    def __init__(self):
+        """
+        Apply mask to image,
+        The main purpose of this is to remove non-labeled people
+
+        """
+        super().__init__()
+
+    def read_record(self, serialized_example) -> dict:
+        if self._parent_method is not None:
+            element = self._parent_method.read_record(serialized_example)
+        else:
+            element = serialized_example
+        image = element[RIterator.IMAGE]
+        image_mask = element[RIterator.ABSENT_HUMAN_MASK]
+
+        element[RIterator.IMAGE] = image * image_mask
+        return element
+
