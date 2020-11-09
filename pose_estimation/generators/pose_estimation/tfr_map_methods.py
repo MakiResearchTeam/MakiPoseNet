@@ -744,7 +744,7 @@ class ResizePostMethod(TFRPostMapMethod):
         interpolation_method = ResizePostMethod.NAME2METHOD.get(self._interpolation)
         if interpolation_method is not None:
             # Resize image and image mask
-            if len(image.get_shape().as_list() == 4):
+            if len(image.get_shape().as_list()) == 4:
                 # Batched
                 old_hw = tf.shape(image)[1:-1]
                 resized_image = interpolation_method(image, self._resize_to)
