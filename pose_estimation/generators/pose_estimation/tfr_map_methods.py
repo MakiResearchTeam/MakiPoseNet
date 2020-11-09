@@ -756,12 +756,15 @@ class ResizePostMethod(TFRPostMapMethod):
                 resized_mask = interpolation_method(image_mask, self._resize_to)[0]
 
             # new / old
-            scale_for_keypoints = tf.stack(
-                [
-                    self._resize_to[1] / old_hw[1],
-                    self._resize_to[0] / old_hw[0]
-                ],
-                axis=0
+            scale_for_keypoints = tf.cast(
+                tf.stack(
+                    [
+                        self._resize_to[1] / old_hw[1],
+                        self._resize_to[0] / old_hw[0]
+                    ],
+                    axis=0
+                ),
+                dtype=tf.float32
             )
 
             scaled_keypoints = keypoints * scale_for_keypoints
