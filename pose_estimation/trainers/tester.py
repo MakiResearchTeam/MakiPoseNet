@@ -45,12 +45,7 @@ class Tester(ABC):
         self._type_parall = self._config[self.TYPE_PARALL]
 
         self._norm_div = self._config[self.NORMALIZATION_DIV]
-        if self._norm_div is None:
-            self._norm_div = 1.0
-
         self._norm_shift = self._config[self.NORMALIZATION_SHIFT]
-        if self._norm_shift is None:
-            self._norm_shift = 0.0
 
         self._norm_mode = self._config[self.NORM_MODE]
         self._use_bgr2rgb = self._config[self.USE_BGR2RGB]

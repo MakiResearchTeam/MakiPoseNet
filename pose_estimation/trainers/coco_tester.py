@@ -81,9 +81,13 @@ class CocoTester(Tester):
                         mode=self._norm_mode
                     ).reshape(1, *im_shape).astype(np.float32)
                 )
-            else:
+            elif self._norm_div is not None and self._norm_shift is not None:
                 self._norm_images.append(
                     (test_image.reshape(1, *im_shape) / self._norm_div - self._norm_shift).astype(np.float32)
+                )
+            else:
+                self._norm_images.append(
+                    test_image.reshape(1, *im_shape).astype(np.float32)
                 )
 
             # The image has to have batch dimension
