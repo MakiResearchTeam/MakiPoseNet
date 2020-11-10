@@ -302,7 +302,7 @@ class GaussHeatmapLayer(MakiLayer):
             destination_call=fn_c
         )
         
-        # Decide whether to perform calucalation in a batch dimension.
+        # Decide whether to perform calculation in a batch dimension.
         # May be faster, but requires more memory.
         if len(kp.get_shape()) == 4 and self.vectorize:            # [b, c, p, 2]
             print('Using vectorized_map.')
@@ -503,18 +503,42 @@ class PAFLayer(MakiLayer):
         # [b, n_pairs, 2, p, 1]
         masks_p = tf.gather(masks, indices=self.skeleton, axis=1)
         masks_p = tf.transpose(masks_p, perm=[0, 1, 3, 2, 4])
+
+        def normalize_paf(paf):
+            """
+            Averages values in the regions where PAF overlaps.
+            Parameters
+            ----------
+            paf : tf.Tensor of shape [n_people, h, w, 2]
+
+            Returns
+            -------
+            tf.Tensor of shape [h, w, 2]
+                Normalized paf tensor.
+            """
+            # [n_people, h, w]
+            magnitudes = tf.reduce_sum(paf * paf, axis=-1)
+            non_zero_regions = tf.where(magnitudes > 1e-3, 1.0, 0.0)
+            # [h, w]
+            normalization_mask = tf.reduce_sum(non_zero_regions, axis=0)
+            # Set zeros to ones to avoid division by zero.
+            # Don't change other regions
+            normalization_mask = tf.where(normalization_mask > 1e-3, normalization_mask, 1.0)
+            # [h, w]
+            paf = tf.reduce_sum(paf, axis=0)
+            return paf / normalization_mask
+
         # [h, w, 2]
-        fn_p = lambda kp, masks: tf.reduce_sum(
+        fn_p = lambda kp, masks: normalize_paf(
             PAFLayer.__build_paf_mp(
-                kp, masks,
+                kp, masks, # [p, 2, 2, 1]
                 destination_call=self.__build_paf
-            ),
-            axis=0
+            )
         )
 
         # [n_pairs, h, w, 2]
         fn_np = lambda kp, masks: PAFLayer.__build_paf_mp(
-                kp, masks,
+                kp, masks,# [n_pairs, p, 2, 2, 1]
                 destination_call=fn_p
         )
 
@@ -539,7 +563,7 @@ class PAFLayer(MakiLayer):
             fn = lambda kp_masks: [fn_np(kp_masks[0], kp_masks[1]), 0]
             pafs, _, = tf.map_fn(
                 fn,
-                [kp_p, masks_p]
+                [kp_p, masks_p]# [b, n_pairs, p, 2, 2, 1]
             )
             pafs = tf.transpose(pafs, perm=[0, 2, 3, 1, 4])
             return pafs
