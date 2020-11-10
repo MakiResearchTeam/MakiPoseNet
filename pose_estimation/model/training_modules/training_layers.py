@@ -525,6 +525,7 @@ class PAFLayer(MakiLayer):
             normalization_mask = tf.reduce_sum(non_zero_regions, axis=0)
             # Set zeros to ones to avoid division by zero.
             # Don't change other regions
+            ones = tf.ones_like(normalization_mask, dtype='float32')
             normalization_mask = tf.where(normalization_mask > 1e-3, normalization_mask, ones)
             # [h, w]
             paf = tf.reduce_sum(paf, axis=0)
