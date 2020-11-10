@@ -518,12 +518,14 @@ class PAFLayer(MakiLayer):
             """
             # [n_people, h, w]
             magnitudes = tf.reduce_sum(paf * paf, axis=-1)
-            non_zero_regions = tf.where(magnitudes > 1e-3, 1.0, 0.0)
+            ones = tf.ones_like(magnitudes, dtype='float32')
+            zeros = tf.zeros_like(magnitudes, dtype='float32')
+            non_zero_regions = tf.where(magnitudes > 1e-3, ones, zeros)
             # [h, w]
             normalization_mask = tf.reduce_sum(non_zero_regions, axis=0)
             # Set zeros to ones to avoid division by zero.
             # Don't change other regions
-            normalization_mask = tf.where(normalization_mask > 1e-3, normalization_mask, 1.0)
+            normalization_mask = tf.where(normalization_mask > 1e-3, normalization_mask, ones)
             # [h, w]
             paf = tf.reduce_sum(paf, axis=0)
             return paf / normalization_mask
