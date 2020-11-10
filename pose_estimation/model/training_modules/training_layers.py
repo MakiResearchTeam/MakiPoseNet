@@ -489,6 +489,9 @@ class PAFLayer(MakiLayer):
         tf.Tensor of shape [batch, h, w, n_pars, 2]
             Tensor of PAFs.
         """
+
+        # ------------------THE SHITTEST CODE EVER----------------------------------------------
+
         # Gather points along the axis of classes of points.
         # [b, n_pairs, 2, p, 2]
         kp_p = tf.gather(kp, indices=self.skeleton, axis=1)
@@ -535,19 +538,22 @@ class PAFLayer(MakiLayer):
             return result
 
         # [h, w, 2]
-        fn_p = lambda kp, masks: tf.reduce_sum(
+        fn_p = lambda kp, masks: normalize_paf(
             PAFLayer.__build_paf_mp(
                 kp, masks,  # [p, 2, 2, 1]
                 destination_call=self.__build_paf
-            ),
-            axis=0
+            )
         )
 
+        def shape_fixer(t):
+            h, w, _ = self.xy_grid.get_shape()
+            t.set_shape(shape=[len(self.skeleton), h, w, 2])
+            return t
         # [n_pairs, h, w, 2]
-        fn_np = lambda kp, masks: PAFLayer.__build_paf_mp(
+        fn_np = lambda kp, masks: shape_fixer(PAFLayer.__build_paf_mp(
                 kp, masks,# [n_pairs, p, 2, 2, 1]
                 destination_call=fn_p
-        )
+        ))
 
         # [b, n_pairs, h, w, 2]
         fn_b = lambda kp, masks: PAFLayer.__build_paf_mp(
@@ -646,7 +652,6 @@ class PAFLayer(MakiLayer):
 
 
 if __name__ == '__main__':
-    #from __future__ import absolute_import
     from makiflow.layers import InputLayer
 
     CONNECT_INDEXES_FOR_PAFF = [
@@ -701,4 +706,14 @@ if __name__ == '__main__':
         skeleton=CONNECT_INDEXES_FOR_PAFF
     )
     paf = paf_layer([keypoints, masks])
+
+    sess = tf.Session()
+    paf_shape = sess.run(
+        tf.shape(paf.get_data_tensor()),
+        feed_dict={
+            keypoints.get_data_tensor(): np.random.randn(32, 24, 8, 2),
+            masks.get_data_tensor(): np.random.randn(32, 24, 8, 1)
+        }
+    )
     print(paf)
+    print(paf_shape)
