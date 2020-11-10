@@ -581,6 +581,8 @@ class FlipPostMethod(TFRPostMapMethod):
         """
         # Flip the image and its corresponding absent human mask
         flipped_im = tf.image.flip_left_right(image)
+
+        absent_human_mask = tf.concat([absent_human_mask]*3, axis=-1)
         flipped_ah_mask = tf.image.flip_left_right(absent_human_mask)
         # Flip keypoints
         _, height, width, _ = image.get_shape().as_list()
@@ -593,7 +595,7 @@ class FlipPostMethod(TFRPostMapMethod):
         # Reorder points and their masks
         keypoints = tf.gather(keypoints, self._keypoints_map, axis=1)
         masks = tf.gather(masks, self._keypoints_map, axis=1)
-        return flipped_im, flipped_ah_mask, keypoints, masks
+        return flipped_im, flipped_ah_mask[..., :1], keypoints, masks
 
     def read_record(self, serialized_example) -> dict:
         if self._parent_method is not None:
