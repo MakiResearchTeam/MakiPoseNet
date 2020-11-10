@@ -583,11 +583,7 @@ class FlipPostMethod(TFRPostMapMethod):
             Tensor of keypoints coordinates.
         """
         # Flip the image and its corresponding absent human mask
-        print('Image:', image)
         flipped_im = tf.image.flip_left_right(image)
-        print('Before concat:', absent_human_mask)
-        #absent_human_mask = tf.concat([absent_human_mask]*3, axis=-1)
-        print('After concat:', absent_human_mask)
         flipped_ah_mask = tf.image.flip_left_right(absent_human_mask)
         # Flip keypoints
         _, height, width, _ = image.get_shape().as_list()
