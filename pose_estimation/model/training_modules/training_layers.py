@@ -529,7 +529,7 @@ class PAFLayer(MakiLayer):
             normalization_mask = tf.where(normalization_mask > 1e-3, normalization_mask, ones)
             # [h, w]
             paf = tf.reduce_sum(paf, axis=0)
-            return paf / normalization_mask
+            return paf / tf.expand_dims(normalization_mask, axis=-1)
 
         # [h, w, 2]
         fn_p = lambda kp, masks: normalize_paf(
