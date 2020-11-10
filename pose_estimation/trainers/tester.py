@@ -50,8 +50,8 @@ class Tester(ABC):
 
         self._norm_mode = self._config[self.NORM_MODE]
         self._use_bgr2rgb = self._config[self.USE_BGR2RGB]
-        self.W = config[Tester.IMG_HW][1]
-        self.H = config[Tester.IMG_HW][0]
+        self.W = self._config[Tester.IMG_HW][1]
+        self.H = self._config[Tester.IMG_HW][0]
 
         annot_gt = self._config[self.ANNOT_GT_JSON]
 
