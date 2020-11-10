@@ -586,7 +586,7 @@ class FlipPostMethod(TFRPostMapMethod):
         print('Image:', image)
         flipped_im = tf.image.flip_left_right(image)
         print('Before concat:', absent_human_mask)
-        absent_human_mask = tf.concat([absent_human_mask]*3, axis=-1)
+        #absent_human_mask = tf.concat([absent_human_mask]*3, axis=-1)
         print('After concat:', absent_human_mask)
         flipped_ah_mask = tf.image.flip_left_right(absent_human_mask)
         # Flip keypoints
@@ -608,7 +608,7 @@ class FlipPostMethod(TFRPostMapMethod):
         else:
             element = serialized_example
         image = element[RIterator.IMAGE]
-        absent_human_mask = [RIterator.ABSENT_HUMAN_MASK]
+        absent_human_mask = element[RIterator.ABSENT_HUMAN_MASK]
         keypoints = element[RIterator.KEYPOINTS]
         masks = element[RIterator.KEYPOINTS_MASK]
 
