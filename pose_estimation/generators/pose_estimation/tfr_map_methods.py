@@ -586,6 +586,7 @@ class FlipPostMethod(TFRPostMapMethod):
         flipped_im = tf.image.flip_left_right(image)
 
         absent_human_mask = tf.concat([absent_human_mask]*3, axis=-1)
+        print(absent_human_mask)
         flipped_ah_mask = tf.image.flip_left_right(absent_human_mask)
         # Flip keypoints
         _, height, width, _ = image.get_shape().as_list()
