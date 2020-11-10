@@ -535,11 +535,12 @@ class PAFLayer(MakiLayer):
             return result
 
         # [h, w, 2]
-        fn_p = lambda kp, masks: normalize_paf(
+        fn_p = lambda kp, masks: tf.reduce_sum(
             PAFLayer.__build_paf_mp(
                 kp, masks,  # [p, 2, 2, 1]
                 destination_call=self.__build_paf
-            )
+            ),
+            axis=0
         )
 
         # [n_pairs, h, w, 2]
@@ -571,6 +572,7 @@ class PAFLayer(MakiLayer):
                 fn,
                 [kp_p, masks_p]# [b, n_pairs, p, 2, 2, 1]
             )
+            print('after map_fn:', pafs)
             pafs = tf.transpose(pafs, perm=[0, 2, 3, 1, 4])
             return pafs
 
@@ -641,3 +643,62 @@ class PAFLayer(MakiLayer):
         # Multiply the mask with the direction vector.
         paf = tf.expand_dims(cf, axis=-1) * v[:, 0]
         return paf * tf.reduce_min(points_mask)
+
+
+if __name__ == '__main__':
+    #from __future__ import absolute_import
+    from makiflow.layers import InputLayer
+
+    CONNECT_INDEXES_FOR_PAFF = [
+        # head
+        [1, 2],
+        [2, 4],
+        [1, 3],
+        [3, 5],
+        # body
+        # left
+        [1, 7],
+        [7, 9],
+        [9, 11],
+        [11, 22],
+        [11, 23],
+        # right
+        [1, 6],
+        [6, 8],
+        [8, 10],
+        [10, 20],
+        [10, 21],
+        # center
+        [1, 0],
+        [0, 12],
+        [0, 13],
+        # legs
+        # left
+        [13, 15],
+        [15, 17],
+        [17, 19],
+        # right
+        [12, 14],
+        [14, 16],
+        [16, 18],
+        # Additional limbs
+        [5, 7],
+        [4, 6],
+    ]
+    """
+    kp : tf.Tensor of shape [batch, c, n_people, 2]
+            Tensor of keypoints coordinates.
+    masks : tf.Tensor of shape [batch, c, n_people, 1]
+    """
+    im_size = [128, 128]
+    paf_sigma = 20
+    keypoints = InputLayer(input_shape=[32, 24, 8, 2], name='keypoints')
+    masks = InputLayer(input_shape=[32, 24, 8, 1], name='keypoints')
+
+    paf_layer = PAFLayer(
+        im_size=im_size,
+        sigma=paf_sigma,
+        skeleton=CONNECT_INDEXES_FOR_PAFF
+    )
+    paf = paf_layer([keypoints, masks])
+    print(paf)
