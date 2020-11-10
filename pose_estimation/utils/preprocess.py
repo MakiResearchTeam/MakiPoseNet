@@ -135,6 +135,7 @@ def preprocess_numpy_input(x, mode, data_format=CHANNELS_LAST, dtype=np.float32,
         mean = [0.485, 0.456, 0.406]
         std = [0.229, 0.224, 0.225]
     else:
+        # Vgg like normalization
         if use_rgb2bgr:
             if data_format == CHANNELS_FIRST:
                 # 'RGB'->'BGR'
@@ -145,6 +146,7 @@ def preprocess_numpy_input(x, mode, data_format=CHANNELS_LAST, dtype=np.float32,
             else:
                 # 'RGB'->'BGR'
                 x = x[..., ::-1]
+        #         B        G        R
         mean = [103.939, 116.779, 123.68]
         std = None
 
