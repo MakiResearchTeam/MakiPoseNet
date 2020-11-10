@@ -23,12 +23,13 @@ class Tester(ABC):
     NORMALIZATION_DIV = 'normalization_div'
     NORM_MODE = 'norm_mode'
     USE_BGR2RGB = 'use_bgr2rgb'
+    IMG_HW = 'img_hw'
 
     NAME_RELAYOUR_ANNOT_JSON = "relayour_annot.json"
     NAME_PREDICTED_ANNOT_JSON = 'predicted_annot.json'
     AP_AR_DATA_TXT = 'ap_ar_data.txt'
 
-    def __init__(self, config: dict, sess, path_to_save_logs:str, img_size: tuple):
+    def __init__(self, config: dict, sess, path_to_save_logs:str):
         self._config = config[Tester.TEST_CONFIG]
 
         self._path_to_save_logs = os.path.join(path_to_save_logs, self.LOG_FOLDER)
@@ -49,8 +50,8 @@ class Tester(ABC):
 
         self._norm_mode = self._config[self.NORM_MODE]
         self._use_bgr2rgb = self._config[self.USE_BGR2RGB]
-        self.W = img_size[1]
-        self.H = img_size[0]
+        self.W = config[Tester.IMG_HW][1]
+        self.H = config[Tester.IMG_HW][0]
 
         annot_gt = self._config[self.ANNOT_GT_JSON]
 

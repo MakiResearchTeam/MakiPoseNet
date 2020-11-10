@@ -79,8 +79,7 @@ class PEGym:
         self._tester = CocoTester(
             config,
             self._sess,
-            self._train_config[PEGym.GYM_FOLDER],
-            config[self.GEN_LAYER_INFO][self.SIZE_IMG]
+            self._train_config[PEGym.GYM_FOLDER]
         )
 
         # Create model, trainer and set the tensorboard folder
