@@ -40,7 +40,6 @@ TYPE_PROCESS = 'process'
 def process_image(data):
     W, H, image_paths, mode, div, shift, use_bgr2rgb, use_force_resize = data
     image = cv2.imread(image_paths)
-    print('start rescale', image.shape[0], '  ', image.shape[1], '  ', use_force_resize)
     x_scale, y_scale = rescale_image(
         image_size=[image.shape[0], image.shape[1]],
         min_image_size=[H, W],
@@ -48,7 +47,6 @@ def process_image(data):
         use_force_resize=use_force_resize
     )
     new_H, new_W = (int(y_scale * image.shape[0]), int(x_scale * image.shape[1]))
-    print(new_H, '  ', new_W, f' with scale: {y_scale} {x_scale}')
     image = cv2.resize(image, (new_W, new_H))
 
     if use_bgr2rgb:
@@ -268,7 +266,6 @@ def get_batched_result(
     Load certain images, get output from model and write it into dict with certain format
 
     """
-    print('take batch')
     if type_parall is not None:
         norm_img_list = start_process(
             imgs_path_list,

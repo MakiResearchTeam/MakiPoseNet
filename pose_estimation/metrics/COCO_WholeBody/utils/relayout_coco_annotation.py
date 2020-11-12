@@ -83,7 +83,7 @@ def relayout_keypoints(
         scale_k = (x_scale, y_scale, 1)
         scale_bbox = (x_scale, y_scale)
         # Scale bbox and keypoints
-        new_keypoints = (new_keypoints.reshape(-1, 3) * scale_k).reshape(-1).astype(np.float32).tolist()
+        new_keypoints = (new_keypoints.reshape(-1, 3) * scale_k).reshape(-1).astype(np.float32, copy=False).tolist()
         new_bbox = (np.array(single_anns[BBOX]).reshape(2, 2) * scale_bbox).reshape(-1).tolist()
 
         new_segmentation = single_anns[SEGMENTATION]
