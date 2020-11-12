@@ -112,7 +112,12 @@ class PEModel(PoseEstimatorInterface):
 
         # [N, W, H, NUM_PAFS, 2]
         shape_paf = main_paf.shape.as_list()
+        dynamic_shape = tf.shape(main_paf)
         num_pafs = shape_paf[3]
+
+        for i in range(len(shape_paf)):
+            if shape_paf[i] is None:
+                shape_paf[i] = dynamic_shape[i]
 
         # [N, W, H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS * 2]
         main_paf = tf.reshape(main_paf, shape=shape_paf[:-2] + [-1])
