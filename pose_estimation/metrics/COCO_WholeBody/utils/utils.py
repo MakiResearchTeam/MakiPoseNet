@@ -22,13 +22,13 @@ def rescale_image(
 
         if h_is_smaller:
             scale = [
-                min_image_size[0] / h,
+                min_image_size[1] / w,
                 1.0
             ]
         else:
             scale = [
                 1.0,
-                min_image_size[1] / w
+                min_image_size[0] / h
             ]
     else:
         # Use resize_to and takes into account min_image_size
