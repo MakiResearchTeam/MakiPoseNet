@@ -40,7 +40,7 @@ TYPE_PROCESS = 'process'
 def process_image(data):
     W, H, image_paths, mode, div, shift, use_bgr2rgb, use_force_resize = data
     image = cv2.imread(image_paths)
-    print('start rescale')
+    print('start rescale', image.shape[0], '  ', image.shape[1])
     x_scale, y_scale = rescale_image(
         image_size=[image.shape[0], image.shape[1]],
         min_image_size=[H, W],
