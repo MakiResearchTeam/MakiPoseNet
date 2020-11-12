@@ -47,7 +47,7 @@ def process_image(data):
         resize_to=[None, None],
         use_force_resize=use_force_resize
     )
-    new_H, new_W = (y_scale * H, x_scale * W)
+    new_H, new_W = (int(y_scale * H), int(x_scale * W))
     image = cv2.resize(image, (new_W, new_H))
 
     if use_bgr2rgb:

@@ -36,7 +36,7 @@ def relayout_keypoints(
         mode_area_calculation=SEGMENTATION,
         min_w_size=None,
         min_h_size=None,
-        use_force_resize=False
+        use_force_resize=True
     ):
 
     with open(ann_file_path, 'r') as fp:
