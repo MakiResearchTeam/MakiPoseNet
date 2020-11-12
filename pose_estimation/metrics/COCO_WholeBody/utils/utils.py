@@ -18,7 +18,7 @@ def rescale_image(
         elif w is None:
             h_is_smaller = True
         else:
-            h_is_smaller = image_size[0] < image_size[1]
+            h_is_smaller = h < w
 
         if h_is_smaller:
             scale = [
