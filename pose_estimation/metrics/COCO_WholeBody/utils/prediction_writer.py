@@ -47,7 +47,7 @@ def process_image(data):
         resize_to=[None, None],
         use_force_resize=use_force_resize
     )
-    new_H, new_W = (int(y_scale * H), int(x_scale * W))
+    new_H, new_W = (int(y_scale * image.shape[0]), int(x_scale * image.shape[1]))
     print(new_H, '  ', new_W, f' with scale: {y_scale} {x_scale}')
     image = cv2.resize(image, (new_W, new_H))
 
