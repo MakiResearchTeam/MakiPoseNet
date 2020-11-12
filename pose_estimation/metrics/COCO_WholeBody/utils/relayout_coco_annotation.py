@@ -5,6 +5,7 @@ import json
 from pycocotools.coco import COCO
 
 from pose_estimation.data_preparation.coco_preparator_api import CocoPreparator
+from .utils import rescale_image
 
 
 # Annotations in JSON
@@ -32,8 +33,12 @@ def relayout_keypoints(
         ann_file_path: str,
         path_to_save: str,
         limit_number=None,
-        mode_area_calculation=SEGMENTATION
+        mode_area_calculation=SEGMENTATION,
+        min_w_size=None,
+        min_h_size=None,
+        use_force_resize=False
     ):
+
     with open(ann_file_path, 'r') as fp:
         cocoGt_json = json.load(fp)
     cocoGt = COCO(ann_file_path)
@@ -66,11 +71,17 @@ def relayout_keypoints(
         if image_annot is None:
             raise ModuleNotFoundError(f'Image id: {single_anns[IMAGE_ID]} was not found.')
 
-        image_size = (image_annot[HEIGHT], image_annot[WIDTH])
+        image_size = [image_annot[HEIGHT], image_annot[WIDTH]]
 
         # Scales for bbox and keypoints
-        scale_k = (W / image_size[1], H / image_size[0], 1)
-        scale_bbox = (W / image_size[1], H / image_size[0])
+        x_scale, y_scale = rescale_image(
+            image_size=image_size,
+            resize_to=[H, W],
+            min_image_size=[min_h_size, min_w_size],
+            use_force_resize=use_force_resize
+        )
+        scale_k = (x_scale, y_scale, 1)
+        scale_bbox = (x_scale, y_scale)
         # Scale bbox and keypoints
         new_keypoints = (new_keypoints.reshape(-1, 3) * scale_k).reshape(-1).astype(np.float32).tolist()
         new_bbox = (np.array(single_anns[BBOX]).reshape(2, 2) * scale_bbox).reshape(-1).tolist()
