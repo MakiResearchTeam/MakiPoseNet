@@ -70,6 +70,9 @@ class ModelAssembler:
         shape = gen_layer.get_shape()
         # Change batch_size to 1
         shape[0] = 1
+        # Change image size to dymanic size
+        shape[1] = None
+        shape[2] = None
         name = gen_layer.get_name()
 
         input_layer = InputLayer(input_shape=shape, name=name)
