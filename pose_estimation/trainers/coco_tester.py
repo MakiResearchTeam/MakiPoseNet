@@ -155,7 +155,8 @@ class CocoTester(Tester):
                 mode=self._norm_mode,
                 divider=self._norm_div,
                 shift=self._norm_shift,
-                use_bgr2rgb=self._use_bgr2rgb
+                use_bgr2rgb=self._use_bgr2rgb,
+                use_force_resize=False
             )
             # Process evaluation only if number of detection bigger that 0
             if num_detections > 0:

@@ -38,6 +38,37 @@ def relayout_keypoints(
         min_h_size=None,
         use_force_resize=True
     ):
+    """
+    Relayout original annotation to suitable one for further purposes
+
+    Parameters
+    ----------
+    W : int
+        Input Width into model.
+        If equal to None, Width will have dymanic value depending of the input image
+    H : int
+        Input Height into model.
+        If equal to None, Height will have dymanic value depending of the input image
+    ann_file_path : str
+        Path to the origin annotation file
+        Example: /home/user_1/annot.json
+    path_to_save : str
+        Path where need save a relayout annotation file
+    limit_number : int
+        Limit number of loaded annotation,
+        If equal to None then all annotations will be loaded
+    mode_area_calculation : str
+        Different type of area calculation, by default (and recommenede) is segmentation mode
+    min_w_size : int
+        Minimum size of the Width, if equal to None then W will be used
+    min_h_size : int
+        Minumum size of the Height, if equal to None then H will be used
+    use_force_resize : bool
+        If equal to True then all images will be resized to (H, W), i.e. this values must be not None values!
+        Otherwise, if were privaded `min_w_size` and `min_h_size`, lowest dimension will be resized to certain size,
+        i.e. the image zoom will be saved
+
+    """
 
     with open(ann_file_path, 'r') as fp:
         cocoGt_json = json.load(fp)
