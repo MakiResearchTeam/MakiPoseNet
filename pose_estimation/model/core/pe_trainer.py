@@ -10,7 +10,7 @@ class PETrainer(MakiTrainer, ABC):
     HEATMAP_SCALE = 'heatmap_scale'     # float
     HEATMAP_WEIGHT = 'heatmap_weight'   # float
     PAF_WEIGHT = 'paf_weight'           # float
-    RESIZE = 'resize'     # boolean
+    RESIZE_TO = 'resize_to'                   # list(H, W)
 
     PAF_LOSS = 'PAF_loss'
     HEATMAP_LOSS = 'Heatmap_loss'
@@ -29,7 +29,7 @@ class PETrainer(MakiTrainer, ABC):
                 PETrainer.HEATMAP_SCALE: self._heatmap_scale,
                 PETrainer.HEATMAP_WEIGHT: self._heatmap_weight,
                 PETrainer.PAF_WEIGHT: self._paf_weight,
-                PETrainer.RESIZE: self._resize
+                PETrainer.RESIZE_TO: self._resize_to
             }
         }
 
@@ -47,10 +47,9 @@ class PETrainer(MakiTrainer, ABC):
             paf_weight=paf_weight
         )
 
-        resize = params.get(PETrainer.RESIZE)
+        resize = params.get(PETrainer.RESIZE_TO)
         if resize is None:
-            print('`resize` parameter is not set. Setting it to False.')
-            resize = False
+            print('`resize` parameter is not set.')
 
         self.set_resize(resize)
 
@@ -95,10 +94,11 @@ class PETrainer(MakiTrainer, ABC):
 
         Parameters
         ----------
-        resize : bool
-            If True, the data will be resized.
+        resize : list
+            List of (H, W), if equal to None, will be not used
+
         """
-        self._resize = resize
+        self._resize_to = resize
 
     def _init(self):
         super()._init()
@@ -106,7 +106,7 @@ class PETrainer(MakiTrainer, ABC):
         self._heatmap_scale = 1.0
         self._heatmap_weight = None
         self._paf_weight = None
-        self._resize = False
+        self._resize_to = None
 
     def _setup_label_placeholders(self):
         model = super().get_model()
@@ -139,10 +139,14 @@ class PETrainer(MakiTrainer, ABC):
     def get_train_paf(self):
         label_tensors = super().get_label_tensors()
         pafs = label_tensors[PETrainer.TRAINING_PAF]
-        if self._resize:
+        if self._resize_to is not None:
             old_shape = pafs.get_shape()
+            dymanic_shape = tf.shape(pafs)
             # [batch, h, w, pairs, 2]
             pafs_shape = old_shape.as_list()
+            for i in range(len(pafs_shape)):
+                if pafs_shape[i] is None:
+                    pafs_shape[i] = dymanic_shape[i]
 
             # [batch, h, w, pairs, 2] --> [batch, h, w, pairs * 2]
             pafs = tf.reshape(pafs, pafs_shape[:3] + [-1])
@@ -160,7 +164,7 @@ class PETrainer(MakiTrainer, ABC):
     def get_train_heatmap(self):
         label_tensors = super().get_label_tensors()
         heatmap = label_tensors[PETrainer.TRAINING_HEATMAP]
-        if self._resize:
+        if self._resize_to is not None:
             old_shape = heatmap.get_shape()
             heatmap = self.__resize_training_tensor(heatmap)
             new_shape = heatmap.get_shape()
@@ -170,7 +174,7 @@ class PETrainer(MakiTrainer, ABC):
     def get_train_mask(self):
         label_tensors = super().get_label_tensors()
         mask = label_tensors[PETrainer.TRAINING_MASK]
-        if self._resize:
+        if self._resize_to is not None:
             old_shape = mask.get_shape()
             mask = self.__resize_training_tensor(mask)
             new_shape = mask.get_shape()
@@ -178,17 +182,9 @@ class PETrainer(MakiTrainer, ABC):
         return mask
 
     def __resize_training_tensor(self, tensor):
-        model = super().get_model()
-
-        inference_heatmap = model.get_heatmap_makitensors()[0]
-        # [b, h, w, c]
-        heatmap_shape = inference_heatmap.get_shape()
-        # [h, w]
-        new_size = heatmap_shape[1:3]
-
         tensor = tf.image.resize_area(
             tensor,
-            new_size,
+            self._resize_to,
             align_corners=False,
             name='tensor_resize'
         )
