@@ -37,6 +37,8 @@ CONNECT_INDEXES_FOR_PAFF =  [
     # Additional limbs
     [5, 7],
     [4, 6],
+    [7, 13],
+    [6, 12]
 ]
 
 
