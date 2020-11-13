@@ -302,7 +302,7 @@ class GaussHeatmapLayer(MakiLayer):
             destination_call=fn_c
         )
         
-        # Decide whether to perform calucalation in a batch dimension.
+        # Decide whether to perform calculation in a batch dimension.
         # May be faster, but requires more memory.
         if len(kp.get_shape()) == 4 and self.vectorize:            # [b, c, p, 2]
             print('Using vectorized_map.')
@@ -489,6 +489,9 @@ class PAFLayer(MakiLayer):
         tf.Tensor of shape [batch, h, w, n_pars, 2]
             Tensor of PAFs.
         """
+
+        # ------------------THE SHITTEST CODE EVER----------------------------------------------
+
         # Gather points along the axis of classes of points.
         # [b, n_pairs, 2, p, 2]
         kp_p = tf.gather(kp, indices=self.skeleton, axis=1)
@@ -503,20 +506,54 @@ class PAFLayer(MakiLayer):
         # [b, n_pairs, 2, p, 1]
         masks_p = tf.gather(masks, indices=self.skeleton, axis=1)
         masks_p = tf.transpose(masks_p, perm=[0, 1, 3, 2, 4])
+
+        def normalize_paf(paf):
+            """
+            Averages values in the regions where PAF overlaps.
+            Parameters
+            ----------
+            paf : tf.Tensor of shape [n_people, h, w, 2]
+
+            Returns
+            -------
+            tf.Tensor of shape [h, w, 2]
+                Normalized paf tensor.
+            """
+            # [n_people, h, w]
+            magnitudes = tf.reduce_sum(paf * paf, axis=-1)
+            ones = tf.ones_like(magnitudes, dtype='float32')
+            zeros = tf.zeros_like(magnitudes, dtype='float32')
+            non_zero_regions = tf.where(magnitudes > 1e-3, ones, zeros)
+            # [h, w]
+            normalization_mask = tf.reduce_sum(non_zero_regions, axis=0)
+            # Set zeros to ones to avoid division by zero.
+            # Don't change other regions
+            ones = tf.ones_like(normalization_mask, dtype='float32')
+            normalization_mask = tf.where(normalization_mask > 1e-3, normalization_mask, ones)
+            # [h, w]
+            paf = tf.reduce_sum(paf, axis=0)
+            print(paf)
+            result = paf / tf.expand_dims(normalization_mask, axis=-1)
+            print(result)
+            return result
+
         # [h, w, 2]
-        fn_p = lambda kp, masks: tf.reduce_sum(
+        fn_p = lambda kp, masks: normalize_paf(
             PAFLayer.__build_paf_mp(
-                kp, masks,
+                kp, masks,  # [p, 2, 2, 1]
                 destination_call=self.__build_paf
-            ),
-            axis=0
+            )
         )
 
+        def shape_fixer(t):
+            h, w, _ = self.xy_grid.get_shape()
+            t.set_shape(shape=[len(self.skeleton), h, w, 2])
+            return t
         # [n_pairs, h, w, 2]
-        fn_np = lambda kp, masks: PAFLayer.__build_paf_mp(
-                kp, masks,
+        fn_np = lambda kp, masks: shape_fixer(PAFLayer.__build_paf_mp(
+                kp, masks,# [n_pairs, p, 2, 2, 1]
                 destination_call=fn_p
-        )
+        ))
 
         # [b, n_pairs, h, w, 2]
         fn_b = lambda kp, masks: PAFLayer.__build_paf_mp(
@@ -539,8 +576,9 @@ class PAFLayer(MakiLayer):
             fn = lambda kp_masks: [fn_np(kp_masks[0], kp_masks[1]), 0]
             pafs, _, = tf.map_fn(
                 fn,
-                [kp_p, masks_p]
+                [kp_p, masks_p]# [b, n_pairs, p, 2, 2, 1]
             )
+            print('after map_fn:', pafs)
             pafs = tf.transpose(pafs, perm=[0, 2, 3, 1, 4])
             return pafs
 
@@ -611,3 +649,71 @@ class PAFLayer(MakiLayer):
         # Multiply the mask with the direction vector.
         paf = tf.expand_dims(cf, axis=-1) * v[:, 0]
         return paf * tf.reduce_min(points_mask)
+
+
+if __name__ == '__main__':
+    from makiflow.layers import InputLayer
+
+    CONNECT_INDEXES_FOR_PAFF = [
+        # head
+        [1, 2],
+        [2, 4],
+        [1, 3],
+        [3, 5],
+        # body
+        # left
+        [1, 7],
+        [7, 9],
+        [9, 11],
+        [11, 22],
+        [11, 23],
+        # right
+        [1, 6],
+        [6, 8],
+        [8, 10],
+        [10, 20],
+        [10, 21],
+        # center
+        [1, 0],
+        [0, 12],
+        [0, 13],
+        # legs
+        # left
+        [13, 15],
+        [15, 17],
+        [17, 19],
+        # right
+        [12, 14],
+        [14, 16],
+        [16, 18],
+        # Additional limbs
+        [5, 7],
+        [4, 6],
+    ]
+    """
+    kp : tf.Tensor of shape [batch, c, n_people, 2]
+            Tensor of keypoints coordinates.
+    masks : tf.Tensor of shape [batch, c, n_people, 1]
+    """
+    im_size = [128, 128]
+    paf_sigma = 20
+    keypoints = InputLayer(input_shape=[32, 24, 8, 2], name='keypoints')
+    masks = InputLayer(input_shape=[32, 24, 8, 1], name='keypoints')
+
+    paf_layer = PAFLayer(
+        im_size=im_size,
+        sigma=paf_sigma,
+        skeleton=CONNECT_INDEXES_FOR_PAFF
+    )
+    paf = paf_layer([keypoints, masks])
+
+    sess = tf.Session()
+    paf_shape = sess.run(
+        tf.shape(paf.get_data_tensor()),
+        feed_dict={
+            keypoints.get_data_tensor(): np.random.randn(32, 24, 8, 2),
+            masks.get_data_tensor(): np.random.randn(32, 24, 8, 1)
+        }
+    )
+    print(paf)
+    print(paf_shape)
