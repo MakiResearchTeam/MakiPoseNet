@@ -57,9 +57,13 @@ class Tester(ABC):
 
         if annot_gt is not None:
             relayout_keypoints(
-                self.W, self.H,
-                self._config[self.ANNOT_GT_JSON], self._path_to_relayout_annot,
-                self._limit_annots
+                W=None, H=None,
+                ann_file_path=self._config[self.ANNOT_GT_JSON],
+                path_to_save=self._path_to_relayout_annot,
+                limit_number=self._limit_annots,
+                min_h_size=self.H,
+                min_w_size=self.W,
+                use_force_resize=False
             )
 
             # Load ground-truth annot

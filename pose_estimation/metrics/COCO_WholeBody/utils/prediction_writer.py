@@ -24,6 +24,8 @@ Example of the json how to save single prediction
 """
 
 from .relayout_coco_annotation import IMAGE_ID, KEYPOINTS, ID
+from .utils import rescale_image
+
 CATEGORY_ID = 'category_id'
 SCORE = 'score'
 COCO_URL = 'coco_url'
@@ -36,9 +38,16 @@ TYPE_PROCESS = 'process'
 
 # Methods to process image with multiprocessing
 def process_image(data):
-    W, H, image_paths, mode, div, shift, use_bgr2rgb = data
+    W, H, image_paths, mode, div, shift, use_bgr2rgb, use_force_resize = data
     image = cv2.imread(image_paths)
-    image = cv2.resize(image, (W, H))
+    x_scale, y_scale = rescale_image(
+        image_size=[image.shape[0], image.shape[1]],
+        min_image_size=[H, W],
+        resize_to=[None, None],
+        use_force_resize=use_force_resize
+    )
+    new_H, new_W = (int(y_scale * image.shape[0]), int(x_scale * image.shape[1]))
+    image = cv2.resize(image, (new_W, new_H))
 
     if use_bgr2rgb:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -60,7 +69,8 @@ def start_process(
         mode: str,
         divider : float,
         shift: float,
-        use_bgr2rgb: bool
+        use_bgr2rgb: bool,
+        use_force_resize: bool
     ):
     if type_parall == TYPE_THREAD:
         pool = dummy.Pool(processes=n_threade)
@@ -72,7 +82,7 @@ def start_process(
     res = pool.map(
         process_image,
         [
-            (W, H, image_paths[index], mode, divider, shift, use_bgr2rgb)
+            (W, H, image_paths[index], mode, divider, shift, use_bgr2rgb, use_force_resize)
             for index in range(len(image_paths))
         ]
     )
@@ -96,7 +106,8 @@ def create_prediction_coco_json(
         mode=TF,
         divider=None,
         shift=None,
-        use_bgr2rgb=False
+        use_bgr2rgb=False,
+        use_force_resize=True
     ):
     """
     Create prediction JSON for evaluation on COCO dataset
@@ -199,7 +210,8 @@ def create_prediction_coco_json(
                     mode=mode,
                     divider=divider,
                     shift=shift,
-                    use_bgr2rgb=use_bgr2rgb
+                    use_bgr2rgb=use_bgr2rgb,
+                    use_force_resize=use_force_resize
                 )
                 # Clear batched arrays
                 imgs_path_list = []
@@ -224,7 +236,8 @@ def create_prediction_coco_json(
                 mode=mode,
                 divider=divider,
                 shift=shift,
-                use_bgr2rgb=use_bgr2rgb
+                use_bgr2rgb=use_bgr2rgb,
+                use_force_resize=use_force_resize
             )
     except Exception as ex:
         print(ex)
@@ -247,12 +260,12 @@ def get_batched_result(
         mode=TF,
         divider=None,
         shift=None,
-        use_bgr2rgb=False):
+        use_bgr2rgb=False,
+        use_force_resize=True):
     """
     Load certain images, get output from model and write it into dict with certain format
 
     """
-
     if type_parall is not None:
         norm_img_list = start_process(
             imgs_path_list,
@@ -262,7 +275,8 @@ def get_batched_result(
             mode=mode,
             shift=shift,
             divider=divider,
-            use_bgr2rgb=use_bgr2rgb
+            use_bgr2rgb=use_bgr2rgb,
+            use_force_resize=use_force_resize
         )
     else:
         norm_img_list = [
@@ -273,13 +287,14 @@ def get_batched_result(
                     mode,
                     shift,
                     divider,
-                    use_bgr2rgb
+                    use_bgr2rgb,
+                    use_force_resize
                 )
             )
             for index in range(len(imgs_path_list))
         ]
 
-    humans_predicted_list = model.predict(norm_img_list, resize_to=[H, W])
+    humans_predicted_list = model.predict(norm_img_list)
 
     for (single_humans_predicted_list, single_image_ids) in zip(humans_predicted_list, image_ids_list):
         for single_prediction in single_humans_predicted_list:
