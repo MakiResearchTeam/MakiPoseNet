@@ -5,11 +5,11 @@
 
 const float THRESH_HEAT = 0.05;
 const float THRESH_VECTOR_SCORE = 0.05;
-const int THRESH_VECTOR_CNT1 = 6;
+const int THRESH_VECTOR_CNT1 = 4;
 // By default THRESH_PART_CNT = 4 and THRESH_HUMAN_SCORE = 0.3,
 // BUT in the original paper of the OpenPose that are below were used
 // THRESH_PART_CNT = 3 and THRESH_HUMAN_SCORE = 0.2
-const int THRESH_PART_CNT = 3;
+const int THRESH_PART_CNT = 4;
 const float THRESH_HUMAN_SCORE = 0.2;
 
 

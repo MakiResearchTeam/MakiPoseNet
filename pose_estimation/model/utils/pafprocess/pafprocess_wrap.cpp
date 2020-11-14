@@ -3916,6 +3916,20 @@ SWIGINTERN PyObject *Swig_var_NUM_PART_get(void) {
 }
 
 
+SWIGINTERN int Swig_var_SIZE_ROW_set(PyObject *) {
+  SWIG_Error(SWIG_AttributeError,"Variable SIZE_ROW is read-only.");
+  return 1;
+}
+
+
+SWIGINTERN PyObject *Swig_var_SIZE_ROW_get(void) {
+  PyObject *pyobj = 0;
+  
+  pyobj = SWIG_From_int(static_cast< int >(SIZE_ROW));
+  return pyobj;
+}
+
+
 SWIGINTERN int Swig_var_STEP_PAF_set(PyObject *) {
   SWIG_Error(SWIG_AttributeError,"Variable STEP_PAF is read-only.");
   return 1;
@@ -3954,20 +3968,6 @@ SWIGINTERN PyObject *Swig_var_MAIN_SIZE_get(void) {
   PyObject *pyobj = 0;
   
   pyobj = SWIG_From_int(static_cast< int >(MAIN_SIZE));
-  return pyobj;
-}
-
-
-SWIGINTERN int Swig_var_SIZE_ROW_set(PyObject *) {
-  SWIG_Error(SWIG_AttributeError,"Variable SIZE_ROW is read-only.");
-  return 1;
-}
-
-
-SWIGINTERN PyObject *Swig_var_SIZE_ROW_get(void) {
-  PyObject *pyobj = 0;
-  
-  pyobj = SWIG_From_int(static_cast< int >(SIZE_ROW));
   return pyobj;
 }
 
@@ -5986,10 +5986,10 @@ SWIG_init(void) {
   SWIG_addvarlink(SWIG_globals(),(char *)"THRESH_PART_CNT",Swig_var_THRESH_PART_CNT_get, Swig_var_THRESH_PART_CNT_set);
   SWIG_addvarlink(SWIG_globals(),(char *)"THRESH_HUMAN_SCORE",Swig_var_THRESH_HUMAN_SCORE_get, Swig_var_THRESH_HUMAN_SCORE_set);
   SWIG_addvarlink(SWIG_globals(),(char *)"NUM_PART",Swig_var_NUM_PART_get, Swig_var_NUM_PART_set);
+  SWIG_addvarlink(SWIG_globals(),(char *)"SIZE_ROW",Swig_var_SIZE_ROW_get, Swig_var_SIZE_ROW_set);
   SWIG_addvarlink(SWIG_globals(),(char *)"STEP_PAF",Swig_var_STEP_PAF_get, Swig_var_STEP_PAF_set);
   SWIG_addvarlink(SWIG_globals(),(char *)"ADDITIONAL_SIZE",Swig_var_ADDITIONAL_SIZE_get, Swig_var_ADDITIONAL_SIZE_set);
   SWIG_addvarlink(SWIG_globals(),(char *)"MAIN_SIZE",Swig_var_MAIN_SIZE_get, Swig_var_MAIN_SIZE_set);
-  SWIG_addvarlink(SWIG_globals(),(char *)"SIZE_ROW",Swig_var_SIZE_ROW_get, Swig_var_SIZE_ROW_set);
   SWIG_addvarlink(SWIG_globals(),(char *)"COCOPAIRS_SIZE",Swig_var_COCOPAIRS_SIZE_get, Swig_var_COCOPAIRS_SIZE_set);
   SWIG_addvarlink(SWIG_globals(),(char *)"COCOPAIRS_NET",Swig_var_COCOPAIRS_NET_get, Swig_var_COCOPAIRS_NET_set);
   SWIG_addvarlink(SWIG_globals(),(char *)"COCOPAIRS",Swig_var_COCOPAIRS_get, Swig_var_COCOPAIRS_set);
