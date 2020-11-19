@@ -78,7 +78,7 @@ class CocoTester(Tester):
                 single_train_image = cv2.cvtColor(single_train_image, cv2.COLOR_BGR2RGB)
 
             self._norm_images_train.append(
-                self.__preprocess(np.expand_dims(single_train_image, axis=0))
+                self.__preprocess(single_train_image)
             )
 
             self._names_train.append(CocoTester.TRAIN_N.format(i))
@@ -86,7 +86,7 @@ class CocoTester(Tester):
             self.add_image(self._names_train[-1], n_images=1)
 
     def __init_test_images(self):
-        if type(self._config[CocoTester.TEST_IMAGE]) is not list:
+        if not isinstance(self._config[CocoTester.TEST_IMAGE], list):
             test_images_path = [self._config[CocoTester.TEST_IMAGE]]
         else:
             test_images_path = self._config[CocoTester.TEST_IMAGE]
@@ -103,14 +103,13 @@ class CocoTester(Tester):
             test_image = cv2.resize(test_image, (self.W, self.H))
             if self._use_bgr2rgb:
                 test_image = cv2.cvtColor(test_image, cv2.COLOR_BGR2RGB)
-            im_shape = test_image.shape
 
             self._norm_images.append(
                 self.__preprocess(test_image)
             )
 
             # The image has to have batch dimension
-            self._test_images.append(test_image.reshape(1, *im_shape).astype(np.uint8))
+            self._test_images.append(test_image.astype(np.uint8))
             self._names.append(CocoTester.TEST_N.format(i))
             # Plus: original image, image with paf = 3
             self.add_image(self._names[-1], n_images=len(CocoTester.DRAW_LIST) + 3)
@@ -220,7 +219,7 @@ class CocoTester(Tester):
 
     def __get_test_tb_data(self, model, dict_summary_to_tb, is_network_good_right_now=True):
         for i, (single_norm, single_test) in enumerate(zip(self._norm_images, self._test_images)):
-            single_batch = [self.__put_text_on_image(single_test[0], self._names[i])]
+            single_batch = [self.__put_text_on_image(single_test, self._names[i])]
             peaks, heatmap, paf = model.predict(
                 np.concatenate([single_norm] * model.get_batch_size(), axis=0),
                 using_estimate_alg=False,
@@ -228,7 +227,7 @@ class CocoTester(Tester):
             )
 
             drawed_paff = self.__put_text_on_image(
-                    visualize_paf(single_test[0], paf[0]),
+                    visualize_paf(single_test, paf[0]),
                     self._names[i] + '_' + CocoTester.PAFF_IMAGE
             )
             single_batch.append(drawed_paff)
@@ -244,14 +243,13 @@ class CocoTester(Tester):
                     )
                 )
 
-
             # Draw skeletons
             if is_network_good_right_now:
                 predictions = model.predict(
                     np.concatenate([single_norm] * model.get_batch_size(), axis=0),
                     resize_to=[self.H, self.W]
                 )[0]
-                drawed_image = draw_skeleton(single_test[0].copy(), predictions, CONNECT_INDEXES)
+                drawed_image = draw_skeleton(single_test.copy(), predictions, CONNECT_INDEXES)
                 single_batch.append(self.__put_text_on_image(drawed_image, "skeleton"))
 
             for indx in range(len(single_batch)):
