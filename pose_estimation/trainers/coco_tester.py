@@ -170,7 +170,6 @@ class CocoTester(Tester):
         # Draw test images
         # Write heatmap,paf and image itself for each image in `_test_images`
         self.__get_test_tb_data(model, dict_summary_to_tb, is_network_good_right_now)
-
         # Draw train images
         self.__get_train_tb_data(model, dict_summary_to_tb, is_network_good_right_now)
         # Write data into tensorBoard
@@ -210,8 +209,6 @@ class CocoTester(Tester):
                 # Feed list of predictions
                 scale_predicted_kp([prediction], (self.H, self.W), single_train.shape[1:3])
                 drawed_image = draw_skeleton(drawed_image, prediction, CONNECT_INDEXES, color=(255, 0, 0))
-            else:
-                drawed_image = single_train
 
             # Draw ground-truth
             drawed_image = draw_skeleton(drawed_image, self._ground_truth[i], CONNECT_INDEXES, color=(40, 255, 40))
