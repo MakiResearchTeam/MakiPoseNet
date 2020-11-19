@@ -36,6 +36,7 @@ def visualize_paf(
 def draw_skeleton(image, humans: list, connect_indexes: list, color=(255, 0, 0)):
     for indx in range(len(humans)):
         human = humans[indx]
+        print(f'is this human? in: {human}')
         if isinstance(human, Human):
             data = np.array(human.to_list()).reshape(-1, 3)
         else:

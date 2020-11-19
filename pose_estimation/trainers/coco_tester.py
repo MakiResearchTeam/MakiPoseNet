@@ -207,7 +207,9 @@ class CocoTester(Tester):
                 prediction = model.predict(np.concatenate([single_norm_train] * model.get_batch_size(), axis=0))[0]
 
                 # Feed list of predictions
+                print('before: ', prediction)
                 scale_predicted_kp([prediction], (self.H, self.W), single_train.shape[1:3])
+                print('after: ', prediction)
                 drawed_image = draw_skeleton(drawed_image, prediction, CONNECT_INDEXES, color=(255, 0, 0))
 
             # Draw ground-truth
