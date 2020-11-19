@@ -257,7 +257,7 @@ class CocoTester(Tester):
                     resize_to=[self.H, self.W]
                 )[0]
                 drawed_image = draw_skeleton(single_test[0].copy(), predictions, CONNECT_INDEXES)
-                single_batch.append(drawed_image)
+                single_batch.append(self.__put_text_on_image(drawed_image, "skeleton"))
 
             for indx in range(len(single_batch)):
                 print(f'{indx}: {single_batch[indx].shape}')
