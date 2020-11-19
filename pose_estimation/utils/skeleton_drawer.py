@@ -28,7 +28,7 @@ class SkeletonDrawer:
         """
         if self._video is None:
             h, w, c = images[0].shape
-            self._init((w, h))
+            self._init((h, w))
 
         for image, prediction in zip(images, predictions):
             self.draw_skeleton(image, prediction)
