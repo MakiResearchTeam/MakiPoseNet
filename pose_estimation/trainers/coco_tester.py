@@ -259,8 +259,8 @@ class CocoTester(Tester):
                 drawed_image = draw_skeleton(single_test[0].copy(), predictions, CONNECT_INDEXES)
                 single_batch.append(drawed_image)
 
-            for i in range(len(single_batch)):
-                print(f'{i}: {single_batch[i].shape}')
+            for indx in range(len(single_batch)):
+                print(f'{indx}: {single_batch[indx].shape}')
 
             dict_summary_to_tb.update({self._names[i]: np.concatenate(single_batch, axis=0).astype(np.uint8)})
 
