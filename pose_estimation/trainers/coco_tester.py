@@ -211,6 +211,7 @@ class CocoTester(Tester):
                 drawed_image = draw_skeleton(drawed_image, prediction, CONNECT_INDEXES, color=(255, 0, 0))
 
             # Draw ground-truth
+            print('draw gt!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             drawed_image = draw_skeleton(drawed_image, self._ground_truth[i], CONNECT_INDEXES, color=(40, 255, 40))
 
             dict_summary_to_tb.update({self._names_train[i]: np.expand_dims(drawed_image, axis=0).astype(np.uint8)})
