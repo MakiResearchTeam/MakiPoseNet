@@ -252,7 +252,10 @@ class CocoTester(Tester):
 
             # Draw skeletons
             if is_network_good_right_now:
-                predictions = model.predict(single_norm, resize_to=[self.H, self.W])
+                predictions = model.predict(
+                    np.concatenate([single_norm] * model.get_batch_size(), axis=0),
+                    resize_to=[self.H, self.W]
+                )[0]
                 drawed_image = draw_skeleton(single_test.copy(), predictions, CONNECT_INDEXES)
                 single_batch.append(drawed_image)
 
