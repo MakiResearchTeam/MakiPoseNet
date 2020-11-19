@@ -1,6 +1,7 @@
 
 
 def scale_predicted_kp(predictions: list, model_size: tuple, source_size: tuple):
+    # predictions shape - (N, num_detected_people)
     # scale predictions
     scale = [source_size[1] / model_size[1], source_size[0] / model_size[0]]
 

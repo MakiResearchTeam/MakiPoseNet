@@ -205,9 +205,12 @@ class CocoTester(Tester):
             # Draw skeletons
             if is_network_good_right_now:
                 # Draw prediction
-                predictions = model.predict(single_norm_train)
-                scale_predicted_kp(predictions, (self.H, self.W), single_train.shape[1:3])
-                drawed_image = draw_skeleton(drawed_image, predictions, CONNECT_INDEXES, color=(255, 0, 0))
+                # Take single prediction for one image and take it
+                prediction = model.predict(np.concatenate([single_norm_train] * model.get_batch_size(), axis=0))[0]
+
+                # Feed list of predictions
+                scale_predicted_kp([prediction], (self.H, self.W), single_train.shape[1:3])
+                drawed_image = draw_skeleton(drawed_image, prediction, CONNECT_INDEXES, color=(255, 0, 0))
             else:
                 drawed_image = single_train
 

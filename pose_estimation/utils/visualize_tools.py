@@ -33,7 +33,7 @@ def visualize_paf(
     return img
 
 
-def draw_skeleton(image, humans, connect_indexes, color=(255, 0, 0)):
+def draw_skeleton(image, humans: list, connect_indexes: list, color=(255, 0, 0)):
     for indx in range(len(humans)):
         human = humans[indx]
         if isinstance(human, Human):
