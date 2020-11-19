@@ -28,10 +28,13 @@ class Tester(ABC):
     IMG_HW = 'img_hw'
     PATH_TO_TRAIN_ANNOT = 'path_to_train_annot'
     IMAGE_IDS_FROM_TRAIN = 'image_ids_from_train'
+    TEST_VIDEO = "path_to_test_video"
+    SAVE_PREDICTED_VIDEO_FOLDER = 'folder_to_save_pred_video'
 
     NAME_RELAYOUR_ANNOT_JSON = "relayour_annot.json"
     NAME_PREDICTED_ANNOT_JSON = 'predicted_annot.json'
     AP_AR_DATA_TXT = 'ap_ar_data.txt'
+    VIDEO_TEST = "video_test_{}.mp4"
 
     def __init__(self, config: dict, sess, path_to_save_logs:str):
         self._config = config[Tester.TEST_CONFIG]
@@ -99,6 +102,10 @@ class Tester(ABC):
                 self._ground_truth.append(single_ground_truth)
         else:
             self._train_annot = None
+
+        self._video_path = self._config[self.TEST_VIDEO]
+        self._video_counter = 0
+        self._save_pred_video_folder = self._config.get(self.SAVE_PREDICTED_VIDEO_FOLDER)
 
         # The summaries to write
         self._summaries = {}

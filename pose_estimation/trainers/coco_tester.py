@@ -9,6 +9,9 @@ from pose_estimation.metrics.COCO_WholeBody import (MYeval_wholebody,
                                                     create_prediction_coco_json)
 from ..utils.visualize_tools import visualize_paf, draw_skeleton
 from pose_estimation.data_preparation import CONNECT_INDEXES
+from pose_estimation.utils.skeleton_drawer import SkeletonDrawer
+from pose_estimation.utils.preprocess import CAFFE
+from makiflow.tools.video.video_reader import VideoReader
 import os
 
 
@@ -54,6 +57,7 @@ class CocoTester(Tester):
     AR_IOU_050 = "AR with IOU 0.50"
 
     _CENTRAL_SIZE = 600
+    _LENGHT_VIDEO = 600
     _ZERO_VALUE = 0.0
 
     def _init(self):
@@ -168,7 +172,7 @@ class CocoTester(Tester):
 
         # Draw test images
         # Write heatmap,paf and image itself for each image in `_test_images`
-        self.__get_test_tb_data(model, dict_summary_to_tb, is_network_good_right_now)
+        self.__get_test_tb_data(model, dict_summary_to_tb, is_network_good_right_now, new_log_folder)
         # Draw train images
         self.__get_train_tb_data(model, dict_summary_to_tb, is_network_good_right_now)
         # Write data into tensorBoard
@@ -203,7 +207,7 @@ class CocoTester(Tester):
             if is_network_good_right_now:
                 # Draw prediction
                 # Take single prediction for one image and take it
-                prediction = model.predict(np.concatenate([single_norm_train] * model.get_batch_size(), axis=0))[0]
+                prediction = model.predict(np.stack([single_norm_train] * model.get_batch_size(), axis=0))[0]
 
                 # Feed list of predictions
                 print('before: ', prediction)
@@ -217,7 +221,7 @@ class CocoTester(Tester):
 
             dict_summary_to_tb.update({self._names_train[i]: np.expand_dims(drawed_image, axis=0).astype(np.uint8)})
 
-    def __get_test_tb_data(self, model, dict_summary_to_tb, is_network_good_right_now=True):
+    def __get_test_tb_data(self, model, dict_summary_to_tb, is_network_good_right_now, new_log_folder=None):
         for i, (single_norm, single_test) in enumerate(zip(self._norm_images, self._test_images)):
             single_batch = [self.__put_text_on_image(single_test, self._names[i])]
             peaks, heatmap, paf = model.predict(
@@ -256,6 +260,49 @@ class CocoTester(Tester):
                 print(f'{indx}: {single_batch[indx].shape}')
 
             dict_summary_to_tb.update({self._names[i]: np.stack(single_batch, axis=0).astype(np.uint8)})
+
+            # Create video with skeletons
+            if is_network_good_right_now:
+                self.__record_prediction_video(model, new_log_folder)
+
+    def __record_prediction_video(self, model, new_log_folder):
+        video_r = VideoReader(self._video_path)
+
+        def transfort(x, m_w=432, m_h=432, mode=CAFFE, func_preprocess=None):
+            new_images = []
+            for i in range(len(x)):
+                image = cv2.resize(x[i].copy(), (m_w, m_h))
+                if mode is not None:
+                    image = preprocess_input(np.expand_dims(image, axis=0), mode=CAFFE)[0]
+                else:
+                    image = func_preprocess(image)
+                new_images.append(image)
+            return new_images
+
+        gener_v = video_r.get_iterator(1)
+        if self._save_pred_video_folder is None:
+            save_folder = os.path.join(new_log_folder, self.VIDEO_TEST.format(self._video_counter))
+        else:
+            save_folder = os.path.join(self._save_pred_video_folder, self.VIDEO_TEST.format(self._video_counter))
+        drawer_v = SkeletonDrawer(save_folder)
+
+        for i, batch_image in enumerate(gener_v):
+            if i == self._LENGHT_VIDEO:
+                break
+            transformed_image_batch = transfort(
+                batch_image,
+                m_h=self.H, m_w=self.W,
+                mode=self._norm_mode,
+                func_preprocess=lambda x: self.__preprocess(x)[0]
+            )
+            predictions = model.predict(transformed_image_batch)
+            # scale predictions
+            scale_predicted_kp([predictions], (self.H, self.W), batch_image[0].shape[:-1])
+
+            # draw
+            drawer_v.write(batch_image, predictions)
+
+        drawer_v.release()
 
     def __put_text_on_image(self, image, text, shift_image=60):
         h,w = image.shape[:-1]
