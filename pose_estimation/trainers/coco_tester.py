@@ -220,19 +220,16 @@ class CocoTester(Tester):
 
     def __get_test_tb_data(self, model, dict_summary_to_tb, is_network_good_right_now=True):
         for i, (single_norm, single_test) in enumerate(zip(self._norm_images, self._test_images)):
-            single_batch = [np.expand_dims(self.__put_text_on_image(single_test[0], self._names[i]), axis=0)]
+            single_batch = [self.__put_text_on_image(single_test[0], self._names[i])]
             peaks, heatmap, paf = model.predict(
                 np.concatenate([single_norm] * model.get_batch_size(), axis=0),
                 using_estimate_alg=False,
                 resize_to=[self.H, self.W]
             )
 
-            drawed_paff = np.expand_dims(
-                self.__put_text_on_image(
+            drawed_paff = self.__put_text_on_image(
                     visualize_paf(single_test[0], paf[0]),
                     self._names[i] + '_' + CocoTester.PAFF_IMAGE
-                ),
-                axis=0
             )
             single_batch.append(drawed_paff)
 
@@ -241,14 +238,12 @@ class CocoTester(Tester):
                 name_p = single_draw_params[0]
 
                 single_batch.append(
-                    np.expand_dims(
-                        self.draw_heatmap(
-                            heatmap[0][..., index],
-                            name_p
-                        ),
-                        axis=0
+                    self.draw_heatmap(
+                        heatmap[0][..., index],
+                        name_p
                     )
                 )
+
 
             # Draw skeletons
             if is_network_good_right_now:
@@ -262,7 +257,7 @@ class CocoTester(Tester):
             for indx in range(len(single_batch)):
                 print(f'{indx}: {single_batch[indx].shape}')
 
-            dict_summary_to_tb.update({self._names[i]: np.concatenate(single_batch, axis=0).astype(np.uint8)})
+            dict_summary_to_tb.update({self._names[i]: np.stack(single_batch, axis=0).astype(np.uint8)})
 
     def __put_text_on_image(self, image, text, shift_image=60):
         h,w = image.shape[:-1]
