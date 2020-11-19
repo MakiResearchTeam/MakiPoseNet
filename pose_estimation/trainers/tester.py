@@ -2,6 +2,8 @@ import tensorflow as tf
 from pose_estimation.metrics.COCO_WholeBody import relayout_keypoints
 from abc import ABC, abstractmethod
 import os
+import skimage.io as io
+import numpy as np
 from pycocotools.coco import COCO
 
 
@@ -24,6 +26,9 @@ class Tester(ABC):
     NORM_MODE = 'norm_mode'
     USE_BGR2RGB = 'use_bgr2rgb'
     IMG_HW = 'img_hw'
+    PATH_TO_TRAIN_ANNOT = 'path_to_train_annot'
+    IMAGE_IDS_FROM_TRAIN = 'image_ids_from_train'
+
 
     NAME_RELAYOUR_ANNOT_JSON = "relayour_annot.json"
     NAME_PREDICTED_ANNOT_JSON = 'predicted_annot.json'
@@ -72,14 +77,36 @@ class Tester(ABC):
         else:
             self.cocoGt = None
 
+        train_annot_gt = self._config.get(self.PATH_TO_TRAIN_ANNOT)
+
+        if train_annot_gt is not None:
+            self._train_annot = COCO(train_annot_gt)
+            self._train_images = []
+            self._ground_truth = []
+            # Load each image
+            ids = self._config[self.IMAGE_IDS_FROM_TRAIN]
+            for single_id in ids:
+                img = self._train_annot.loadImgs(single_id)[0]
+                self._train_images.append(io.imread(img['coco_url']))
+                # Load annotation (keypoints)
+                annIds = self._train_annot.getAnnIds(imgIds=img['id'])
+                anns = self._train_annot.loadAnns(annIds)
+                single_ground_truth = []
+                for i in range(len(anns)):
+                    single_annot = anns[i]
+                    single_ground_truth.append(np.array(single_annot['keypoints']).reshape(-1, 3))
+        else:
+            self._train_annot = None
+
+
         # The summaries to write
         self._summaries = {}
         # Placeholder that take in the data for the summary
         self._summary_inputs = {}
 
-        self._init(self._config)
+        self._init()
 
-    def _init(self, config):
+    def _init(self):
         pass
 
     def add_image(self, name, n_images=1):
