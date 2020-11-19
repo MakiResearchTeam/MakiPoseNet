@@ -1,5 +1,6 @@
 import tensorflow as tf
 from pose_estimation.metrics.COCO_WholeBody import relayout_keypoints
+from pose_estimation.data_preparation.coco_preparator_api import CocoPreparator
 from abc import ABC, abstractmethod
 import os
 import skimage.io as io
@@ -94,7 +95,8 @@ class Tester(ABC):
                 single_ground_truth = []
                 for i in range(len(anns)):
                     single_annot = anns[i]
-                    single_ground_truth.append(np.array(single_annot['keypoints']).reshape(-1, 3))
+                    # return shape (n_kp, 1, 3), slice 1 dim
+                    single_ground_truth.append(CocoPreparator.take_default_skelet(single_annot)[:, 0])
 
                 self._ground_truth.append(single_ground_truth)
         else:
