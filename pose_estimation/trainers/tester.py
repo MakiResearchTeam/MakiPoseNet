@@ -95,6 +95,8 @@ class Tester(ABC):
                 for i in range(len(anns)):
                     single_annot = anns[i]
                     single_ground_truth.append(np.array(single_annot['keypoints']).reshape(-1, 3))
+
+                self._ground_truth.append(single_ground_truth)
         else:
             self._train_annot = None
 
