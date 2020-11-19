@@ -4,7 +4,6 @@ from pose_estimation.data_preparation.coco_preparator_api import CocoPreparator
 from abc import ABC, abstractmethod
 import os
 import skimage.io as io
-import numpy as np
 from pycocotools.coco import COCO
 
 
@@ -29,7 +28,6 @@ class Tester(ABC):
     IMG_HW = 'img_hw'
     PATH_TO_TRAIN_ANNOT = 'path_to_train_annot'
     IMAGE_IDS_FROM_TRAIN = 'image_ids_from_train'
-
 
     NAME_RELAYOUR_ANNOT_JSON = "relayour_annot.json"
     NAME_PREDICTED_ANNOT_JSON = 'predicted_annot.json'
@@ -101,7 +99,6 @@ class Tester(ABC):
                 self._ground_truth.append(single_ground_truth)
         else:
             self._train_annot = None
-
 
         # The summaries to write
         self._summaries = {}

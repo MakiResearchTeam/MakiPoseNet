@@ -179,13 +179,12 @@ class CocoTester(Tester):
             step=iteration
         )
 
-    def draw_heatmap(self, heatmap, name_heatmap, shift_image=60):
-        dpi = 80
-        h,w = heatmap.shape
+    def draw_heatmap(self, heatmap, name_heatmap, shift_image=60, dpi=80):
+        h, w = heatmap.shape
 
-        figsuze = w / float(dpi), h / float(dpi)
+        figsize = w / float(dpi), h / float(dpi)
 
-        fig = plt.figure(frameon=False, figsize=figsuze, dpi=dpi)
+        fig = plt.figure(frameon=False, figsize=figsize, dpi=dpi)
         ax = fig.add_axes([0, 0, 1, 1])
         ax.axis('off')
 
