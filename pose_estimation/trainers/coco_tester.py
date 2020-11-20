@@ -270,12 +270,12 @@ class CocoTester(Tester):
     def __record_prediction_video(self, model, new_log_folder):
         video_r = VideoReader(self._video_path)
 
-        def transfort(x, m_w=432, m_h=432, mode=CAFFE, func_preprocess=None):
+        def transform(x, m_w=432, m_h=432, mode=CAFFE, func_preprocess=None):
             new_images = []
             for i in range(len(x)):
                 image = cv2.resize(x[i].copy(), (m_w, m_h))
                 if mode is not None:
-                    image = preprocess_input(image, mode=CAFFE)[0]
+                    image = preprocess_input(image, mode=CAFFE)
                 else:
                     image = func_preprocess(image)
                 new_images.append(image)
@@ -291,7 +291,7 @@ class CocoTester(Tester):
         for i, batch_image in enumerate(gener_v):
             if i == self._LENGHT_VIDEO:
                 break
-            transformed_image_batch = transfort(
+            transformed_image_batch = transform(
                 batch_image,
                 m_h=self.H, m_w=self.W,
                 mode=self._norm_mode,
