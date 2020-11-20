@@ -82,6 +82,7 @@ class CocoTester(Tester):
             if not self._use_bgr2rgb:
                 single_train_image = cv2.cvtColor(single_train_image, cv2.COLOR_BGR2RGB)
 
+            single_train_image = cv2.resize(single_train_image, (self.W, self.H))
             self._norm_images_train.append(
                 self.__preprocess(single_train_image)
             )
@@ -275,7 +276,7 @@ class CocoTester(Tester):
             for i in range(len(x)):
                 image = cv2.resize(x[i].copy(), (m_w, m_h))
                 if mode is not None:
-                    image = preprocess_input(image, mode=CAFFE)
+                    image = preprocess_input(image, mode=mode)
                 else:
                     image = func_preprocess(image)
                 new_images.append(image)
@@ -295,7 +296,7 @@ class CocoTester(Tester):
                 batch_image,
                 m_h=self.H, m_w=self.W,
                 mode=self._norm_mode,
-                func_preprocess=lambda x: self.__preprocess(x)
+                func_preprocess=self.__preprocess
             )
             predictions = model.predict(transformed_image_batch)
             # scale predictions
