@@ -51,6 +51,7 @@ class CocoTester(Tester):
     ]
 
     PAFF_IMAGE = 'paff_image'
+    SKELETON = 'skeleton'
     ITERATION_COUNTER = 'iteration_counter'
 
     AP_IOU_050 = "AP with IOU 0.50"
@@ -216,6 +217,7 @@ class CocoTester(Tester):
                 drawed_image = draw_skeleton(drawed_image, prediction, CONNECT_INDEXES, color=(255, 0, 0))
 
             # Draw ground-truth
+            # TODO: Remove debug stuf clear code(?)!
             print('draw gt!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             drawed_image = draw_skeleton(drawed_image, self._ground_truth[i], CONNECT_INDEXES, color=(40, 255, 40))
 
@@ -254,7 +256,7 @@ class CocoTester(Tester):
                     resize_to=[self.H, self.W]
                 )[0]
                 drawed_image = draw_skeleton(single_test.copy(), predictions, CONNECT_INDEXES)
-                single_batch.append(self.__put_text_on_image(drawed_image, "skeleton"))
+                single_batch.append(self.__put_text_on_image(drawed_image, self.SKELETON))
 
             for indx in range(len(single_batch)):
                 print(f'{indx}: {single_batch[indx].shape}')
@@ -297,7 +299,7 @@ class CocoTester(Tester):
             )
             predictions = model.predict(transformed_image_batch)
             # scale predictions
-            scale_predicted_kp([predictions], (self.H, self.W), batch_image[0].shape[:-1])
+            scale_predicted_kp(predictions, (self.H, self.W), batch_image[0].shape[:-1])
 
             # draw
             drawer_v.write(batch_image, predictions)
