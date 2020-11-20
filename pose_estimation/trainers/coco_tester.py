@@ -213,7 +213,7 @@ class CocoTester(Tester):
 
                 # Feed list of predictions
                 print('before: ', prediction)
-                scale_predicted_kp([prediction], (self.H, self.W), single_train.shape[1:3])
+                scale_predicted_kp([prediction], (self.H, self.W), single_train.shape[:2])
                 print('after: ', prediction)
                 drawed_image = draw_skeleton(drawed_image, prediction, CONNECT_INDEXES, color=(255, 0, 0))
 
@@ -300,7 +300,7 @@ class CocoTester(Tester):
             )
             predictions = model.predict(transformed_image_batch)
             # scale predictions
-            scale_predicted_kp(predictions, (self.H, self.W), batch_image[0].shape[:-1])
+            scale_predicted_kp(predictions, (self.H, self.W), batch_image[0].shape[:2])
 
             # draw
             drawer_v.write(batch_image, predictions)
