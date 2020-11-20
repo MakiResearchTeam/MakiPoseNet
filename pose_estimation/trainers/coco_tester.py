@@ -227,7 +227,7 @@ class CocoTester(Tester):
         for i, (single_norm, single_test) in enumerate(zip(self._norm_images, self._test_images)):
             single_batch = [self.__put_text_on_image(single_test, self._names[i])]
             peaks, heatmap, paf = model.predict(
-                np.concatenate([single_norm] * model.get_batch_size(), axis=0),
+                np.stack([single_norm] * model.get_batch_size(), axis=0),
                 using_estimate_alg=False,
                 resize_to=[self.H, self.W]
             )
@@ -252,7 +252,7 @@ class CocoTester(Tester):
             # Draw skeletons
             if is_network_good_right_now:
                 predictions = model.predict(
-                    np.concatenate([single_norm] * model.get_batch_size(), axis=0),
+                    np.stack([single_norm] * model.get_batch_size(), axis=0),
                     resize_to=[self.H, self.W]
                 )[0]
                 drawed_image = draw_skeleton(single_test.copy(), predictions, CONNECT_INDEXES)
@@ -275,7 +275,7 @@ class CocoTester(Tester):
             for i in range(len(x)):
                 image = cv2.resize(x[i].copy(), (m_w, m_h))
                 if mode is not None:
-                    image = preprocess_input(np.expand_dims(image, axis=0), mode=CAFFE)[0]
+                    image = preprocess_input(image, mode=CAFFE)[0]
                 else:
                     image = func_preprocess(image)
                 new_images.append(image)
@@ -295,7 +295,7 @@ class CocoTester(Tester):
                 batch_image,
                 m_h=self.H, m_w=self.W,
                 mode=self._norm_mode,
-                func_preprocess=lambda x: self.__preprocess(x)[0]
+                func_preprocess=lambda x: self.__preprocess(x)
             )
             predictions = model.predict(transformed_image_batch)
             # scale predictions
@@ -325,18 +325,17 @@ class CocoTester(Tester):
 
     def __preprocess(self, image: np.ndarray):
         image = image.copy()
-        im_shape = image.shape
 
         if self._norm_mode is not None:
             norm_image = preprocess_input(
                     image,
                     mode=self._norm_mode
-            ).reshape(1, *im_shape).astype(np.float32)
+            ).astype(np.float32)
 
         elif self._norm_div is not None and self._norm_shift is not None:
-            norm_image = (image.reshape(1, *im_shape) / self._norm_div - self._norm_shift).astype(np.float32)
+            norm_image = (image / self._norm_div - self._norm_shift).astype(np.float32)
         else:
-            norm_image = image.reshape(1, *im_shape).astype(np.float32)
+            norm_image = image.astype(np.float32)
 
         return norm_image
 
