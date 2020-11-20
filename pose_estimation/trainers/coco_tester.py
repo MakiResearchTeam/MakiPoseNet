@@ -258,9 +258,9 @@ class CocoTester(Tester):
 
             dict_summary_to_tb.update({self._names[i]: np.stack(single_batch, axis=0).astype(np.uint8)})
 
-            # Create video with skeletons
-            if is_network_good_right_now:
-                self.__record_prediction_video(model, new_log_folder)
+        # Create video with skeletons
+        if is_network_good_right_now:
+            self.__record_prediction_video(model, new_log_folder)
 
     def __record_prediction_video(self, model, new_log_folder):
         # TODO: Fix bug
