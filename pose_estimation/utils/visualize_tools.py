@@ -36,12 +36,12 @@ def visualize_paf(
 def draw_skeleton(image, humans: list, connect_indexes: list, color=(255, 0, 0)):
     for indx in range(len(humans)):
         human = humans[indx]
-        print(f'is this human? in: {human}')
+
         if isinstance(human, Human):
             data = np.array(human.to_list()).reshape(-1, 3)
         else:
-            print(np.array(human).shape)
             data = np.array(human).reshape(-1, 3)
+
         for j in range(len(connect_indexes)):
             single = connect_indexes[j]
             single_p1 = data[single[0]]

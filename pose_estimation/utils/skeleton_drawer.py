@@ -33,7 +33,7 @@ class SkeletonDrawer:
             self._init((h, w))
 
         for image, prediction in zip(images, predictions):
-            draw_skeleton(image, prediction, self._connect_indexes, self._color)
+            image = draw_skeleton(image, prediction, self._connect_indexes, self._color)
             self._video.write(image)
 
     def release(self):

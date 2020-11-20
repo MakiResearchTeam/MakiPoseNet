@@ -125,6 +125,7 @@ class CocoTester(Tester):
         dict_summary_to_tb = {CocoTester.ITERATION_COUNTER: iteration}
         # Skip skeleton drawing if network accuracy is low
         is_network_good_right_now = False
+        new_log_folder = None
 
         # Metric stuff
         if self.cocoGt is not None:
@@ -212,14 +213,10 @@ class CocoTester(Tester):
                 prediction = model.predict(np.stack([single_norm_train] * model.get_batch_size(), axis=0))[0]
 
                 # Feed list of predictions
-                print('before: ', prediction)
                 scale_predicted_kp([prediction], (self.H, self.W), single_train.shape[:2])
-                print('after: ', prediction)
                 drawed_image = draw_skeleton(drawed_image, prediction, CONNECT_INDEXES, color=(255, 0, 0))
 
             # Draw ground-truth
-            # TODO: Remove debug stuf clear code(?)!
-            print('draw gt!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             drawed_image = draw_skeleton(drawed_image, self._ground_truth[i], CONNECT_INDEXES, color=(40, 255, 40))
 
             dict_summary_to_tb.update({self._names_train[i]: np.expand_dims(drawed_image, axis=0).astype(np.uint8)})
@@ -259,9 +256,6 @@ class CocoTester(Tester):
                 drawed_image = draw_skeleton(single_test.copy(), predictions, CONNECT_INDEXES)
                 single_batch.append(self.__put_text_on_image(drawed_image, self.SKELETON))
 
-            for indx in range(len(single_batch)):
-                print(f'{indx}: {single_batch[indx].shape}')
-
             dict_summary_to_tb.update({self._names[i]: np.stack(single_batch, axis=0).astype(np.uint8)})
 
             # Create video with skeletons
@@ -269,32 +263,39 @@ class CocoTester(Tester):
                 self.__record_prediction_video(model, new_log_folder)
 
     def __record_prediction_video(self, model, new_log_folder):
+        # TODO: Fix bug
         video_r = VideoReader(self._video_path)
 
-        def transform(x, m_w=432, m_h=432, mode=CAFFE, use_bgr2rgb=False,func_preprocess=None):
+        def transform(batch_images, m_w, m_h, mode, use_bgr2rgb, func_preprocess=None):
             new_images = []
-            for i in range(len(x)):
-                image = cv2.resize(x[i].copy(), (m_w, m_h))
+            for i in range(len(batch_images)):
+                single_image = batch_images[i]
+                single_image = cv2.resize(single_image, (m_w, m_h))
                 if use_bgr2rgb:
-                    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                    single_image = cv2.cvtColor(single_image, cv2.COLOR_BGR2RGB)
 
                 if mode is not None:
-                    image = preprocess_input(image, mode=mode)
+                    single_image = preprocess_input(single_image, mode=mode)
                 else:
-                    image = func_preprocess(image)
-                new_images.append(image)
+                    single_image = func_preprocess(single_image)
+
+                new_images.append(single_image)
             return new_images
 
         gener_v = video_r.get_iterator(1)
+
         if self._save_pred_video_folder is None:
             save_folder = os.path.join(new_log_folder, self.VIDEO_TEST.format(self._video_counter))
         else:
             save_folder = os.path.join(self._save_pred_video_folder, self.VIDEO_TEST.format(self._video_counter))
+
+        self._video_counter += 1
         drawer_v = SkeletonDrawer(save_folder)
 
         for i, batch_image in enumerate(gener_v):
             if i == self._LENGHT_VIDEO:
                 break
+
             transformed_image_batch = transform(
                 batch_image,
                 m_h=self.H, m_w=self.W,
@@ -303,9 +304,9 @@ class CocoTester(Tester):
                 func_preprocess=self.__preprocess
             )
             predictions = model.predict(transformed_image_batch)
+
             # scale predictions
             scale_predicted_kp(predictions, (self.H, self.W), batch_image[0].shape[:2])
-
             # draw
             drawer_v.write(batch_image, predictions)
 
