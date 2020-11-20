@@ -1,17 +1,15 @@
-from .tester import Tester
+from pose_estimation.trainers.tester import Tester
+from pose_estimation.model.utils import scale_predicted_kp
+from pose_estimation.metrics.COCO_WholeBody import (MYeval_wholebody,
+                                                    create_prediction_coco_json)
+from pose_estimation.data_preparation import CONNECT_INDEXES
+from pose_estimation.utils import SkeletonDrawer, preprocess_input, visualize_paf, draw_skeleton
+from makiflow.tools.video.video_reader import VideoReader
+
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from pose_estimation.model.utils.utils import scale_predicted_kp
-from ..utils.preprocess import preprocess_input
-from pose_estimation.metrics.COCO_WholeBody import (MYeval_wholebody,
-                                                    create_prediction_coco_json)
-from ..utils.visualize_tools import visualize_paf, draw_skeleton
-from pose_estimation.data_preparation import CONNECT_INDEXES
-from pose_estimation.utils.skeleton_drawer import SkeletonDrawer
-from pose_estimation.utils.preprocess import CAFFE
-from makiflow.tools.video.video_reader import VideoReader
 import os
 
 
@@ -164,7 +162,7 @@ class CocoTester(Tester):
                 dict_summary_to_tb.update({CocoTester.AP_IOU_050: a_prediction})
                 dict_summary_to_tb.update({CocoTester.AR_IOU_050: a_recall})
 
-                # bigger than 1 percent
+                # Set flag to True, if AP bigger than 1 percent, i.e. we can create test video
                 if a_prediction > 0.01:
                     is_network_good_right_now = True
 
@@ -205,6 +203,7 @@ class CocoTester(Tester):
 
     def __get_train_tb_data(self, model, dict_summary_to_tb, is_network_good_right_now=True):
         for i, (single_norm_train, single_train) in enumerate(zip(self._norm_images_train, self._train_images)):
+            # Copy image to keep it clear (without painted lines)
             drawed_image = single_train.copy()
             # Draw skeletons
             if is_network_good_right_now:
@@ -213,6 +212,7 @@ class CocoTester(Tester):
                 prediction = model.predict(np.stack([single_norm_train] * model.get_batch_size(), axis=0))[0]
 
                 # Feed list of predictions
+                # Scale predicted keypoint into original image size and paint them
                 scale_predicted_kp([prediction], (self.H, self.W), single_train.shape[:2])
                 drawed_image = draw_skeleton(drawed_image, prediction, CONNECT_INDEXES, color=(255, 0, 0))
 
@@ -259,13 +259,15 @@ class CocoTester(Tester):
             dict_summary_to_tb.update({self._names[i]: np.stack(single_batch, axis=0).astype(np.uint8)})
 
         # Create video with skeletons
+        # If AP were bigger than 1%
         if is_network_good_right_now:
             self.__record_prediction_video(model, new_log_folder)
 
     def __record_prediction_video(self, model, new_log_folder):
-        # TODO: Fix bug
+        # Read/Gives us frames from certain video
         video_r = VideoReader(self._video_path)
 
+        # Function for preprocessing images before put them into model
         def transform(batch_images, m_w, m_h, mode, use_bgr2rgb, func_preprocess=None):
             new_images = []
             for i in range(len(batch_images)):
@@ -282,20 +284,30 @@ class CocoTester(Tester):
                 new_images.append(single_image)
             return new_images
 
-        gener_v = video_r.get_iterator(1)
+        # By default model has batch size 1 in inference mode
+        video_generator = video_r.get_iterator(1)
 
+        # Save video in logs folder if save folder were not provided in config
         if self._save_pred_video_folder is None:
             save_folder = os.path.join(new_log_folder, self.VIDEO_TEST.format(self._video_counter))
         else:
             save_folder = os.path.join(self._save_pred_video_folder, self.VIDEO_TEST.format(self._video_counter))
 
+        # Update counter, we use it to give new video unique name
+        # For example if videos are saved in one folder
         self._video_counter += 1
-        drawer_v = SkeletonDrawer(save_folder)
 
-        for i, batch_image in enumerate(gener_v):
+        # Create obj to draw skeletons
+        video_drawer = SkeletonDrawer(save_folder)
+
+        # Start predict and draw
+        for i, batch_image in enumerate(video_generator):
+
+            # After certain frames, break
             if i == self._LENGHT_VIDEO:
                 break
 
+            # Transform batch
             transformed_image_batch = transform(
                 batch_image,
                 m_h=self.H, m_w=self.W,
@@ -305,12 +317,13 @@ class CocoTester(Tester):
             )
             predictions = model.predict(transformed_image_batch)
 
-            # scale predictions
+            # scale predictions into original size
             scale_predicted_kp(predictions, (self.H, self.W), batch_image[0].shape[:2])
-            # draw
-            drawer_v.write(batch_image, predictions)
+            # draw predictions
+            video_drawer.write(batch_image, predictions)
 
-        drawer_v.release()
+        # Close write stream
+        video_drawer.release()
 
     def __put_text_on_image(self, image, text, shift_image=60):
         h,w = image.shape[:-1]
