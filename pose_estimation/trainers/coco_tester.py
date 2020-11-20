@@ -271,10 +271,13 @@ class CocoTester(Tester):
     def __record_prediction_video(self, model, new_log_folder):
         video_r = VideoReader(self._video_path)
 
-        def transform(x, m_w=432, m_h=432, mode=CAFFE, func_preprocess=None):
+        def transform(x, m_w=432, m_h=432, mode=CAFFE, use_bgr2rgb=False,func_preprocess=None):
             new_images = []
             for i in range(len(x)):
                 image = cv2.resize(x[i].copy(), (m_w, m_h))
+                if use_bgr2rgb:
+                    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
                 if mode is not None:
                     image = preprocess_input(image, mode=mode)
                 else:
@@ -296,6 +299,7 @@ class CocoTester(Tester):
                 batch_image,
                 m_h=self.H, m_w=self.W,
                 mode=self._norm_mode,
+                use_bgr2rgb=self._use_bgr2rgb,
                 func_preprocess=self.__preprocess
             )
             predictions = model.predict(transformed_image_batch)
