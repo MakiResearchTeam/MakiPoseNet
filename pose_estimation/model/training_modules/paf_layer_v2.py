@@ -408,7 +408,7 @@ if __name__ == '__main__':
     sns.heatmap(paf[..., 0] ** 2 + paf[..., 1] ** 2)
     plt.show()
 
-    # PLOT OUR IMPLEMENTATION
+    # PLOT OUR IMPLEMENTATION V2
     p1p2 = np.array([
         [256, 256], [384, 384]
     ], dtype='float32').reshape(2, 2, 1)
@@ -416,3 +416,12 @@ if __name__ == '__main__':
     tf_paf = sess.run(tf_paf)
     sns.heatmap(tf_paf[..., 0] ** 2 + tf_paf[..., 1] ** 2)
     plt.show()
+
+    from pose_estimation.model.training_modules.training_layers import PAFLayer
+    paf_layer = PAFLayer(
+        im_size=im_size,
+        sigma=paf_sigma,
+        skeleton=CONNECT_INDEXES_FOR_PAFF
+    )
+
+

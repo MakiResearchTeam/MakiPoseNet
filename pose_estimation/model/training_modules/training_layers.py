@@ -695,7 +695,7 @@ if __name__ == '__main__':
             Tensor of keypoints coordinates.
     masks : tf.Tensor of shape [batch, c, n_people, 1]
     """
-    im_size = [128, 128]
+    im_size = [512, 512]
     paf_sigma = 20
     keypoints = InputLayer(input_shape=[32, 24, 8, 2], name='keypoints')
     masks = InputLayer(input_shape=[32, 24, 8, 1], name='keypoints')
@@ -717,3 +717,19 @@ if __name__ == '__main__':
     )
     print(paf)
     print(paf_shape)
+
+    import matplotlib
+
+    # For some reason matplotlib doesn't want to show the plot when it is called from PyCharm
+    matplotlib.use('TkAgg')
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import math
+    # PLOT OUR IMPLEMENTATION V1
+    p1p2 = np.array([
+        [256, 256], [384, 384]
+    ], dtype='float32').reshape(2, 2, 1)
+    tf_paf = paf_layer._PAFLayer__build_paf(p1p2, np.ones(shape=[2, 1], dtype='float32'))
+    tf_paf = sess.run(tf_paf)
+    sns.heatmap(tf_paf[..., 0] ** 2 + tf_paf[..., 1] ** 2)
+    plt.show()
