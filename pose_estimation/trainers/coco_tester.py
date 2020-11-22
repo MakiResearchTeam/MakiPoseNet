@@ -115,7 +115,7 @@ class CocoTester(Tester):
             # The image has to have batch dimension
             self._test_images.append(test_image.astype(np.uint8))
             self._names.append(CocoTester.TEST_N.format(i))
-            # Plus: original image, image with paf = 3
+            # Plus: original image, image with paf, image with skeleton = 3
             self.add_image(self._names[-1], n_images=len(CocoTester.DRAW_LIST) + 3)
 
     def evaluate(self, model, iteration):
