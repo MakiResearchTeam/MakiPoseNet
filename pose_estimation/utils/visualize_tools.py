@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 
+from pose_estimation.model.utils.human import Human
+
 
 def visualize_paf(
         img,
@@ -31,4 +33,25 @@ def visualize_paf(
     return img
 
 
+def draw_skeleton(image, humans: list, connect_indexes: list, color=(255, 0, 0)):
+    for indx in range(len(humans)):
+        human = humans[indx]
 
+        if isinstance(human, Human):
+            data = np.array(human.to_list()).reshape(-1, 3)
+        else:
+            data = np.array(human).reshape(-1, 3)
+
+        for j in range(len(connect_indexes)):
+            single = connect_indexes[j]
+            single_p1 = data[single[0]]
+            single_p2 = data[single[1]]
+
+            if single_p1[-1] > 1e-3 and single_p2[-1] > 1e-3:
+
+                p_1 = (int(single_p1[0]), int(single_p1[1]))
+                p_2 = (int(single_p2[0]), int(single_p2[1]))
+
+                cv2.line(image, p_1, p_2, color=color, thickness=2)
+
+    return image

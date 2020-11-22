@@ -1,7 +1,9 @@
 import tensorflow as tf
 from pose_estimation.metrics.COCO_WholeBody import relayout_keypoints
+from pose_estimation.data_preparation.coco_preparator_api import CocoPreparator
 from abc import ABC, abstractmethod
 import os
+import skimage.io as io
 from pycocotools.coco import COCO
 
 
@@ -24,10 +26,15 @@ class Tester(ABC):
     NORM_MODE = 'norm_mode'
     USE_BGR2RGB = 'use_bgr2rgb'
     IMG_HW = 'img_hw'
+    PATH_TO_TRAIN_ANNOT = 'path_to_train_annot'
+    IMAGE_IDS_FROM_TRAIN = 'image_ids_from_train'
+    TEST_VIDEO = "path_to_test_video"
+    SAVE_PREDICTED_VIDEO_FOLDER = 'folder_to_save_pred_video'
 
     NAME_RELAYOUR_ANNOT_JSON = "relayour_annot.json"
     NAME_PREDICTED_ANNOT_JSON = 'predicted_annot.json'
     AP_AR_DATA_TXT = 'ap_ar_data.txt'
+    VIDEO_TEST = "video_test_{}.mp4"
 
     def __init__(self, config: dict, sess, path_to_save_logs:str):
         self._config = config[Tester.TEST_CONFIG]
@@ -72,14 +79,42 @@ class Tester(ABC):
         else:
             self.cocoGt = None
 
+        train_annot_gt = self._config.get(self.PATH_TO_TRAIN_ANNOT)
+
+        if train_annot_gt is not None:
+            self._train_annot = COCO(train_annot_gt)
+            self._train_images = []
+            self._ground_truth = []
+            # Load each image
+            ids = self._config[self.IMAGE_IDS_FROM_TRAIN]
+            for single_id in ids:
+                img = self._train_annot.loadImgs(single_id)[0]
+                self._train_images.append(io.imread(img['coco_url']))
+                # Load annotation (keypoints)
+                annIds = self._train_annot.getAnnIds(imgIds=img['id'])
+                anns = self._train_annot.loadAnns(annIds)
+                single_ground_truth = []
+                for i in range(len(anns)):
+                    single_annot = anns[i]
+                    # return shape (n_kp, 1, 3), slice 1 dim
+                    single_ground_truth.append(CocoPreparator.take_default_skelet(single_annot)[:, 0])
+
+                self._ground_truth.append(single_ground_truth)
+        else:
+            self._train_annot = None
+
+        self._video_path = self._config[self.TEST_VIDEO]
+        self._video_counter = 0
+        self._save_pred_video_folder = self._config.get(self.SAVE_PREDICTED_VIDEO_FOLDER)
+
         # The summaries to write
         self._summaries = {}
         # Placeholder that take in the data for the summary
         self._summary_inputs = {}
 
-        self._init(self._config)
+        self._init()
 
-    def _init(self, config):
+    def _init(self):
         pass
 
     def add_image(self, name, n_images=1):

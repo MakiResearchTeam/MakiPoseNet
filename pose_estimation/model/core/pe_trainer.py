@@ -10,7 +10,7 @@ class PETrainer(MakiTrainer, ABC):
     HEATMAP_SCALE = 'heatmap_scale'     # float
     HEATMAP_WEIGHT = 'heatmap_weight'   # float
     PAF_WEIGHT = 'paf_weight'           # float
-    RESIZE_TO = 'resize_to'                   # list(H, W)
+    RESIZE_TO = 'resize_to'             # tuple of size 2 with value: (H, W)
 
     PAF_LOSS = 'PAF_loss'
     HEATMAP_LOSS = 'Heatmap_loss'
@@ -47,11 +47,11 @@ class PETrainer(MakiTrainer, ABC):
             paf_weight=paf_weight
         )
 
-        resize = params.get(PETrainer.RESIZE_TO)
-        if resize is None:
+        resize_to = params.get(PETrainer.RESIZE_TO)
+        if resize_to is None:
             print('`resize` parameter is not set.')
 
-        self.set_resize(resize)
+        self.set_resize(resize_to)
 
     # noinspection PyAttributeOutsideInit
     def set_loss_scales(
@@ -88,7 +88,7 @@ class PETrainer(MakiTrainer, ABC):
             self._paf_weight = paf_weight
 
     # noinspection PyAttributeOutsideInit
-    def set_resize(self, resize):
+    def set_resize(self, resize_to):
         """
         Controls whether to resize of the training pafs, heatmaps and masks.
 
@@ -98,7 +98,7 @@ class PETrainer(MakiTrainer, ABC):
             List of (H, W), if equal to None, will be not used
 
         """
-        self._resize_to = resize
+        self._resize_to = resize_to
 
     def _init(self):
         super()._init()
