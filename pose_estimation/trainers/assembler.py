@@ -1,7 +1,6 @@
-from ..model import PEModel, MSETrainer, PETrainer
+from ..model import PEModel, PETrainer
 from ..generators.pose_estimation import RIterator
-from pose_estimation.model import BinaryHeatmapLayer, GaussHeatmapLayer, PAFLayer, \
-    PAFLayerV2
+from pose_estimation.model import BinaryHeatmapLayer, GaussHeatmapLayer, V2PAFLayer
 from makiflow.core import MakiRestorable, TrainerBuilder
 from makiflow.core import MakiTensor
 from makiflow.layers import InputLayer
@@ -110,7 +109,7 @@ class ModelAssembler:
 
         # Build paf layer
         paf_config = config[ModelAssembler.PAF_CONFIG]
-        paf_layer = PAFLayerV2.build(paf_config[MakiRestorable.PARAMS])
+        paf_layer = V2PAFLayer.build(paf_config[MakiRestorable.PARAMS])
         paf = paf_layer([keypoints, masks])
 
         return paf, heatmap
