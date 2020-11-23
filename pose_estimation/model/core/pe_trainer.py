@@ -10,7 +10,11 @@ class PETrainer(MakiTrainer, ABC):
     HEATMAP_SCALE = 'heatmap_scale'     # float
     HEATMAP_WEIGHT = 'heatmap_weight'   # float
     PAF_WEIGHT = 'paf_weight'           # float
+<<<<<<< HEAD
     RESIZE_TO = 'resize_to'             # tuple of size 2 with value: (H, W)
+=======
+    RESIZE_TO = 'resize_to'                   # list(H, W)
+>>>>>>> origin/add_new_pafs
 
     PAF_LOSS = 'PAF_loss'
     HEATMAP_LOSS = 'Heatmap_loss'
@@ -47,8 +51,13 @@ class PETrainer(MakiTrainer, ABC):
             paf_weight=paf_weight
         )
 
+<<<<<<< HEAD
         resize_to = params.get(PETrainer.RESIZE_TO)
         if resize_to is None:
+=======
+        resize = params.get(PETrainer.RESIZE_TO)
+        if resize is None:
+>>>>>>> origin/add_new_pafs
             print('`resize` parameter is not set.')
 
         self.set_resize(resize_to)
@@ -98,7 +107,11 @@ class PETrainer(MakiTrainer, ABC):
             List of (H, W), if equal to None, will be not used
 
         """
+<<<<<<< HEAD
         self._resize_to = resize_to
+=======
+        self._resize_to = resize
+>>>>>>> origin/add_new_pafs
 
     def _init(self):
         super()._init()
