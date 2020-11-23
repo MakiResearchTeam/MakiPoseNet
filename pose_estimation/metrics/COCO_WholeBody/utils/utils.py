@@ -59,3 +59,45 @@ def rescale_image(
         ]
 
     return scale
+
+
+def rescale_image_keep_relation(
+    image_size: tuple, min_image_size: tuple) -> list:
+    """
+    Calculate final image size according to `min_image_size`
+    Biggest dimension in `image_size` will be scaled to certain dimension in `min_image_size`,
+    Relation between origin Height and Width will be saved
+
+    Parameters
+    ----------
+    image_size : tuple
+        (H, W), tuple of Height and Width of image which will be scaled
+    min_image_size : tuple
+        (H_min, W_min), tuple of Height and Width of minimum image size to certain dimension
+
+    Returns
+    -------
+    list
+        (H_final, W_final)
+    
+    """
+    h, w = image_size
+    relation = h / w
+
+    h_min, w_min = min_image_size
+
+    h_is_smaller = h < w
+
+    if h_is_smaller:
+        hw = [
+            int(relation * w_min),  # h
+            int(w_min)              # w
+        ]
+    else:
+        hw = [
+            int(h_min),             # h
+            int(h_min / relation)   # w
+        ]
+
+    return hw
+
