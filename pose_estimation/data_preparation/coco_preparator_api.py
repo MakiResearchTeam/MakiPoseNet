@@ -6,7 +6,6 @@ from scipy.spatial.distance import cdist
 import matplotlib.pyplot as plt
 import os
 import cv2
-import tensorflow as tf
 
 from ..generators.pose_estimation.data_preparation import record_mp_pose_estimation_train_data
 from pose_estimation.utils.visual_tools.constants import CONNECT_INDEXES
@@ -14,7 +13,7 @@ from pose_estimation.utils.visual_tools.constants import CONNECT_INDEXES
 
 class CocoPreparator:
 
-    EPSILON = 1e-10
+    EPSILON = 1e-3
 
     def __init__(self, 
             coco_annotations, 
@@ -160,7 +159,8 @@ class CocoPreparator:
 
                 # (n_kp, 1, 3)
                 all_kp_single = np.expand_dims(np.array(single_person_data['keypoints']).reshape(-1, 3), axis=1)
-
+                # Create binary value for visibility
+                all_kp_single[..., -1:] = (all_kp_single[..., -1:] > CocoPreparator.EPSILON).astype(np.float32, copy=False)
                 all_kp.append(all_kp_single)
 
             if len(all_kp) == 0:
@@ -171,23 +171,23 @@ class CocoPreparator:
             # By placing zeros in other additional dimensions
             not_enougth = self._max_people - all_kp.shape[1]
             if not_enougth > 0:
-                zeros_arr = np.zeros([all_kp.shape[0], not_enougth, all_kp.shape[-1]]).astype(np.float32)
+                zeros_arr = np.zeros([all_kp.shape[0], not_enougth, all_kp.shape[-1]]).astype(np.float32, copy=False)
                 all_kp = np.concatenate([all_kp, zeros_arr], axis=1)
 
             if len(image.shape) != 3:
                 # Assume that is gray-scale image, so convert it to rgb
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
 
-            image_mask = np.ones((*image.shape[:2], 1)).astype(np.float32)
+            image_mask = np.ones((*image.shape[:2], 1)).astype(np.float32, copy=False)
 
             image, all_kp, image_mask = self.__rescale_image(image, all_kp, image_mask)
 
-            keypoints_tensors.append(all_kp[..., :2].astype(np.float32))
-            keypoints_mask_tensors.append(all_kp[..., -1:].astype(np.float32))
+            keypoints_tensors.append(all_kp[..., :2].astype(np.float32, copy=False))
+            keypoints_mask_tensors.append(all_kp[..., -1:].astype(np.float32, copy=False))
 
-            image_tensors.append(image.astype(np.float32))
+            image_tensors.append(image.astype(np.float32, copy=False))
             image_masks.append(image_mask)
-            image_properties_tensors.append(np.array(image.shape).astype(np.float32))
+            image_properties_tensors.append(np.array(image.shape).astype(np.float32, copy=False))
 
             counter += 1
 
@@ -272,7 +272,7 @@ class CocoPreparator:
                 if single_person_data["iscrowd"] or len(all_kp) >= self._max_people:
                     # add mask of this person. we don't want to show the network
                     # unlabeled people
-                    human_mask.append(self._coco.annToMask(single_person_data).astype(np.float32))
+                    human_mask.append(self._coco.annToMask(single_person_data).astype(np.float32, copy=False))
                     continue
                 # skip this person if parts number is too low or if
                 # segmentation area is too small
@@ -282,7 +282,7 @@ class CocoPreparator:
                 if np.sum(all_kp_single[:, 0, -1]) < 5 or single_person_data["area"] < 32 * 32:
                     # add mask of this person. we don't want to show the network
                     # unlabeled people
-                    human_mask.append(self._coco.annToMask(single_person_data).astype(np.float32))
+                    human_mask.append(self._coco.annToMask(single_person_data).astype(np.float32, copy=False))
                     continue
 
                 person_center = [
@@ -304,7 +304,7 @@ class CocoPreparator:
                 if too_close:
                     # add mask of this person. we don't want to show the network
                     # unlabeled people
-                    human_mask.append(self._coco.annToMask(single_person_data).astype(np.float32))
+                    human_mask.append(self._coco.annToMask(single_person_data).astype(np.float32, copy=False))
                     continue
 
                 prev_center.append(
@@ -324,7 +324,7 @@ class CocoPreparator:
             # By placing zeros in other additional dimensions
             not_enougth = self._max_people - all_kp.shape[1]
             if not_enougth > 0:
-                zeros_arr = np.zeros([all_kp.shape[0], not_enougth, all_kp.shape[-1]]).astype(np.float32)
+                zeros_arr = np.zeros([all_kp.shape[0], not_enougth, all_kp.shape[-1]]).astype(np.float32, copy=False)
                 all_kp = np.concatenate([all_kp, zeros_arr], axis=1)
 
             if len(image.shape) != 3:
@@ -332,22 +332,22 @@ class CocoPreparator:
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
 
             if len(human_mask) > 0:
-                image_mask = np.sum(human_mask, axis=0).astype(np.float32)
+                image_mask = np.sum(human_mask, axis=0).astype(np.float32, copy=False)
                 image_mask[image_mask > 0.0] = 1.0
 
                 # Reverse
-                image_mask = np.ones((*image.shape[:2], 1)).astype(np.float32) - np.expand_dims(image_mask, axis=-1)
+                image_mask = np.ones((*image.shape[:2], 1)).astype(np.float32, copy=False) - np.expand_dims(image_mask, axis=-1)
             else:
-                image_mask = np.ones((*image.shape[:2], 1)).astype(np.float32)
+                image_mask = np.ones((*image.shape[:2], 1)).astype(np.float32, copy=False)
 
             image, all_kp, image_mask = self.__rescale_image(image, all_kp, image_mask)
 
-            keypoints_tensors.append(all_kp[..., :2].astype(np.float32))
-            keypoints_mask_tensors.append(all_kp[..., -1:].astype(np.float32))
+            keypoints_tensors.append(all_kp[..., :2].astype(np.float32, copy=False))
+            keypoints_mask_tensors.append(all_kp[..., -1:].astype(np.float32, copy=False))
 
-            image_tensors.append(image.astype(np.float32))
+            image_tensors.append(image.astype(np.float32, copy=False))
             image_masks.append(image_mask)
-            image_properties_tensors.append(np.array(image.shape).astype(np.float32))
+            image_properties_tensors.append(np.array(image.shape).astype(np.float32, copy=False))
 
             counter += 1
 
@@ -431,20 +431,20 @@ class CocoPreparator:
             # Set visibility to True (i.e. 1.0)
             foot_one[-1] = 1.0
         else:
-            foot_one = np.zeros(3).astype(np.float32)
+            foot_one = np.zeros(3).astype(np.float32, copy=False)
         # Two
         if single_anns_foot[3][-1] > CocoPreparator.EPSILON and single_anns_foot[4][-1] > CocoPreparator.EPSILON:
             foot_two = (single_anns_foot[3] + single_anns_foot[4]) / 2.0
             # Set visibility to True (i.e. 1.0)
             foot_two[-1] = 1.0
         else:
-            foot_two = np.zeros(3).astype(np.float32)
+            foot_two = np.zeros(3).astype(np.float32, copy=False)
 
         # Check neck
         if single_anns[5][-1] > CocoPreparator.EPSILON and single_anns[6][-1] > CocoPreparator.EPSILON:
             chest_p = (single_anns[5] + single_anns[6]) / 2.0
 
-            face_p = np.zeros(3).astype(np.float32)
+            face_p = np.zeros(3).astype(np.float32, copy=False)
             # Calculate average points position on the face using know points on it
             div = 0
             for i in range(len(single_anns[:5])):
@@ -462,9 +462,9 @@ class CocoPreparator:
                 # Set visibility to True (i.e. 1.0)
                 neck[-1] = 1.0
             else:
-                neck = np.zeros(3).astype(np.float32)
+                neck = np.zeros(3).astype(np.float32, copy=False)
         else:
-            neck = np.zeros(3).astype(np.float32)
+            neck = np.zeros(3).astype(np.float32, copy=False)
 
         # Middle points of the body
         # Calculate avg points between 4 body points
@@ -481,7 +481,7 @@ class CocoPreparator:
 
         if number_vis_points >= 3:
             # The point is visible
-            avg_body_p = np.zeros(3).astype(np.float32)
+            avg_body_p = np.zeros(3).astype(np.float32, copy=False)
             div = 0
             for i in range(len(s_p_imp)):
                 if s_p_imp[i][-1] > CocoPreparator.EPSILON and s_p_imp[i][-1] > CocoPreparator.EPSILON:
@@ -492,7 +492,7 @@ class CocoPreparator:
             avg_body_p[-1] = 1.0
         else:
             # Otherwise the point is not visible
-            avg_body_p = np.zeros(3).astype(np.float32)
+            avg_body_p = np.zeros(3).astype(np.float32, copy=False)
 
         all_kp_single = np.stack([
             avg_body_p,
@@ -510,7 +510,7 @@ class CocoPreparator:
         ])
         
         # Create bool mask for visibility of keypoints
-        all_kp_single[..., -1:] = (all_kp_single[..., -1:] > CocoPreparator.EPSILON).astype(np.float32)
+        all_kp_single[..., -1:] = (all_kp_single[..., -1:] > CocoPreparator.EPSILON).astype(np.float32, copy=False)
         # all_kp - shape (24, 3) ---> (24, 1, 3)
         all_kp_single = np.expand_dims(all_kp_single, axis=1)
 
