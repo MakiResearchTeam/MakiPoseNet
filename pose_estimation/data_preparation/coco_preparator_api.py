@@ -27,7 +27,7 @@ class CocoPreparator:
         Init objct that create tfrecords with data.
         NOTICE! Before use this class, you should enable eager execution mode in tensorflow,
         i.e. write `tf.compat.v1.enable_eager_execution()` at the beggining of the program
-        
+
         Parameters
         ----------
         coco_annotations : str
@@ -119,9 +119,9 @@ class CocoPreparator:
         """
 
         if self.__is_use_strong_filter:
-            self.__create_records_with_strong_filter()
+            self.__create_records_with_strong_filter(prefix, images_pr, stop_after_part)
         else:
-            self.__create_records_wo_strong_filter()
+            self.__create_records_wo_strong_filter(prefix, images_pr, stop_after_part)
 
     def __create_records_wo_strong_filter(self, prefix, images_pr, stop_after_part=None):
         ids_img = self._coco.getImgIds()
