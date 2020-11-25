@@ -1,5 +1,5 @@
 from pose_estimation.trainers.tester import Tester
-from pose_estimation.model.utils import scale_predicted_kp
+from pose_estimation.utils.nns_tools.keypoint_tools import scale_predicted_kp
 from pose_estimation.metrics.COCO_WholeBody import (MYeval_wholebody,
                                                     create_prediction_coco_json)
 from pose_estimation.data_preparation import CONNECT_INDEXES
