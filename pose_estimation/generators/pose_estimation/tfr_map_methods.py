@@ -3,7 +3,7 @@ from .data_preparation import (IMAGE_FNAME, KEYPOINTS_FNAME,
                                KEYPOINTS_MASK_FNAME, IMAGE_PROPERTIES_FNAME,
                                ABSENT_HUMAN_MASK_FNAME)
 from .utils import check_bounds, apply_transformation, apply_transformation_batched
-from ...utils.preprocess import preprocess_input
+from pose_estimation.utils.nns_tools.preprocess import preprocess_input
 
 import tensorflow as tf
 import numpy as np

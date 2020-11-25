@@ -56,7 +56,8 @@ class CocoPreparator:
             image_folder_path,
             max_people=8,
             min_image_size=512, 
-            criteria_throw=0.25
+            criteria_throw=0.25,
+            is_use_strong_filter=True
     ):
         """
         Parameters
@@ -74,6 +75,11 @@ class CocoPreparator:
             Criteria relations of visible keypoints to invisible,
             This criteria is using in default method for checking number of keypoints on the image,
             All images with a lower relations will be thrown
+        is_use_strong_filter : bool
+            If equal to True, then assume that the annotation has information as original coco json file,
+            and to every annotation will be used filter to pick good one.
+            If equal to False, then we assume that all annotation on images are good and further before save
+            annotation, filter of bad annotation will be NOT used.
         """
         # For saving records, enable eager execution
         tf.compat.v1.enable_eager_execution()
@@ -86,6 +92,7 @@ class CocoPreparator:
         self._min_image_size = min_image_size
 
         self.__criteria_throw = criteria_throw
+        self.__is_use_strong_filter = is_use_strong_filter
     
     def show_annot(self, image_id, fig_size=[8, 8], color_limbs='b', color_skelet='b'):
         """
@@ -151,6 +158,119 @@ class CocoPreparator:
             (for example, for testing)
         """
 
+        if self.__is_use_strong_filter:
+            self.__create_records_with_strong_filter()
+        else:
+            self.__create_records_wo_strong_filter()
+
+    def __create_records_wo_strong_filter(self, prefix, images_pr, stop_after_part=None):
+        ids_img = self._coco.getImgIds()
+        count_images = len(ids_img)
+        part = count_images // images_pr
+        iterator = tqdm(range(count_images))
+
+        image_tensors = []
+        image_masks = []
+        keypoints_tensors = []
+        keypoints_mask_tensors = []
+        image_properties_tensors = []
+
+        # Counter for saving parties
+        counter = 0
+        # Additional prefix for saved tfrecords
+        counter_saved = 0
+
+        for i in iterator:
+
+            img_obj = self._coco.loadImgs(ids_img[i])[0]
+            image = io.imread(os.path.join(self._image_folder_path, img_obj['file_name']))
+            annIds = self._coco.getAnnIds(imgIds=img_obj['id'], iscrowd=None)
+            anns = self._coco.loadAnns(annIds)
+
+            if len(anns) == 0:
+                continue
+
+            # Sort from the biggest person to the smallest one
+            sorted_annot_ids = np.argsort([-a['area'] for a in anns], kind='mergesort')
+
+            all_kp = []
+
+            for people_n in sorted_annot_ids:
+                single_person_data = anns[people_n]
+
+                # (n_kp, 1, 3)
+                all_kp_single = np.expand_dims(np.array(single_person_data['keypoints']).reshape(-1, 3), axis=1)
+
+                all_kp.append(all_kp_single)
+
+            if len(all_kp) == 0:
+                continue
+
+            all_kp = np.concatenate(all_kp, axis=1)
+            # Fill dimension n_people to maximum value according to self._max_people
+            # By placing zeros in other additional dimensions
+            not_enougth = self._max_people - all_kp.shape[1]
+            if not_enougth > 0:
+                zeros_arr = np.zeros([all_kp.shape[0], not_enougth, all_kp.shape[-1]]).astype(np.float32)
+                all_kp = np.concatenate([all_kp, zeros_arr], axis=1)
+
+            if len(image.shape) != 3:
+                # Assume that is gray-scale image, so convert it to rgb
+                image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+
+            image_mask = np.ones((*image.shape[:2], 1)).astype(np.float32)
+
+            image, all_kp, image_mask = self.__rescale_image(image, all_kp, image_mask)
+
+            keypoints_tensors.append(all_kp[..., :2].astype(np.float32))
+            keypoints_mask_tensors.append(all_kp[..., -1:].astype(np.float32))
+
+            image_tensors.append(image.astype(np.float32))
+            image_masks.append(image_mask)
+            image_properties_tensors.append(np.array(image.shape).astype(np.float32))
+
+            counter += 1
+
+            # For large datasets, it's better to save them by parties
+            if counter == part:
+                print('Save part of the tfrecords...')
+                record_mp_pose_estimation_train_data(
+                    image_tensors=image_tensors,
+                    image_masks=image_masks,
+                    keypoints_tensors=keypoints_tensors,
+                    keypoints_mask_tensors=keypoints_mask_tensors,
+                    image_properties_tensors=image_properties_tensors,
+                    prefix=prefix + f'_{counter_saved}',
+                    dp_per_record=images_pr
+                )
+
+                image_tensors = []
+                image_masks = []
+                keypoints_tensors = []
+                keypoints_mask_tensors = []
+                image_properties_tensors = []
+                counter = 0
+                counter_saved += 1
+
+            if stop_after_part is not None and counter_saved == stop_after_part:
+                break
+
+        # Save remaining data
+        if counter > 0:
+            print('Save part of the tfrecords...')
+            record_mp_pose_estimation_train_data(
+                image_tensors=image_tensors,
+                image_masks=image_masks,
+                keypoints_tensors=keypoints_tensors,
+                keypoints_mask_tensors=keypoints_mask_tensors,
+                image_properties_tensors=image_properties_tensors,
+                prefix=prefix + f'_{counter_saved}',
+                dp_per_record=images_pr
+            )
+
+        iterator.close()
+
+    def __create_records_with_strong_filter(self, prefix, images_pr, stop_after_part=None):
         ids_img = self._coco.getImgIds()
         count_images = len(ids_img)
         part = count_images // images_pr
@@ -217,7 +337,7 @@ class CocoPreparator:
                     a = np.expand_dims(pc[:2], axis=0)
                     b = np.expand_dims(person_center, axis=0)
                     dist = cdist(a, b)[0]
-                    if dist < pc[2]*0.3:
+                    if dist < pc[2] * 0.3:
                         too_close = True
                         break
 
@@ -240,7 +360,7 @@ class CocoPreparator:
                 continue
 
             all_kp = np.concatenate(all_kp, axis=1)
-            # Fill dimension n_people to maximum value according to self._max_people 
+            # Fill dimension n_people to maximum value according to self._max_people
             # By placing zeros in other additional dimensions
             not_enougth = self._max_people - all_kp.shape[1]
             if not_enougth > 0:
@@ -264,13 +384,13 @@ class CocoPreparator:
 
             keypoints_tensors.append(all_kp[..., :2].astype(np.float32))
             keypoints_mask_tensors.append(all_kp[..., -1:].astype(np.float32))
-            
+
             image_tensors.append(image.astype(np.float32))
             image_masks.append(image_mask)
             image_properties_tensors.append(np.array(image.shape).astype(np.float32))
-            
+
             counter += 1
-            
+
             # For large datasets, it's better to save them by parties
             if counter == part:
                 print('Save part of the tfrecords...')

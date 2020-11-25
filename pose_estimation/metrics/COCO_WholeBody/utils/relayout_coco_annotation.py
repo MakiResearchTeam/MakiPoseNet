@@ -5,7 +5,7 @@ import json
 from pycocotools.coco import COCO
 
 from pose_estimation.data_preparation.coco_preparator_api import CocoPreparator
-from .utils import rescale_image
+from pose_estimation.utils.video_tools.smart_resize import rescale_image
 
 
 # Annotations in JSON
