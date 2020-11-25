@@ -62,7 +62,9 @@ def rescale_image(
 
 
 def rescale_image_keep_relation(
-    image_size: tuple, min_image_size: tuple) -> list:
+        image_size: tuple,
+        limit_size: tuple,
+        use_max=True) -> list:
     """
     Calculate final image size according to `min_image_size`
     Biggest dimension in `image_size` will be scaled to certain dimension in `min_image_size`,
@@ -72,8 +74,12 @@ def rescale_image_keep_relation(
     ----------
     image_size : tuple
         (H, W), tuple of Height and Width of image which will be scaled
-    min_image_size : tuple
+    limit_size : tuple
         (H_min, W_min), tuple of Height and Width of minimum image size to certain dimension
+    use_max : bool
+        If true, when maximum dimension from `image_size` will has value from `limit_size`,
+        otherwise, minimum dimension will has value from `limit_size`,
+        other dimension will be scaled according to relation of H and W of `image_size`
 
     Returns
     -------
@@ -84,20 +90,34 @@ def rescale_image_keep_relation(
     h, w = image_size
     relation = h / w
 
-    h_min, w_min = min_image_size
+    h_limit, w_limit = limit_size
 
-    h_is_smaller = h < w
+    if use_max:
+        h_is_smaller = h < w
 
-    if h_is_smaller:
-        hw = [
-            int(relation * w_min),  # h
-            int(w_min)              # w
-        ]
+        if h_is_smaller:
+            hw = [
+                int(relation * w_limit),  # h
+                int(w_limit)              # w
+            ]
+        else:
+            hw = [
+                int(h_limit),             # h
+                int(h_limit / relation)   # w
+            ]
     else:
-        hw = [
-            int(h_min),             # h
-            int(h_min / relation)   # w
-        ]
+        h_is_smaller = h < w
+
+        if h_is_smaller:
+            hw = [
+                int(h_limit),             # h
+                int(h_limit / relation)   # w
+            ]
+        else:
+            hw = [
+                int(relation * w_limit),  # h
+                int(w_limit)              # w
+            ]
 
     return hw
 
