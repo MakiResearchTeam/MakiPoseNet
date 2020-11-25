@@ -20,11 +20,14 @@ class CocoPreparator:
             coco_annotations, 
             image_folder_path,
             max_people=8,
-            min_image_size=512, 
-            criteria_throw=0.25,
+            min_image_size=512,
             is_use_strong_filter=True
     ):
         """
+        Init objct that create tfrecords with data.
+        NOTICE! Before use this class, you should enable eager execution mode in tensorflow,
+        i.e. write `tf.compat.v1.enable_eager_execution()` at the beggining of the program
+        
         Parameters
         ----------
         coco_annotations : str
@@ -36,18 +39,12 @@ class CocoPreparator:
         min_image_size : int
             Images with width or height less than `min_image_size` will be scaled to fulfill
             the criteria.
-        criteria_throw : float
-            Criteria relations of visible keypoints to invisible,
-            This criteria is using in default method for checking number of keypoints on the image,
-            All images with a lower relations will be thrown
         is_use_strong_filter : bool
             If equal to True, then assume that the annotation has information as original coco json file,
             and to every annotation will be used filter to pick good one.
             If equal to False, then we assume that all annotation on images are good and further before save
             annotation, filter of bad annotation will be NOT used.
         """
-        # For saving records, enable eager execution
-        tf.compat.v1.enable_eager_execution()
 
         self._coco = COCO(coco_annotations)
 
@@ -55,8 +52,6 @@ class CocoPreparator:
         
         self._max_people = max_people
         self._min_image_size = min_image_size
-
-        self.__criteria_throw = criteria_throw
         self.__is_use_strong_filter = is_use_strong_filter
     
     def show_annot(self, image_id, fig_size=[8, 8], color_limbs='b', color_skelet='b'):
