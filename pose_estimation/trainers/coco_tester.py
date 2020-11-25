@@ -2,7 +2,7 @@ from pose_estimation.trainers.tester import Tester
 from pose_estimation.utils.nns_tools.keypoint_tools import scale_predicted_kp
 from pose_estimation.metrics.COCO_WholeBody import (MYeval_wholebody,
                                                     create_prediction_coco_json)
-from pose_estimation.data_preparation import CONNECT_INDEXES
+from pose_estimation.utils.visual_tools.constants import CONNECT_INDEXES
 from pose_estimation.utils import SkeletonDrawer, preprocess_input, visualize_paf, draw_skeleton
 from makiflow.tools.video.video_reader import VideoReader
 

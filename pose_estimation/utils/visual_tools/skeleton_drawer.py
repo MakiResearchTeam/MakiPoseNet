@@ -1,5 +1,5 @@
 import cv2
-from pose_estimation.data_preparation import CONNECT_INDEXES
+from .constants import CONNECT_INDEXES
 from pose_estimation.utils.visual_tools.visualize_tools import draw_skeleton
 
 
