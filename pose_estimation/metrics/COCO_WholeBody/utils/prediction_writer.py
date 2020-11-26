@@ -6,8 +6,8 @@ from pycocotools.coco import COCO
 import cv2
 import json
 import os
-from multiprocessing import dummy
-import multiprocessing as mp
+import traceback
+
 
 # Write prediction from models into json file (in coco annotations style)
 
@@ -24,7 +24,7 @@ Example of the json how to save single prediction
 """
 
 from .relayout_coco_annotation import IMAGE_ID, KEYPOINTS, ID
-from pose_estimation.utils.video_tools.smart_resize import rescale_image
+from pose_estimation.utils import scales_image_single_dim_keep_dims
 
 CATEGORY_ID = 'category_id'
 SCORE = 'score'
@@ -32,25 +32,19 @@ COCO_URL = 'coco_url'
 FILE_NAME = 'file_name'
 DEFAULT_CATEGORY_ID = 1
 
-TYPE_THREAD = 'thread'
-TYPE_PROCESS = 'process'
-
 
 # Methods to process image with multiprocessing
-def process_image(data):
-    W, H, image_paths, mode, div, shift, use_bgr2rgb, use_force_resize = data
+def process_image(min_size_h, image_paths, mode, div, shift, use_bgr2rgb):
     image = cv2.imread(image_paths)
-    x_scale, y_scale = rescale_image(
-        image_size=[image.shape[0], image.shape[1]],
-        min_image_size=[H, W],
-        resize_to=[None, None],
-        use_force_resize=use_force_resize
+    x_scale, y_scale = scales_image_single_dim_keep_dims(
+        image_size=image.shape[:-1],
+        resize_to=min_size_h
     )
     new_H, new_W = (int(y_scale * image.shape[0]), int(x_scale * image.shape[1]))
     image = cv2.resize(image, (new_W, new_H))
 
     if use_bgr2rgb:
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = image[..., ::-1]
 
     if mode is not None:
         image = preprocess_input(image, mode=mode)
@@ -61,63 +55,25 @@ def process_image(data):
     return image.astype(np.float32, copy=False)
 
 
-def start_process(
-        image_paths: list,
-        W: int, H: int,
-        n_threade: int,
-        type_parall: str,
-        mode: str,
-        divider : float,
-        shift: float,
-        use_bgr2rgb: bool,
-        use_force_resize: bool
-    ):
-    if type_parall == TYPE_THREAD:
-        pool = dummy.Pool(processes=n_threade)
-    elif type_parall == TYPE_PROCESS:
-        pool = mp.Pool(processes=n_threade)
-    else:
-        raise TypeError(f'type {type_parall} is non known type for processing image in prediction writer!')
-
-    res = pool.map(
-        process_image,
-        [
-            (W, H, image_paths[index], mode, divider, shift, use_bgr2rgb, use_force_resize)
-            for index in range(len(image_paths))
-        ]
-    )
-
-    pool.close()
-    pool.join()
-
-    return res
-
-
 def create_prediction_coco_json(
-        W: int,
-        H: int,
+        min_size_h: int,
         model: PEModel,
         ann_file_path: str,
         path_to_save: str,
         path_to_images: str,
         return_number_of_predictions=False,
-        n_threade=None,
-        type_parall=TYPE_THREAD,
         mode=TF,
         divider=None,
         shift=None,
         use_bgr2rgb=False,
-        use_force_resize=True
     ):
     """
     Create prediction JSON for evaluation on COCO dataset
 
     Parameters
     ----------
-    W : int
-        Width of the image
-    H : int
-        Height of the image
+    min_size_h : int
+        Min size of Height, which was used in preparation of data
     model : pe_model
         Model from which collects prediction.
         Model should be built and initialized with session.
@@ -132,13 +88,6 @@ def create_prediction_coco_json(
         Should be fit to annotation file (i. e. validation JSON to validation images)
     return_number_of_predictions : bool
         If equal True, will be returned number of prediction
-    n_threade : int
-        Number of threades to process image (resize, normalize and etc...),
-        By default parallel calculation not used, i.e. value equal to None
-    type_parall : str
-        Type of the parallel calculation for loading and preprocessing images,
-        Can be `thread` or `process` values.
-        By default equal to `thread`
     mode: One of "caffe", "tf" or "torch".
         - caffe: will convert the images from RGB to BGR,
           then will zero-center each color channel with
@@ -203,15 +152,12 @@ def create_prediction_coco_json(
                     cocoDt_json=cocoDt_json,
                     image_ids_list=image_ids_list,
                     imgs_path_list=imgs_path_list,
-                    W=W, H=H,
+                    min_size_h=min_size_h,
                     model=model,
-                    n_threade=n_threade,
-                    type_parall=type_parall,
                     mode=mode,
                     divider=divider,
                     shift=shift,
-                    use_bgr2rgb=use_bgr2rgb,
-                    use_force_resize=use_force_resize
+                    use_bgr2rgb=use_bgr2rgb
                 )
                 # Clear batched arrays
                 imgs_path_list = []
@@ -229,18 +175,16 @@ def create_prediction_coco_json(
                 cocoDt_json=cocoDt_json,
                 image_ids_list=image_ids_list,
                 imgs_path_list=imgs_path_list,
-                W=W, H=H,
+                min_size_h=min_size_h,
                 model=model,
-                n_threade=n_threade,
-                type_parall=type_parall,
                 mode=mode,
                 divider=divider,
                 shift=shift,
                 use_bgr2rgb=use_bgr2rgb,
-                use_force_resize=use_force_resize
             )
     except Exception as ex:
         print(ex)
+        traceback.print_exc()
     finally:
         with open(path_to_save, 'w') as fp:
             json.dump(cocoDt_json, fp)
@@ -253,46 +197,28 @@ def get_batched_result(
         cocoDt_json: list,
         image_ids_list: list,
         imgs_path_list: list,
-        W: int, H: int,
+        min_size_h: int,
         model: PEModel,
-        n_threade=None,
-        type_parall=TYPE_THREAD,
         mode=TF,
         divider=None,
         shift=None,
-        use_bgr2rgb=False,
-        use_force_resize=True):
+        use_bgr2rgb=False):
     """
     Load certain images, get output from model and write it into dict with certain format
 
     """
-    if type_parall is not None:
-        norm_img_list = start_process(
-            imgs_path_list,
-            W=W, H=H,
-            n_threade=n_threade,
-            type_parall=type_parall,
+
+    norm_img_list = [
+        process_image(
+            min_size_h=min_size_h,
+            image_paths=imgs_path_list[index],
             mode=mode,
             shift=shift,
-            divider=divider,
-            use_bgr2rgb=use_bgr2rgb,
-            use_force_resize=use_force_resize
+            div=divider,
+            use_bgr2rgb=use_bgr2rgb
         )
-    else:
-        norm_img_list = [
-            process_image(
-                (
-                    W, H,
-                    imgs_path_list[index],
-                    mode,
-                    shift,
-                    divider,
-                    use_bgr2rgb,
-                    use_force_resize
-                )
-            )
-            for index in range(len(imgs_path_list))
-        ]
+        for index in range(len(imgs_path_list))
+    ]
 
     humans_predicted_list = model.predict(norm_img_list)
 

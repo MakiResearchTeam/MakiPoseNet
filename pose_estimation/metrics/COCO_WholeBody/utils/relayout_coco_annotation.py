@@ -5,8 +5,8 @@ import json
 from pycocotools.coco import COCO
 
 from pose_estimation.data_preparation.coco_preparator_api import CocoPreparator
-from pose_estimation.utils.video_tools.smart_resize import rescale_image
-
+from pose_estimation.utils.video_tools.different_resizes import rescale_image, rescale_image_keep_relation, \
+    scales_image_single_dim_keep_dims
 
 # Annotations in JSON
 ANNOTATIONS = 'annotations'
@@ -29,26 +29,19 @@ EPS = 1e-3
 
 
 def relayout_keypoints(
-        W: int, H: int,
+        min_size_h: int,
         ann_file_path: str,
         path_to_save: str,
         limit_number=None,
-        mode_area_calculation=SEGMENTATION,
-        min_w_size=None,
-        min_h_size=None,
-        use_force_resize=True
+        mode_area_calculation=SEGMENTATION
     ):
     """
     Relayout original annotation to suitable one for further purposes
 
     Parameters
     ----------
-    W : int
-        Input Width into model.
-        If equal to None, Width will have dymanic value depending of the input image
-    H : int
-        Input Height into model.
-        If equal to None, Height will have dymanic value depending of the input image
+    min_size_h : int
+        Min size of Height, which was used in preparation of data
     ann_file_path : str
         Path to the origin annotation file
         Example: /home/user_1/annot.json
@@ -105,11 +98,9 @@ def relayout_keypoints(
         image_size = [image_annot[HEIGHT], image_annot[WIDTH]]
 
         # Scales for bbox and keypoints
-        x_scale, y_scale = rescale_image(
+        x_scale, y_scale = scales_image_single_dim_keep_dims(
             image_size=image_size,
-            resize_to=[H, W],
-            min_image_size=[min_h_size, min_w_size],
-            use_force_resize=use_force_resize
+            resize_to=min_size_h
         )
         scale_k = (x_scale, y_scale, 1)
         scale_bbox = (x_scale, y_scale)
