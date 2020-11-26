@@ -40,7 +40,7 @@ def process_image(min_size_h, image_paths, mode, div, shift, use_bgr2rgb):
         image_size=image.shape[:-1],
         resize_to=min_size_h
     )
-    new_H, new_W = (int(y_scale * image.shape[0]), int(x_scale * image.shape[1]))
+    new_H, new_W = (round(y_scale * image.shape[0]), round(x_scale * image.shape[1]))
     image = cv2.resize(image, (new_W, new_H))
 
     if use_bgr2rgb:

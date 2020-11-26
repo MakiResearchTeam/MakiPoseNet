@@ -103,8 +103,8 @@ class CocoTester(Tester):
                 resize_to=self.min_size_h
             )
             new_w, new_h = (
-                int(single_train_image.shape[1] * xy_scales[0]),
-                int(single_train_image.shape[0] * xy_scales[1])
+                round(single_train_image.shape[1] * xy_scales[0]),
+                round(single_train_image.shape[0] * xy_scales[1])
             )
             single_train_image = cv2.resize(single_train_image, (new_w, new_h))
 
@@ -136,8 +136,8 @@ class CocoTester(Tester):
                 resize_to=self.min_size_h
             )
             new_w, new_h = (
-                int(test_image.shape[1] * xy_scales[0]),
-                int(test_image.shape[0] * xy_scales[1])
+                round(test_image.shape[1] * xy_scales[0]),
+                round(test_image.shape[0] * xy_scales[1])
             )
 
             test_image = cv2.resize(test_image, (new_w, new_h))
@@ -311,8 +311,8 @@ class CocoTester(Tester):
                     resize_to=min_size_h
                 )
                 new_w, new_h = (
-                    int(single_image.shape[1] * xy_scales[0]),
-                    int(single_image.shape[0] * xy_scales[1])
+                    round(single_image.shape[1] * xy_scales[0]),
+                    round(single_image.shape[0] * xy_scales[1])
                 )
 
                 single_image = cv2.resize(single_image, (new_w, new_h))

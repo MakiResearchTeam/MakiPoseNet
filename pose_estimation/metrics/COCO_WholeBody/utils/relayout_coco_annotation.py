@@ -5,8 +5,7 @@ import json
 from pycocotools.coco import COCO
 
 from pose_estimation.data_preparation.coco_preparator_api import CocoPreparator
-from pose_estimation.utils.video_tools.different_resizes import rescale_image, rescale_image_keep_relation, \
-    scales_image_single_dim_keep_dims
+from pose_estimation.utils.video_tools.different_resizes import scales_image_single_dim_keep_dims
 
 # Annotations in JSON
 ANNOTATIONS = 'annotations'

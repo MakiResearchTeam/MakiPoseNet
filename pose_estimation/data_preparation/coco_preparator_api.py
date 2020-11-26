@@ -420,7 +420,7 @@ class CocoPreparator:
         )
         h, w = image.shape[:2]
 
-        new_w, new_h = (int(w * xy_scales[0]), int(h * xy_scales[1]))
+        new_w, new_h = (round(w * xy_scales[0]), round(h * xy_scales[1]))
         image = cv2.resize(image, (new_w, new_h))
 
         # In mask, cv2 drop last dimension because it equal 1
