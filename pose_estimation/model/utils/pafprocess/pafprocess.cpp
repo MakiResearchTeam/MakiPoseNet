@@ -17,6 +17,8 @@ vector<VectorXY> get_paf_vectors(float *pafmap, const int& ch_id1, const int& ch
 bool comp_candidate(ConnectionCandidate a, ConnectionCandidate b);
 
 int process_paf(int p1, int p2, int p3, float *peaks, int h1, int h2, int h3, float *heatmap, int f1, int f2, int f3, float *pafmap) {
+//    const int THRE_CNT = 4;
+//    const double THRESH_PAF = 0.40;
     vector<Peak> peak_infos[NUM_PART];
     int peak_cnt = 0;
     for (int part_id = 0; part_id < NUM_PART; part_id ++) {
@@ -62,9 +64,7 @@ int process_paf(int p1, int p2, int p3, float *peaks, int h1, int h2, int h3, fl
                 vec.x = peak_b.x - peak_a.x;
                 vec.y = peak_b.y - peak_a.y;
                 float norm = (float) sqrt(vec.x * vec.x + vec.y * vec.y);
-                // failure case when 2 body parts overlaps
                 if (norm < 1e-6) continue;
-
                 vec.x = vec.x / norm;
                 vec.y = vec.y / norm;
 
@@ -173,7 +173,8 @@ int process_paf(int p1, int p2, int p3, float *peaks, int h1, int h2, int h3, fl
                     subset[subset_idx1][SIZE_ROW - 1] += 1;
                     subset[subset_idx1][SIZE_ROW - 2] += peak_infos_line[conns[conn_id].cid2].score + conns[conn_id].score;
                 }
-            // If not found pair and the point should be drawn taken (i.e. lower some bounds)
+            // If found zero and pair id that should be drawn
+            // Some limbs were added just for additional help for paff to connect other points
             } else if (found == 0 && pair_id < NUM_PART) {
                 // last two dimension hold for detected limbs and score of all limbs
                 vector<float> row(SIZE_ROW);

@@ -1,5 +1,5 @@
 from pose_estimation.model.pe_model import PEModel
-from pose_estimation.utils.preprocess import preprocess_input, TF
+from pose_estimation.utils.nns_tools.preprocess import preprocess_input, TF
 from tqdm import tqdm
 import numpy as np
 from pycocotools.coco import COCO
@@ -24,7 +24,7 @@ Example of the json how to save single prediction
 """
 
 from .relayout_coco_annotation import IMAGE_ID, KEYPOINTS, ID
-from .utils import rescale_image
+from pose_estimation.utils.video_tools.smart_resize import rescale_image
 
 CATEGORY_ID = 'category_id'
 SCORE = 'score'

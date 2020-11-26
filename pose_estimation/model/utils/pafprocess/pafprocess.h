@@ -22,10 +22,10 @@ const int SIZE_ROW = NUM_PART + 2;
 const int STEP_PAF = 10;
 
 // Main and additional sizes of the limbs connection array
-const int ADDITIONAL_SIZE = 2;
+const int ADDITIONAL_SIZE = 4;
 const int MAIN_SIZE = 23;
 // Main + additional sizes
-const int COCOPAIRS_SIZE = MAIN_SIZE + ADDITIONAL_SIZE; // 25
+const int COCOPAIRS_SIZE = MAIN_SIZE + ADDITIONAL_SIZE; // 27
 
 const int COCOPAIRS_NET[COCOPAIRS_SIZE][2] = {
     // Connect paff at X and Y axis into one
@@ -34,7 +34,7 @@ const int COCOPAIRS_NET[COCOPAIRS_SIZE][2] = {
     {20, 21}, {22, 23}, {24, 25}, {26, 27}, {28, 29}, {30, 31}, {32, 33}, {34, 35}, {36, 37}, {38, 39},
     {40, 41}, {42, 43}, {44, 45},
     // Additional
-    {46, 47}, {48, 49},
+    {46, 47}, {48, 49}, {50, 51}, {52, 53}
 };
 
 const int COCOPAIRS[COCOPAIRS_SIZE][2] = {
@@ -42,7 +42,7 @@ const int COCOPAIRS[COCOPAIRS_SIZE][2] = {
     {1, 2}, {2, 4}, {1, 3}, {3, 5}, {1, 7}, {7, 9}, {9, 11}, {11, 22}, {11, 23}, {1, 6}, {6, 8}, {8, 10},
     {10, 20}, {10, 21}, {1, 0}, {0, 12}, {0, 13}, {13, 15}, {15, 17}, {17, 19}, {12, 14}, {14, 16}, {16, 18},
     // Additional connections
-    {5, 7}, {4, 6},
+    {5, 7}, {4, 6}, {7, 13}, {6, 12}
 };
 
 

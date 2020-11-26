@@ -1,8 +1,6 @@
 
 
-NUMBER_OF_KEYPOINTS = 24
-
-CONNECT_INDEXES_FOR_PAFF =  [
+CONNECT_INDEXES =  [
     # head
     [1, 2],
     [2, 4],
@@ -33,12 +31,6 @@ CONNECT_INDEXES_FOR_PAFF =  [
     # right
     [12, 14],
     [14, 16],
-    [16, 18],
-    # Additional limbs
-    [5, 7],
-    [4, 6],
-    [7, 13],
-    [6, 12]
+    [16, 18]
 ]
-
 

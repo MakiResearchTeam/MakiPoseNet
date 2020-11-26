@@ -33,7 +33,7 @@ def visualize_paf(
     return img
 
 
-def draw_skeleton(image, humans: list, connect_indexes: list, color=(255, 0, 0)):
+def draw_skeleton(image, humans: list, connect_indexes: list, color=(255, 0, 0), thickness=2):
     for indx in range(len(humans)):
         human = humans[indx]
 
@@ -52,6 +52,6 @@ def draw_skeleton(image, humans: list, connect_indexes: list, color=(255, 0, 0))
                 p_1 = (int(single_p1[0]), int(single_p1[1]))
                 p_2 = (int(single_p2[0]), int(single_p2[1]))
 
-                cv2.line(image, p_1, p_2, color=color, thickness=2)
+                cv2.line(image, p_1, p_2, color=color, thickness=thickness)
 
     return image
