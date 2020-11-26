@@ -6,6 +6,8 @@ test
 docs/make.bat
 docs/Makefile
 
+pose_estimation/model/utils/pafprocess/
+
 
 
 
