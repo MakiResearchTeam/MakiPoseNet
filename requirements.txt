@@ -1,0 +1,10 @@
+makiflow==1.3.0
+tensorflow-gpu==1.15
+tqdm
+opencv-python
+pycocotools
+numpy
+seaborn
+matplotlib
+scikit-image==0.16.2
+
