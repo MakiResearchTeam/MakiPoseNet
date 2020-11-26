@@ -183,7 +183,7 @@ class CocoPreparator:
             if len(all_kp) == 0:
                 continue
 
-            all_kp = np.concatenate(all_kp, axis=1)
+            all_kp = np.concatenate(all_kp, axis=1).astype(np.float32, copy=False)
             # Fill dimension n_people to maximum value according to self._max_people
             # By placing zeros in other additional dimensions
             not_enougth = self._max_people - all_kp.shape[1]
@@ -427,15 +427,15 @@ class CocoPreparator:
         image_mask = np.expand_dims(cv2.resize(image_mask, (new_w, new_h)), axis=-1)
 
         # Ignore dimension of visibility of the keypoints
-        keypoints[..., :-1] *= np.array(xy_scales)
+        keypoints[..., :-1] *= np.array(xy_scales).astype(np.float32, copy=False)
 
         # Check bounds on Width dimension
         if new_w < self._min_image_size:
             # padding zeros to image and padding ones for image_mask
-            padding_image = np.zeros((new_h, self._min_image_size, 3)).astype(np.uint8, copy=False)
+            padding_image = np.zeros((new_h, self._min_image_size, 3)).astype(np.float32, copy=False)
             padding_image[:, :new_w] = image
 
-            padding_mask = np.ones((new_w, self._min_image_size, 1)).astype(np.uint8, copy=False)
+            padding_mask = np.ones((new_w, self._min_image_size, 1)).astype(np.float32, copy=False)
             padding_mask[:, :new_w] = image_mask
 
             return padding_image, keypoints, padding_mask
