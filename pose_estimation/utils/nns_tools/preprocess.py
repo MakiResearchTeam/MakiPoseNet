@@ -7,7 +7,7 @@
 # Code is taken from
 # https://github.com/tensorflow/tensorflow/blob/v2.3.1/tensorflow/python/keras/applications/imagenet_utils.py
 #
-#=====================================================================
+# =====================================================================
 
 """Utilities for ImageNet data preprocessing & prediction decoding."""
 
