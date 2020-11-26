@@ -435,7 +435,7 @@ class CocoPreparator:
             padding_image = np.zeros((new_h, self._min_image_size, 3)).astype(np.float32, copy=False)
             padding_image[:, :new_w] = image
 
-            padding_mask = np.ones((new_w, self._min_image_size, 1)).astype(np.float32, copy=False)
+            padding_mask = np.ones((new_h, self._min_image_size, 1)).astype(np.float32, copy=False)
             padding_mask[:, :new_w] = image_mask
 
             return padding_image, keypoints, padding_mask
