@@ -177,7 +177,7 @@ class ModelAssembler:
         distillation_config = config_data.get(ModelAssembler.DISTILLATION)
         if distillation_config is not None:
             arch_path = distillation_config[ModelAssembler.TEACHER_ARCH]
-            teacher = MakiBuilder.from_json(arch_path)
+            teacher = PEModel.from_json(arch_path)
             teacher.set_session(model.get_session())
 
             weights_path = distillation_config[ModelAssembler.TEACHER_WEIGHTS]
