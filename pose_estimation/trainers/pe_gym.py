@@ -37,6 +37,7 @@ class PEGym:
     - training_config
     - testing_config
     - tb_config
+    - distillation config
     """
     TRAIN_CONFIG = 'training_config'
     EPOCHS = 'epochs'

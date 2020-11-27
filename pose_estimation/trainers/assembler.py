@@ -19,8 +19,9 @@ from ..model import PEModel, PETrainer
 from ..generators.pose_estimation import RIterator
 from pose_estimation.model import BinaryHeatmapLayer, GaussHeatmapLayer, V2PAFLayer
 from makiflow.core import MakiRestorable, TrainerBuilder
-from makiflow.core import MakiTensor
+from makiflow.core import MakiTensor, MakiBuilder
 from makiflow.layers import InputLayer
+from makiflow.distillation.core import DistillatorBuilder
 
 
 def to_makitensor(x, name):
@@ -49,6 +50,10 @@ class ModelAssembler:
     L2_REG = 'l2_reg'
     L2_REG_LAYERS = 'l2_reg_layers'
     UNTRAINABLE_LAYERS = 'untrainable_layers'
+    DISTILLATION = 'distillation_info'
+    # Distillation info
+    TEACHER_WEIGHTS = 'weights'
+    TEACHER_ARCH = 'arch'
 
     # gen_layer config
     GENLAYER_CONFIG = 'genlayer_config'
@@ -168,6 +173,21 @@ class ModelAssembler:
             l2_reg_layers = config_data[ModelAssembler.L2_REG_LAYERS]
             reg_config = [(layer, l2_reg) for layer in l2_reg_layers]
             trainer.set_l2_reg(reg_config)
+
+        distillation_config = config_data.get(ModelAssembler.DISTILLATION)
+        if distillation_config is not None:
+            arch_path = distillation_config[ModelAssembler.TEACHER_ARCH]
+            teacher = MakiBuilder.from_json(arch_path)
+            teacher.set_session(model.get_session())
+
+            weights_path = distillation_config[ModelAssembler.TEACHER_WEIGHTS]
+            teacher.load_weights(weights_path)
+
+            distillator = DistillatorBuilder.distillator_from_dict(
+                teacher=teacher,
+                info_dict=distillation_config
+            )
+            trainer = distillator(trainer)
 
         trainer.compile()
         return trainer
