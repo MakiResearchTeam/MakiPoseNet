@@ -45,7 +45,7 @@ def process_image(
         use_bgr2rgb: bool) -> tuple:
     image = cv2.imread(image_paths)
 
-    # Frist scale image like in preparation of training data
+    # First scale image like in preparation of training data
     # We keep H with certain size and scale other (keesp relation)
     x_scale, y_scale = scales_image_single_dim_keep_dims(
         image_size=image.shape[:-1],
@@ -53,14 +53,6 @@ def process_image(
     )
     new_H, new_W = (round(y_scale * image.shape[0]), round(x_scale * image.shape[1]))
     image = cv2.resize(image, (new_W, new_H)).astype(np.float32, copy=False)
-
-    # Padding with zeros, if W dimension is lower than H,
-    # This is same as preparation for training
-    if new_W < min_size_h:
-        image_padding = np.zeros((new_H, min_size_h, 3)).astype(np.float32, copy=False)
-        image_padding[:, :new_W] = image
-
-        image = image_padding
 
     # Take size, to scale answer from NN
     source_size = image.shape[:-1]
