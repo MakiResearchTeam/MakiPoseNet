@@ -1,5 +1,6 @@
 from pose_estimation.model.pe_model import PEModel
 from pose_estimation.utils.nns_tools.preprocess import preprocess_input, TF
+from pose_estimation.utils.nns_tools.keypoint_tools import scale_predicted_kp
 from tqdm import tqdm
 import numpy as np
 from pycocotools.coco import COCO
@@ -41,7 +42,7 @@ def process_image(
         mode: str,
         div: float,
         shift: float,
-        use_bgr2rgb: bool):
+        use_bgr2rgb: bool) -> tuple:
     image = cv2.imread(image_paths)
 
     # Frist scale image like in preparation of training data
@@ -59,6 +60,11 @@ def process_image(
         image_padding = np.zeros((new_H, min_size_h, 3)).astype(np.float32, copy=False)
         image_padding[:, :new_W] = image
 
+        image = image_padding
+
+    # Take size, to scale answer from NN
+    source_size = image.shape[:-1]
+
     # Now resize image to size of `model_size` using area stuf
     image = cv2.resize(image, (model_size[1], model_size[0]), interpolation=cv2.INTER_AREA)
     if use_bgr2rgb:
@@ -70,7 +76,7 @@ def process_image(
         image /= div
         image -= shift
 
-    return image.astype(np.float32, copy=False)
+    return (source_size, image.astype(np.float32, copy=False))
 
 
 def create_prediction_coco_json(
@@ -233,7 +239,7 @@ def get_batched_result(
 
     """
 
-    norm_img_list = [
+    source_size_and_norm_img_list = [
         process_image(
             model_size=model_size,
             min_size_h=min_size_h,
@@ -246,9 +252,26 @@ def get_batched_result(
         for index in range(len(imgs_path_list))
     ]
 
-    humans_predicted_list = model.predict(norm_img_list)
+    norm_image_list = []
+    source_size_list = []
+    for i in range(len(source_size_and_norm_img_list)):
+        # Separate image and their source size (prediction will be scaled to source size)
+        norm_image_list.append(source_size_and_norm_img_list[i][1])  # image
+        source_size_list.append(source_size_and_norm_img_list[i][0]) # source size
 
-    for (single_humans_predicted_list, single_image_ids) in zip(humans_predicted_list, image_ids_list):
+    humans_predicted_list = model.predict(norm_image_list)
+
+    for (source_size_single, single_humans_predicted_list, single_image_ids) in zip(
+            source_size_list,
+            humans_predicted_list,
+            image_ids_list
+    ):
+        # Scale prediction for single image
+        _ = scale_predicted_kp(
+            predictions=[single_humans_predicted_list],
+            model_size=model_size,
+            source_size=source_size_single
+        )
         for single_prediction in single_humans_predicted_list:
             cocoDt_json.append(
                 write_to_dict(
