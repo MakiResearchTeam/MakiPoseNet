@@ -20,7 +20,8 @@ from pose_estimation.utils.nns_tools.keypoint_tools import scale_predicted_kp
 from pose_estimation.metrics.COCO_WholeBody import (MYeval_wholebody,
                                                     create_prediction_coco_json)
 from pose_estimation.utils.visual_tools.constants import CONNECT_INDEXES
-from pose_estimation.utils import SkeletonDrawer, preprocess_input, visualize_paf, draw_skeleton
+from pose_estimation.utils import SkeletonDrawer, preprocess_input, visualize_paf, draw_skeleton, \
+    scales_image_single_dim_keep_dims
 from makiflow.tools.video.video_reader import VideoReader
 
 import cv2
@@ -97,7 +98,16 @@ class CocoTester(Tester):
             if not self._use_bgr2rgb:
                 single_train_image = cv2.cvtColor(single_train_image, cv2.COLOR_BGR2RGB)
 
-            single_train_image = cv2.resize(single_train_image, (self.W, self.H))
+            xy_scales = scales_image_single_dim_keep_dims(
+                image_size=single_train_image.shape[:-1],
+                resize_to=self.min_size_h
+            )
+            new_w, new_h = (
+                round(single_train_image.shape[1] * xy_scales[0]),
+                round(single_train_image.shape[0] * xy_scales[1])
+            )
+            single_train_image = cv2.resize(single_train_image, (new_w, new_h))
+
             self._norm_images_train.append(
                 self.__preprocess(single_train_image)
             )
@@ -121,7 +131,16 @@ class CocoTester(Tester):
             if test_image is None:
                 raise TypeError(CocoTester._EXCEPTION_IMAGE_WAS_NOT_FOUND.format(self._config[CocoTester.TEST_IMAGE]))
 
-            test_image = cv2.resize(test_image, (self.W, self.H))
+            xy_scales = scales_image_single_dim_keep_dims(
+                image_size=test_image.shape[:-1],
+                resize_to=self.min_size_h
+            )
+            new_w, new_h = (
+                round(test_image.shape[1] * xy_scales[0]),
+                round(test_image.shape[0] * xy_scales[1])
+            )
+
+            test_image = cv2.resize(test_image, (new_w, new_h))
             if self._use_bgr2rgb:
                 test_image = cv2.cvtColor(test_image, cv2.COLOR_BGR2RGB)
 
@@ -150,18 +169,17 @@ class CocoTester(Tester):
             save_predicted_json = os.path.join(new_log_folder, self.NAME_PREDICTED_ANNOT_JSON)
 
             num_detections = create_prediction_coco_json(
-                self.W, self.H, model,
-                self._path_to_relayout_annot,
-                save_predicted_json,
-                self._path_to_val_images,
+                model_size=self._model_size,
+                min_size_h=self.min_size_h,
+                model=model,
+                ann_file_path=self._path_to_relayout_annot,
+                path_to_save=save_predicted_json,
+                path_to_images=self._path_to_val_images,
                 return_number_of_predictions=True,
-                n_threade=self._n_threade,
-                type_parall=self._type_parall,
                 mode=self._norm_mode,
                 divider=self._norm_div,
                 shift=self._norm_shift,
                 use_bgr2rgb=self._use_bgr2rgb,
-                use_force_resize=False
             )
             # Process evaluation only if number of detection bigger that 0
             if num_detections > 0:
@@ -230,7 +248,8 @@ class CocoTester(Tester):
 
                 # Feed list of predictions
                 # Scale predicted keypoint into original image size and paint them
-                scale_predicted_kp([prediction], (self.H, self.W), single_train.shape[:2])
+                h, w = single_norm_train.shape[:-1]
+                scale_predicted_kp([prediction], (h, w), single_train.shape[:2])
                 drawed_image = draw_skeleton(drawed_image, prediction, CONNECT_INDEXES, color=(255, 0, 0))
 
             # Draw ground-truth
@@ -243,8 +262,7 @@ class CocoTester(Tester):
             single_batch = [self.__put_text_on_image(single_test, self._names[i])]
             peaks, heatmap, paf = model.predict(
                 np.stack([single_norm] * model.get_batch_size(), axis=0),
-                using_estimate_alg=False,
-                resize_to=[self.H, self.W]
+                using_estimate_alg=False
             )
 
             drawed_paff = self.__put_text_on_image(
@@ -267,8 +285,7 @@ class CocoTester(Tester):
             # Draw skeletons
             if is_network_good_right_now:
                 predictions = model.predict(
-                    np.stack([single_norm] * model.get_batch_size(), axis=0),
-                    resize_to=[self.H, self.W]
+                    np.stack([single_norm] * model.get_batch_size(), axis=0)
                 )[0]
                 drawed_image = draw_skeleton(single_test.copy(), predictions, CONNECT_INDEXES)
                 single_batch.append(self.__put_text_on_image(drawed_image, self.SKELETON))
@@ -285,11 +302,21 @@ class CocoTester(Tester):
         video_r = VideoReader(self._video_path)
 
         # Function for preprocessing images before put them into model
-        def transform(batch_images, m_w, m_h, mode, use_bgr2rgb, func_preprocess=None):
+        def transform(batch_images, min_size_h, mode, use_bgr2rgb, func_preprocess=None):
             new_images = []
             for i in range(len(batch_images)):
                 single_image = batch_images[i]
-                single_image = cv2.resize(single_image, (m_w, m_h))
+
+                xy_scales = scales_image_single_dim_keep_dims(
+                    image_size=single_image.shape[:-1],
+                    resize_to=min_size_h
+                )
+                new_w, new_h = (
+                    round(single_image.shape[1] * xy_scales[0]),
+                    round(single_image.shape[0] * xy_scales[1])
+                )
+
+                single_image = cv2.resize(single_image, (new_w, new_h))
                 if use_bgr2rgb:
                     single_image = cv2.cvtColor(single_image, cv2.COLOR_BGR2RGB)
 
@@ -327,7 +354,7 @@ class CocoTester(Tester):
             # Transform batch
             transformed_image_batch = transform(
                 batch_image,
-                m_h=self.H, m_w=self.W,
+                min_size_h=self.min_size_h,
                 mode=self._norm_mode,
                 use_bgr2rgb=self._use_bgr2rgb,
                 func_preprocess=self.__preprocess
@@ -335,7 +362,7 @@ class CocoTester(Tester):
             predictions = model.predict(transformed_image_batch)
 
             # scale predictions into original size
-            scale_predicted_kp(predictions, (self.H, self.W), batch_image[0].shape[:2])
+            scale_predicted_kp(predictions, transformed_image_batch[0].shape[:-1], batch_image[0].shape[:2])
             # draw predictions
             video_drawer.write(batch_image, predictions)
 

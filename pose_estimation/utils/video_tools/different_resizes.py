@@ -83,7 +83,8 @@ def rescale_image_keep_relation(
         use_max=True) -> list:
     """
     Calculate final image size according to `min_image_size`
-    Biggest dimension in `image_size` will be scaled to certain dimension in `min_image_size`,
+    Biggest dimension (if `use_max` = True, otherwise lowest dimension will has same effect)
+    in `image_size` will be scaled to certain dimension in `min_image_size`,
     Relation between origin Height and Width will be saved
 
     Parameters
@@ -137,3 +138,53 @@ def rescale_image_keep_relation(
 
     return hw
 
+
+def scales_image_single_dim_keep_dims(
+        image_size: tuple,
+        resize_to: int,
+        resize_h=True) -> list:
+    """
+    Resize single dimension (by default h) and keep resolution for other
+
+    Parameters
+    ----------
+    image_size : tuple
+        (H, W)
+    resize_to : int
+        Final value for chosen dims
+    resize_h : bool
+        If equal to True, then will be calculated scales for H dimension (i.e. index zero in `images_size`)
+
+    Returns
+    -------
+    xy_scales : list
+        Scales for x (Width) and y (Height) dimensions
+
+    """
+    h, w = image_size
+
+    if resize_h:
+        relation = h / w
+
+        xy_scale = [
+            (resize_to / w) / relation,
+            resize_to / h
+        ]
+    else:
+        relation = image_size[0] / image_size[1]
+
+        xy_scale = [
+            (resize_to / w),
+            (resize_to / h) * relation
+        ]
+
+    return xy_scale
+
+
+if __name__ == "__main__":
+
+    image_size = (256, 512)
+
+    xy_scale = scales_image_single_dim_keep_dims(image_size, resize_to=512)
+
+    print(f'h: {int(image_size[0]*xy_scale[1])} w: {int(image_size[1]*xy_scale[0])}')

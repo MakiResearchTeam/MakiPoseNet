@@ -15,5 +15,5 @@
 # You should have received a copy of the GNU General Public License
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
-from .smart_resize import rescale_image, rescale_image_keep_relation
-
+from .different_resizes import (rescale_image,
+                                rescale_image_keep_relation, scales_image_single_dim_keep_dims)

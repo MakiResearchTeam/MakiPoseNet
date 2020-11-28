@@ -25,7 +25,7 @@ import os
 import cv2
 
 from ..generators.pose_estimation.data_preparation import record_mp_pose_estimation_train_data
-from pose_estimation.utils.visual_tools.constants import CONNECT_INDEXES
+from pose_estimation.utils import CONNECT_INDEXES, scales_image_single_dim_keep_dims
 
 
 class CocoPreparator:
@@ -183,7 +183,7 @@ class CocoPreparator:
             if len(all_kp) == 0:
                 continue
 
-            all_kp = np.concatenate(all_kp, axis=1)
+            all_kp = np.concatenate(all_kp, axis=1).astype(np.float32, copy=False)
             # Fill dimension n_people to maximum value according to self._max_people
             # By placing zeros in other additional dimensions
             not_enougth = self._max_people - all_kp.shape[1]
@@ -413,15 +413,32 @@ class CocoPreparator:
         if one of the dimension of the image (height and width) is smaller than `self._min_image_size`
 
         """
-        if image.shape[0] < self._min_image_size or image.shape[1] < self._min_image_size:
-            h, w = image.shape[:2]
-            min_dim = min(h, w)
-            scale = self._min_image_size / min_dim
-            w, h = round(w * scale), round(h * scale)
-            image = cv2.resize(image, (w, h))
-            image_mask = np.expand_dims(cv2.resize(image_mask, (w, h)), axis=-1)
-            # Ignore dimension of visibility of the keypoints 
-            keypoints[..., :-1] *= scale
+
+        xy_scales = scales_image_single_dim_keep_dims(
+            image_size=image.shape[:-1],
+            resize_to=self._min_image_size
+        )
+        h, w = image.shape[:2]
+
+        new_w, new_h = (round(w * xy_scales[0]), round(h * xy_scales[1]))
+        image = cv2.resize(image, (new_w, new_h))
+
+        # In mask, cv2 drop last dimension because it equal 1
+        image_mask = np.expand_dims(cv2.resize(image_mask, (new_w, new_h)), axis=-1)
+
+        # Ignore dimension of visibility of the keypoints
+        keypoints[..., :-1] *= np.array(xy_scales).astype(np.float32, copy=False)
+
+        # Check bounds on Width dimension
+        if new_w < self._min_image_size:
+            # padding zeros to image and padding ones for image_mask
+            padding_image = np.zeros((new_h, self._min_image_size, 3)).astype(np.float32, copy=False)
+            padding_image[:, :new_w] = image
+
+            padding_mask = np.ones((new_h, self._min_image_size, 1)).astype(np.float32, copy=False)
+            padding_mask[:, :new_w] = image_mask
+
+            return padding_image, keypoints, padding_mask
         
         return image, keypoints, image_mask
 
