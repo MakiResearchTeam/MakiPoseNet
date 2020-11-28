@@ -51,7 +51,13 @@ def process_image(
         resize_to=min_size_h
     )
     new_H, new_W = (round(y_scale * image.shape[0]), round(x_scale * image.shape[1]))
-    image = cv2.resize(image, (new_W, new_H))
+    image = cv2.resize(image, (new_W, new_H)).astype(np.float32, copy=False)
+
+    # Padding with zeros, if W dimension is lower than H,
+    # This is same as preparation for training
+    if new_W < min_size_h:
+        image_padding = np.zeros((new_H, min_size_h, 3)).astype(np.float32, copy=False)
+        image_padding[:, :new_W] = image
 
     # Now resize image to size of `model_size` using area stuf
     image = cv2.resize(image, (model_size[1], model_size[0]), interpolation=cv2.INTER_AREA)
