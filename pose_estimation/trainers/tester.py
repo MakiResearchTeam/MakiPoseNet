@@ -37,6 +37,7 @@ class Tester(ABC):
     PATH_TO_VAL_IMAGES = "path_to_val_images"
     LIMIT_ANNOT = 'limit_annot'
     MIN_SIZE_H = 'min_size_h'
+    MODEL_SIZE = 'model_size'
     NORMALIZATION_SHIFT = 'normalization_shift'
     NORMALIZATION_DIV = 'normalization_div'
     NORM_MODE = 'norm_mode'
@@ -71,6 +72,7 @@ class Tester(ABC):
 
         self._norm_mode = self._config[self.NORM_MODE]
         self._use_bgr2rgb = self._config[self.USE_BGR2RGB]
+        self._model_size = self._config[self.MODEL_SIZE]
         self.min_size_h = self._config[Tester.MIN_SIZE_H]
 
         annot_gt = self._config[self.ANNOT_GT_JSON]

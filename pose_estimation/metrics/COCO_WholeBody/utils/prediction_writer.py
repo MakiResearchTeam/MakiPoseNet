@@ -34,8 +34,18 @@ DEFAULT_CATEGORY_ID = 1
 
 
 # Methods to process image with multiprocessing
-def process_image(min_size_h, image_paths, mode, div, shift, use_bgr2rgb):
+def process_image(
+        model_size: tuple,
+        min_size_h: int,
+        image_paths: str,
+        mode: str,
+        div: float,
+        shift: float,
+        use_bgr2rgb: bool):
     image = cv2.imread(image_paths)
+
+    # Frist scale image like in preparation of training data
+    # We keep H with certain size and scale other (keesp relation)
     x_scale, y_scale = scales_image_single_dim_keep_dims(
         image_size=image.shape[:-1],
         resize_to=min_size_h
@@ -43,6 +53,8 @@ def process_image(min_size_h, image_paths, mode, div, shift, use_bgr2rgb):
     new_H, new_W = (round(y_scale * image.shape[0]), round(x_scale * image.shape[1]))
     image = cv2.resize(image, (new_W, new_H))
 
+    # Now resize image to size of `model_size` using area stuf
+    image = cv2.resize(image, (model_size[1], model_size[0]), interpolation=cv2.INTER_AREA)
     if use_bgr2rgb:
         image = image[..., ::-1]
 
@@ -56,6 +68,7 @@ def process_image(min_size_h, image_paths, mode, div, shift, use_bgr2rgb):
 
 
 def create_prediction_coco_json(
+        model_size: tuple,
         min_size_h: int,
         model: PEModel,
         ann_file_path: str,
@@ -72,6 +85,9 @@ def create_prediction_coco_json(
 
     Parameters
     ----------
+    model_size : tuple
+        Size (H, W) of an input image into model,
+        i.e. image will be resized to this size before input into model
     min_size_h : int
         Min size of Height, which was used in preparation of data
     model : pe_model
@@ -152,6 +168,7 @@ def create_prediction_coco_json(
                     cocoDt_json=cocoDt_json,
                     image_ids_list=image_ids_list,
                     imgs_path_list=imgs_path_list,
+                    model_size=model_size,
                     min_size_h=min_size_h,
                     model=model,
                     mode=mode,
@@ -175,6 +192,7 @@ def create_prediction_coco_json(
                 cocoDt_json=cocoDt_json,
                 image_ids_list=image_ids_list,
                 imgs_path_list=imgs_path_list,
+                model_size=model_size,
                 min_size_h=min_size_h,
                 model=model,
                 mode=mode,
@@ -197,6 +215,7 @@ def get_batched_result(
         cocoDt_json: list,
         image_ids_list: list,
         imgs_path_list: list,
+        model_size: tuple,
         min_size_h: int,
         model: PEModel,
         mode=TF,
@@ -210,6 +229,7 @@ def get_batched_result(
 
     norm_img_list = [
         process_image(
+            model_size=model_size,
             min_size_h=min_size_h,
             image_paths=imgs_path_list[index],
             mode=mode,

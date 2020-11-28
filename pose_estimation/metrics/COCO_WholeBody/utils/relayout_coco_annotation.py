@@ -141,10 +141,10 @@ def relayout_keypoints(
 
         # Fill our annotation with new information
         Maki_cocoGt_json[ANNOTATIONS].append(single_anns)
-        Maki_cocoGt_json[ANNOTATIONS][i][KEYPOINTS] = new_keypoints
-        Maki_cocoGt_json[ANNOTATIONS][i][BBOX] = new_bbox
-        Maki_cocoGt_json[ANNOTATIONS][i][SEGMENTATION] = new_segmentation
-        Maki_cocoGt_json[ANNOTATIONS][i][AREA] = new_area
+        Maki_cocoGt_json[ANNOTATIONS][-1][KEYPOINTS] = new_keypoints
+        Maki_cocoGt_json[ANNOTATIONS][-1][BBOX] = new_bbox
+        Maki_cocoGt_json[ANNOTATIONS][-1][SEGMENTATION] = new_segmentation
+        Maki_cocoGt_json[ANNOTATIONS][-1][AREA] = new_area
 
         # Write img ids which we process
         if not used_ids[single_anns[IMAGE_ID]]:

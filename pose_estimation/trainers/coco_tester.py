@@ -169,6 +169,7 @@ class CocoTester(Tester):
             save_predicted_json = os.path.join(new_log_folder, self.NAME_PREDICTED_ANNOT_JSON)
 
             num_detections = create_prediction_coco_json(
+                model_size=self._model_size,
                 min_size_h=self.min_size_h,
                 model=model,
                 ann_file_path=self._path_to_relayout_annot,
