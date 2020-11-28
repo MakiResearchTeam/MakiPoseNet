@@ -52,10 +52,9 @@ def process_image(
         resize_to=min_size_h
     )
     new_H, new_W = (round(y_scale * image.shape[0]), round(x_scale * image.shape[1]))
-    image = cv2.resize(image, (new_W, new_H)).astype(np.float32, copy=False)
-
     # Take size, to scale answer from NN
-    source_size = image.shape[:-1]
+    source_size = (new_H, new_W)
+    #image = cv2.resize(image, (new_W, new_H)).astype(np.float32, copy=False)
 
     # Now resize image to size of `model_size` using area stuf
     image = cv2.resize(image, (model_size[1], model_size[0]), interpolation=cv2.INTER_AREA)
