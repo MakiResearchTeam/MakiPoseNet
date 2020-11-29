@@ -45,25 +45,24 @@ def process_image(
         use_bgr2rgb: bool) -> tuple:
     image = cv2.imread(image_paths)
 
-    # Frist scale image like in preparation of training data
+    # First scale image like in preparation of training data
     # We keep H with certain size and scale other (keesp relation)
     x_scale, y_scale = scales_image_single_dim_keep_dims(
         image_size=image.shape[:-1],
         resize_to=min_size_h
     )
     new_H, new_W = (round(y_scale * image.shape[0]), round(x_scale * image.shape[1]))
-    image = cv2.resize(image, (new_W, new_H)).astype(np.float32, copy=False)
+    image = cv2.resize(image, (new_W, new_H), interpolation=cv2.INTER_AREA).astype(np.float32, copy=False)
 
-    # Padding with zeros, if W dimension is lower than H,
-    # This is same as preparation for training
+    # To keep human view better, padding with zeros if there is `min_size_h` > new_W
     if new_W < min_size_h:
-        image_padding = np.zeros((new_H, min_size_h, 3)).astype(np.float32, copy=False)
-        image_padding[:, :new_W] = image
+        padding_image = np.zeros((new_H, min_size_h, 3)).astype(np.float32, copy=False)
+        padding_image[:, :new_W] = image
+        source_size = padding_image.shape[:-1]
 
-        image = image_padding
-
-    # Take size, to scale answer from NN
-    source_size = image.shape[:-1]
+        image = padding_image
+    else:
+        source_size = (new_H, new_W)
 
     # Now resize image to size of `model_size` using area stuf
     image = cv2.resize(image, (model_size[1], model_size[0]), interpolation=cv2.INTER_AREA)
