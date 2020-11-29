@@ -222,8 +222,8 @@ class PEModel(PoseEstimatorInterface):
             ]
         )
         # Get peaks
-        batched_peaks = self._session.run(
-            self._peaks,
+        batched_heatmap, batched_peaks = self._session.run(
+            [self._smoother.get_output(), self._peaks],
             feed_dict={self.input_smoothed_image: batched_heatmap.astype(np.float32, copy=False)}
         )
 
