@@ -122,13 +122,13 @@ class PEModel(PoseEstimatorInterface):
         Initialize tensors for prediction
 
         """
-
+        num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
+        
         self.input_smoothed_image = tf.placeholder(
-            shape=[1, None, None, 25],
+            shape=[1, None, None, num_keypoints],
             dtype=tf.float32,
             name='smoothed_input_image'
         )
-        num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
         self._smoother = Smoother(
             {Smoother.DATA: self.input_smoothed_image},
             25,
