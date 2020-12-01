@@ -102,7 +102,7 @@ def relayout_keypoints(
             continue
 
         # Fill our annotation with new information
-        single_anns[KEYPOINTS] = new_keypoints
+        single_anns[KEYPOINTS] = new_keypoints.reshape(-1, 3).astype(np.float32, copy=False).tolist()
         Maki_cocoGt_json[ANNOTATIONS].append(single_anns)
 
         # Write img ids which we process
