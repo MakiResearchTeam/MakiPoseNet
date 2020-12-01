@@ -1,10 +1,27 @@
+# Copyright (C) 2020  Igor Kilbas, Danil Gribanov
+#
+# This file is part of MakiPoseNet.
+#
+# MakiPoseNet is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# MakiPoseNet is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+
 from makiflow.core import MakiRestorable
 from makiflow.core import MakiLayer
 import tensorflow as tf
 import numpy as np
 
 
-class PAFLayerV2(MakiLayer):
+class V2PAFLayer(MakiLayer):
     IM_SIZE = 'im_size'
     SIGMA = 'sigma'
     SKELETON = 'skeleton'
@@ -15,12 +32,12 @@ class PAFLayerV2(MakiLayer):
 
     @staticmethod
     def build(params: dict):
-        return PAFLayerV2(
-            im_size=params[PAFLayerV2.IM_SIZE],
-            sigma=params[PAFLayerV2.SIGMA],
-            skeleton=params[PAFLayerV2.SKELETON],
-            vectorize=params[PAFLayerV2.VECTORIZE],
-            resize_to=params[PAFLayerV2.RESIZE_TO]
+        return V2PAFLayer(
+            im_size=params[V2PAFLayer.IM_SIZE],
+            sigma=params[V2PAFLayer.SIGMA],
+            skeleton=params[V2PAFLayer.SKELETON],
+            vectorize=params[V2PAFLayer.VECTORIZE],
+            resize_to=params[V2PAFLayer.RESIZE_TO]
         )
 
     # 90 degrees rotation matrix. Used for generation of orthogonal vector.
@@ -32,7 +49,7 @@ class PAFLayerV2(MakiLayer):
         dtype=tf.float32
     )
 
-    def __init__(self, im_size: list, sigma, skeleton, vectorize=False, resize_to=None, name='PAFLayer'):
+    def __init__(self, im_size: list, sigma, skeleton, vectorize=False, resize_to=None, name='V2PAFLayer'):
         """
         Generates part affinity fields for the given `skeleton`.
 
@@ -163,7 +180,7 @@ class PAFLayerV2(MakiLayer):
 
         # [h, w, 2]
         fn_p = lambda kp, masks: normalize_paf(
-            PAFLayerV2.__build_paf_mp(
+            V2PAFLayer.__build_paf_mp(
                 kp, masks,  # [p, 2, 2, 1]
                 destination_call=self.__build_paf
             )
@@ -175,13 +192,13 @@ class PAFLayerV2(MakiLayer):
             return t
 
         # [n_pairs, h, w, 2]
-        fn_np = lambda kp, masks: shape_fixer(PAFLayerV2.__build_paf_mp(
+        fn_np = lambda kp, masks: shape_fixer(V2PAFLayer.__build_paf_mp(
             kp, masks,  # [n_pairs, p, 2, 2, 1]
             destination_call=fn_p
         ))
 
         # [b, n_pairs, h, w, 2]
-        fn_b = lambda kp, masks: PAFLayerV2.__build_paf_mp(
+        fn_b = lambda kp, masks: V2PAFLayer.__build_paf_mp(
             kp, masks,
             destination_call=fn_np
         )
@@ -284,6 +301,274 @@ class PAFLayerV2(MakiLayer):
         return paf * tf.reduce_min(points_mask)
 
 
+class V1PAFLayer(MakiLayer):
+    IM_SIZE = 'im_size'
+    SIGMA = 'sigma'
+    SKELETON = 'skeleton'
+    VECTORIZE = 'vectorize'
+
+    RESIZE_TO = 'resize_to'
+    PAF_RESIZE = 'paf_resize'
+
+    @staticmethod
+    def build(params: dict):
+        return V1PAFLayer(
+            im_size=params[V1PAFLayer.IM_SIZE],
+            sigma=params[V1PAFLayer.SIGMA],
+            skeleton=params[V1PAFLayer.SKELETON],
+            vectorize=params[V1PAFLayer.VECTORIZE],
+            resize_to=params[V1PAFLayer.RESIZE_TO]
+        )
+
+    # 90 degrees rotation matrix. Used for generation of orthogonal vector.
+    ROT90_MAT = tf.convert_to_tensor(
+        np.array([
+            [0, 1],
+            [-1, 0]
+        ]),
+        dtype=tf.float32
+    )
+
+    def __init__(self, im_size: list, sigma, skeleton, vectorize=False, resize_to=None, name='V1PAFLayer'):
+        """
+        Generates part affinity fields for the given `skeleton`.
+        Parameters
+        ----------
+        im_size : 2d tuple
+            Contains width and height (h, w) of the image for which to generate the map.
+        sigma : float
+            Width of the affinity field. Corresponds to the width of the limb.
+        skeleton : np.ndarray of shape [n_pairs, 2]
+            A numpy array containing indices for pairs of points. Vectors in the PAF
+            will be equal the following vector:
+            (point1 - point0) / norm(point1 - point0).
+        vectorize : bool
+            Set to True if you want to vectorize the computation along the batch dimension. May cause
+            the OOM error due to high memory consumption.
+        resize_to : tuple
+            Tuple of (H, W) the size to which the heatmap will be reduced or scaled,
+            Using area interpolation
+        """
+        assert resize_to is None or len(resize_to) == 2
+
+        super().__init__(name, params=[], regularize_params=[], named_params_dict={})
+        self.sigma = sigma
+        self.resize_to = resize_to
+        self.skeleton = skeleton
+        self.im_size = [im_size[1], im_size[0]]
+        self.vectorize = vectorize
+        x_grid, y_grid = np.meshgrid(np.arange(im_size[1]), np.arange(im_size[0]))
+        xy_grid = np.stack([x_grid, y_grid], axis=-1)
+        self.xy_grid = tf.convert_to_tensor(xy_grid, dtype=tf.float32)
+
+    def forward(self, x, computation_mode=MakiRestorable.TRAINING_MODE):
+        with tf.name_scope(computation_mode):
+            with tf.name_scope(self.get_name()):
+                keypoints, masks = x
+
+                pafs = self.__build_paf_batch(keypoints, masks)
+
+                if self.resize_to is not None:
+                    # [batch, h, w, pairs, 2]
+                    pafs_shape = pafs.get_shape().as_list()
+
+                    # [batch, h, w, pairs, 2] --> [batch, h, w, pairs * 2]
+                    pafs = tf.reshape(pafs, pafs_shape[:3] + [-1])
+
+                    pafs = tf.image.resize_area(
+                        pafs,
+                        self.resize_to,
+                        align_corners=False,
+                        name=self.PAF_RESIZE
+                    )
+                    # [batch, h, w, pairs * 2] --> [batch, h, w, pairs, 2]
+                    pafs_shape[1] = self.resize_to[0]
+                    pafs_shape[2] = self.resize_to[1]
+                    pafs = tf.reshape(pafs, pafs_shape)
+
+        return pafs
+
+    def training_forward(self, x):
+        return self.forward(x)
+
+    def to_dict(self):
+        return {}
+
+    def __build_paf_batch(self, kp, masks):
+        """
+        Generates PAF for the given keypoints.
+        Parameters
+        ----------
+        kp : tf.Tensor of shape [batch, c, n_people, 2]
+            Tensor of keypoints coordinates.
+        masks : tf.Tensor of shape [batch, c, n_people, 1]
+        Returns
+        -------
+        tf.Tensor of shape [batch, h, w, n_pars, 2]
+            Tensor of PAFs.
+        """
+
+        # ------------------THE SHITTEST CODE EVER----------------------------------------------
+
+        # Gather points along the axis of classes of points.
+        # [b, n_pairs, 2, p, 2]
+        kp_p = tf.gather(kp, indices=self.skeleton, axis=1)
+        # This is needed for proper matrix multiplication during paf generation.
+        kp_p = tf.transpose(kp_p, perm=[0, 1, 3, 2, 4])
+        kp_p = tf.expand_dims(kp_p, axis=-1)
+        # [b, n_pairs, p, 2, 2, 1]
+        assert len(
+            kp_p.get_shape()) == 6, f'Expected keypoint pairs dimensionality to be 6, but got {len(kp_p.get_shape())}.' + \
+                                    f'Keypoints shape: {kp_p.get_shape()}'
+
+        # Select masks for corresponding points.
+        # [b, n_pairs, 2, p, 1]
+        masks_p = tf.gather(masks, indices=self.skeleton, axis=1)
+        masks_p = tf.transpose(masks_p, perm=[0, 1, 3, 2, 4])
+
+        def normalize_paf(paf):
+            """
+            Averages values in the regions where PAF overlaps.
+            Parameters
+            ----------
+            paf : tf.Tensor of shape [n_people, h, w, 2]
+            Returns
+            -------
+            tf.Tensor of shape [h, w, 2]
+                Normalized paf tensor.
+            """
+            # [n_people, h, w]
+            magnitudes = tf.reduce_sum(paf * paf, axis=-1)
+            ones = tf.ones_like(magnitudes, dtype='float32')
+            zeros = tf.zeros_like(magnitudes, dtype='float32')
+            non_zero_regions = tf.where(magnitudes > 1e-3, ones, zeros)
+            # [h, w]
+            normalization_mask = tf.reduce_sum(non_zero_regions, axis=0)
+            # Set zeros to ones to avoid division by zero.
+            # Don't change other regions
+            ones = tf.ones_like(normalization_mask, dtype='float32')
+            normalization_mask = tf.where(normalization_mask > 1e-3, normalization_mask, ones)
+            # [h, w]
+            paf = tf.reduce_sum(paf, axis=0)
+            print(paf)
+            result = paf / tf.expand_dims(normalization_mask, axis=-1)
+            print(result)
+            return result
+
+        # [h, w, 2]
+        fn_p = lambda kp, masks: normalize_paf(
+            V1PAFLayer.__build_paf_mp(
+                kp, masks,  # [p, 2, 2, 1]
+                destination_call=self.__build_paf
+            )
+        )
+
+        def shape_fixer(t):
+            h, w, _ = self.xy_grid.get_shape()
+            t.set_shape(shape=[len(self.skeleton), h, w, 2])
+            return t
+
+        # [n_pairs, h, w, 2]
+        fn_np = lambda kp, masks: shape_fixer(V1PAFLayer.__build_paf_mp(
+            kp, masks,  # [n_pairs, p, 2, 2, 1]
+            destination_call=fn_p
+        ))
+
+        # [b, n_pairs, h, w, 2]
+        fn_b = lambda kp, masks: V1PAFLayer.__build_paf_mp(
+            kp, masks,
+            destination_call=fn_np
+        )
+        # Decide whether to perform calculation in a batch dimension.
+        # May be faster, but requires more memory.
+        if self.vectorize:  # [b, c, p, 2]
+            print('Using vectorized_map.')
+            pafs = fn_b(kp_p, masks_p)
+            pafs = tf.transpose(pafs, perm=[0, 2, 3, 1, 4])
+            return pafs
+        else:
+            # Requires less memory, but runs slower
+            print('Using map_fn.')
+            # The map_fn function passes in a list of unpacked tensors
+            # along the first dimension. Therefore, we need to take those tensors
+            # out of the list.
+            fn = lambda kp_masks: [fn_np(kp_masks[0], kp_masks[1]), 0]
+            pafs, _, = tf.map_fn(
+                fn,
+                [kp_p, masks_p]  # [b, n_pairs, p, 2, 2, 1]
+            )
+            print('after map_fn:', pafs)
+            pafs = tf.transpose(pafs, perm=[0, 2, 3, 1, 4])
+            return pafs
+
+    @staticmethod
+    def __build_paf_mp(kp, masks, destination_call):
+        """
+        The hetmaps generation is factorized down to single keypoint heatmap generation.
+        Nested calls of this method allow for highly optimized vectorized computation of multiple maps.
+        Parameters
+        ----------
+        kp : tf.Tensor of shape [..., 2]
+            A keypoint (x, y) for which to build the heatmap.
+        xy_grid : tf.Tensor of shape [h, w, 2]
+            A coordinate grid for the image tensor.
+        delta : tf.float32
+            Radius of the classification (heat) region.
+        destination_call : method pointer
+            Used for nested calling to increase the dimensionality of the computation.
+        """
+        # Vectorized map unpackes tensors from the input sequence (list in this case) along their
+        # first dimension, but passes a list of unpacked tensors. Therefore, we need to take them
+        # out from the list.
+        fn = lambda _kp_masks: destination_call(_kp_masks[0], _kp_masks[1])
+        maps = tf.vectorized_map(fn, [kp, masks])
+        return maps
+
+    def __build_paf(self, p1p2, points_mask):
+        """
+        Build PAF for the given 2 points `p1p2` on the `xy_grid`.
+
+        Parameters
+        ----------
+        p1p2 : tf.Tensor of shape [2, 2, 1]
+            Points between which to generate the field. Vectors will points from
+            p1 to p2.
+        point_mask : tf.Tensor of shape [2, 1]
+            A mask determining whether the keypoints are labeled. 0 - no label, 1 - there is a label.
+
+        Returns
+        -------
+        tf.Tensor of shape [h, w, 2]
+            The generated PAF.
+        """
+        # Define the required variables.
+        p1 = p1p2[0]
+        p2 = p1p2[1]
+        h, w, _ = self.xy_grid.get_shape()
+        # Flatten the field. It is needed for the later matrix multiplication.
+        xy_flat = tf.reshape(self.xy_grid, [-1, 2])
+        l = tf.maximum(tf.linalg.norm(p2 - p1), 1e-5)
+        v = (p2 - p1) / l
+        v_orth = tf.matmul(V1PAFLayer.ROT90_MAT, v)
+
+        # Generate a mask for the points between `p1` and `p2`.
+        c1 = tf.cast(0. <= tf.matmul(xy_flat - p1[:, 0], v), tf.float32)
+        c2 = tf.cast(tf.matmul(xy_flat - p1[:, 0], v) <= l, tf.float32)
+        cf_l = c1 * c2
+        cf_l = tf.reshape(cf_l, [h, w])
+
+        # Build a mask for the points lying on the line connecting `p1` and `p2`
+        # with the width of `sigma`.
+        cf_sigma = tf.abs(tf.matmul(xy_flat - p1[:, 0], v_orth)) <= self.sigma
+        cf_sigma = tf.cast(cf_sigma, tf.float32)
+        cf_sigma = tf.reshape(cf_sigma, [h, w])
+
+        cf = cf_l * cf_sigma
+        # Multiply the mask with the direction vector.
+        paf = tf.expand_dims(cf, axis=-1) * v[:, 0]
+        return paf * tf.reduce_min(points_mask)
+
+
 if __name__ == '__main__':
     from makiflow.layers import InputLayer
 
@@ -333,7 +618,7 @@ if __name__ == '__main__':
     keypoints = InputLayer(input_shape=[32, 24, 8, 2], name='keypoints')
     masks = InputLayer(input_shape=[32, 24, 8, 1], name='keypoints')
 
-    paf_layer = PAFLayerV2(
+    paf_layer = PAFLayer(
         im_size=im_size,
         sigma=paf_sigma,
         skeleton=CONNECT_INDEXES_FOR_PAFF
@@ -417,11 +702,9 @@ if __name__ == '__main__':
     sns.heatmap(tf_paf[..., 0] ** 2 + tf_paf[..., 1] ** 2)
     plt.show()
 
-    from pose_estimation.model.training_modules.training_layers import PAFLayer
+    from pose_estimation.model.training_modules.data_preparation import PAFLayer
     paf_layer = PAFLayer(
         im_size=im_size,
         sigma=paf_sigma,
         skeleton=CONNECT_INDEXES_FOR_PAFF
     )
-
-

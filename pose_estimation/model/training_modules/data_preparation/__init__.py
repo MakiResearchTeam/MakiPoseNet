@@ -14,3 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+
+from .heatmap_layers import BinaryHeatmapLayer, GaussHeatmapLayer
+from .paf_layers import V2PAFLayer
+

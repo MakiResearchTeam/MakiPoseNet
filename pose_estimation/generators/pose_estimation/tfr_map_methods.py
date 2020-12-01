@@ -1,9 +1,26 @@
+# Copyright (C) 2020  Igor Kilbas, Danil Gribanov
+#
+# This file is part of MakiPoseNet.
+#
+# MakiPoseNet is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# MakiPoseNet is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+
 from makiflow.generators.pipeline.tfr.tfr_map_method import TFRMapMethod, TFRPostMapMethod
 from .data_preparation import (IMAGE_FNAME, KEYPOINTS_FNAME,
                                KEYPOINTS_MASK_FNAME, IMAGE_PROPERTIES_FNAME,
                                ABSENT_HUMAN_MASK_FNAME)
 from .utils import check_bounds, apply_transformation, apply_transformation_batched
-from ...utils.preprocess import preprocess_input
+from pose_estimation.utils.nns_tools.preprocess import preprocess_input
 
 import tensorflow as tf
 import numpy as np

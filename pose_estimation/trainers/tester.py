@@ -1,3 +1,20 @@
+# Copyright (C) 2020  Igor Kilbas, Danil Gribanov
+#
+# This file is part of MakiPoseNet.
+#
+# MakiPoseNet is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# MakiPoseNet is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+
 import tensorflow as tf
 from pose_estimation.metrics.COCO_WholeBody import relayout_keypoints
 from pose_estimation.data_preparation.coco_preparator_api import CocoPreparator
@@ -19,8 +36,8 @@ class Tester(ABC):
     ANNOT_GT_JSON = 'annot_gt_json'
     PATH_TO_VAL_IMAGES = "path_to_val_images"
     LIMIT_ANNOT = 'limit_annot'
-    N_THREADE = 'n_threade'
-    TYPE_PARALL = 'type_parall'
+    MIN_SIZE_H = 'min_size_h'
+    MODEL_SIZE = 'model_size'
     NORMALIZATION_SHIFT = 'normalization_shift'
     NORMALIZATION_DIV = 'normalization_div'
     NORM_MODE = 'norm_mode'
@@ -49,28 +66,23 @@ class Tester(ABC):
 
         # Init stuff for measure metric
         self._limit_annots = self._config[self.LIMIT_ANNOT]
-        self._n_threade = self._config[self.N_THREADE]
-        self._type_parall = self._config[self.TYPE_PARALL]
 
         self._norm_div = self._config[self.NORMALIZATION_DIV]
         self._norm_shift = self._config[self.NORMALIZATION_SHIFT]
 
         self._norm_mode = self._config[self.NORM_MODE]
         self._use_bgr2rgb = self._config[self.USE_BGR2RGB]
-        self.W = self._config[Tester.IMG_HW][1]
-        self.H = self._config[Tester.IMG_HW][0]
+        self._model_size = self._config[self.MODEL_SIZE]
+        self.min_size_h = self._config[Tester.MIN_SIZE_H]
 
         annot_gt = self._config[self.ANNOT_GT_JSON]
 
         if annot_gt is not None:
             relayout_keypoints(
-                W=None, H=None,
+                min_size_h=self.min_size_h,
                 ann_file_path=self._config[self.ANNOT_GT_JSON],
                 path_to_save=self._path_to_relayout_annot,
                 limit_number=self._limit_annots,
-                min_h_size=self.H,
-                min_w_size=self.W,
-                use_force_resize=False
             )
 
             # Load ground-truth annot

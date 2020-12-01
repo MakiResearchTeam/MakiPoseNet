@@ -14,3 +14,6 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+
+from .keypoint_tools import scale_predicted_kp
+from .preprocess import TF, CAFFE, TORCH, preprocess_input

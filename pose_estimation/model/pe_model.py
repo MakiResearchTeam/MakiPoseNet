@@ -1,6 +1,24 @@
+# Copyright (C) 2020  Igor Kilbas, Danil Gribanov
+#
+# This file is part of MakiPoseNet.
+#
+# MakiPoseNet is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# MakiPoseNet is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+
 import json
 import numpy as np
 import tensorflow as tf
+import cv2
 
 from .core import PoseEstimatorInterface
 from .utils.algorithm_connect_skelet import estimate_paf, merge_similar_skelets
@@ -104,46 +122,15 @@ class PEModel(PoseEstimatorInterface):
         Initialize tensors for prediction
 
         """
-        # Store (H, W) - final size of the prediction
-        self.upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=PEModel.UPSAMPLE_SIZE)
-
-        # [N, W, H, NUM_KP]
-        main_paf = self.get_main_paf_tensor()
-
-        # [N, W, H, NUM_PAFS, 2]
-        shape_paf = main_paf.shape.as_list()
-        dynamic_shape = tf.shape(main_paf)
-        num_pafs = shape_paf[3]
-
-        for i in range(len(shape_paf)):
-            if shape_paf[i] is None:
-                shape_paf[i] = dynamic_shape[i]
-
-        # [N, W, H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS * 2]
-        main_paf = tf.reshape(main_paf, shape=shape_paf[:-2] + [-1])
-        self._resized_paf = tf.image.resize_area(
-            main_paf,
-            self.upsample_size,
-            align_corners=False,
-            name='upsample_paf'
-        )
-
-        # [N, NEW_W, NEW_H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS, 2]
-        new_shape = tf.stack(
-            [self.get_batch_size(), self.upsample_size[0], self.upsample_size[1], num_pafs, 2]
-        )
-        self._resized_paf = tf.reshape(self._resized_paf, shape=new_shape)
-
-        self._resized_heatmap = tf.image.resize_area(
-            self.get_main_heatmap_tensor(),
-            self.upsample_size,
-            align_corners=False,
-            name='upsample_heatmap'
-        )
-
         num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
+        
+        self.input_smoothed_image = tf.placeholder(
+            shape=[1, None, None, num_keypoints],
+            dtype=tf.float32,
+            name='smoothed_input_image'
+        )
         self._smoother = Smoother(
-            {Smoother.DATA: self._resized_heatmap},
+            {Smoother.DATA: self.input_smoothed_image},
             25,
             3.0,
             num_keypoints
@@ -151,10 +138,10 @@ class PEModel(PoseEstimatorInterface):
 
         # Apply NMS (Non maximum suppression)
         # Apply max pool operation to heatmap
-        self._max_pooled_heatmap = tf.nn.max_pool(
+        max_pooled_heatmap = tf.nn.max_pool(
             self._smoother.get_output(),
             self._DEFAULT_KERNEL_MAX_POOL,
-            strides=[1,1,1,1],
+            strides=[1, 1, 1, 1],
             padding='SAME'
         )
         # Take only values that equal to heatmap from max pooling,
@@ -162,7 +149,7 @@ class PEModel(PoseEstimatorInterface):
         self._peaks = tf.where(
             tf.equal(
                 self._smoother.get_output(),
-                self._max_pooled_heatmap
+                max_pooled_heatmap
             ),
             self._smoother.get_output(),
             tf.zeros_like(self._smoother.get_output())
@@ -209,24 +196,46 @@ class PEModel(PoseEstimatorInterface):
             # Take `H`, `W` from input image
             resize_to = x[0].shape[:2]
 
-        batched_heatmap, batched_paf, batched_peaks = self._session.run(
-            [self._smoother.get_output(), self._resized_paf, self._peaks],
-            feed_dict={
-                self._input_data_tensors[0]: x,
-                self.upsample_size: resize_to
-            }
+        paf_prediction, heatmap_prediction = self._session.run(
+            [self.get_main_paf_tensor(), self.get_main_heatmap_tensor()],
+            feed_dict={self._input_data_tensors[0]: x}
+        )
+
+        # Process PAF
+        # [N, W, H, NUM_PAFS, 2]
+        shape_paf = paf_prediction.shape
+        N, num_pafs = shape_paf[0], shape_paf[3]
+
+        # [N, W, H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS * 2]
+        paf_prediction_reshaped = paf_prediction.reshape(*shape_paf[:-2], -1)
+        batched_paf = np.stack(
+            [
+                cv2.resize(paf_prediction_reshaped[i], (resize_to[1], resize_to[0]), interpolation=cv2.INTER_AREA)
+                for i in range(len(paf_prediction_reshaped))
+            ]
+        )
+        # Process HEATMAP
+        batched_heatmap = np.stack(
+            [
+                cv2.resize(heatmap_prediction[i], (resize_to[1], resize_to[0]), interpolation=cv2.INTER_AREA)
+                for i in range(len(heatmap_prediction))
+            ]
+        )
+        # Get peaks
+        batched_heatmap, batched_peaks = self._session.run(
+            [self._smoother.get_output(), self._peaks],
+            feed_dict={self.input_smoothed_image: batched_heatmap.astype(np.float32, copy=False)}
         )
 
         if using_estimate_alg:
 
             # Connect skeletons by applying two algorithms
             batched_humans = []
-            H, W = resize_to
 
             for i in range(len(batched_peaks)):
-                single_peaks = batched_peaks[i].astype(np.float32)
-                single_heatmap = batched_heatmap[i].astype(np.float32)
-                single_paff = batched_paf[i].reshape(H, W, -1).astype(np.float32)
+                single_peaks = batched_peaks[i].astype(np.float32, copy=False)
+                single_heatmap = batched_heatmap[i].astype(np.float32, copy=False)
+                single_paff = batched_paf[i].astype(np.float32, copy=False)
 
                 # Estimate
                 humans_list = estimate_paf(single_peaks, single_heatmap, single_paff)
@@ -237,7 +246,9 @@ class PEModel(PoseEstimatorInterface):
 
             return batched_humans
         else:
-            return batched_peaks, batched_heatmap, batched_paf
+            # For paf
+            # [N, NEW_W, NEW_H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS, 2]
+            return batched_peaks, batched_heatmap, batched_paf.reshape(N, *resize_to, num_pafs, 2)
 
     def get_main_paf_tensor(self):
         return self._output_data_tensors[self._index_of_main_paf]
