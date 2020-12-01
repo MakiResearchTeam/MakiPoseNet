@@ -94,19 +94,6 @@ def relayout_keypoints(
         if image_annot is None:
             raise ModuleNotFoundError(f'Image id: {single_anns[IMAGE_ID]} was not found.')
 
-        image_size = [image_annot[HEIGHT], image_annot[WIDTH]]
-
-        # Scales for bbox and keypoints
-        x_scale, y_scale = scales_image_single_dim_keep_dims(
-            image_size=image_size,
-            resize_to=min_size_h
-        )
-        scale_k = (x_scale, y_scale, 1)
-        scale_bbox = (x_scale, y_scale)
-        # Scale bbox and keypoints
-        new_keypoints = (new_keypoints.reshape(-1, 3) * scale_k).reshape(-1).astype(np.float32, copy=False).tolist()
-        new_bbox = (np.array(single_anns[BBOX]).reshape(2, 2) * scale_bbox).reshape(-1).tolist()
-
         new_segmentation = single_anns[SEGMENTATION]
         # There is some garbage that stored in segmentation dict
         # Just skip it
@@ -114,37 +101,9 @@ def relayout_keypoints(
         if type(new_segmentation) == dict:
             continue
 
-        # Scale segmentation points
-        for m in range(len(new_segmentation)):
-            single_new_seg_coord = np.array(new_segmentation[m]).reshape(-1, 2) * scale_bbox
-            single_new_seg_coord = single_new_seg_coord.astype(np.float32).reshape(-1).tolist()
-            new_segmentation[m] = single_new_seg_coord
-
-        if mode_area_calculation == SEGMENTATION:
-            # Calculate new value for 'area'
-            new_area = float(np.sum(
-                cocoGt.annToMask({
-                    SEGMENTATION: new_segmentation,
-                    IMAGE_ID: single_anns[IMAGE_ID]
-                })
-            ))
-        elif mode_area_calculation == BBOX:
-            new_area = float(new_bbox[2] * new_bbox[3])
-        elif mode_area_calculation == KEYPOINTS:
-            x = np.array(new_keypoints[0::3])
-            y = np.array(new_keypoints[1::3])
-
-            x0, x1, y0, y1 = np.min(x), np.max(x), np.min(y), np.max(y)
-            new_area = (x1 - x0) * (y1 - y0)
-        else:
-            raise TypeError(f'Unknown mode area type {mode_area_calculation}')
-
         # Fill our annotation with new information
+        single_anns[KEYPOINTS] = new_keypoints
         Maki_cocoGt_json[ANNOTATIONS].append(single_anns)
-        Maki_cocoGt_json[ANNOTATIONS][-1][KEYPOINTS] = new_keypoints
-        Maki_cocoGt_json[ANNOTATIONS][-1][BBOX] = new_bbox
-        Maki_cocoGt_json[ANNOTATIONS][-1][SEGMENTATION] = new_segmentation
-        Maki_cocoGt_json[ANNOTATIONS][-1][AREA] = new_area
 
         # Write img ids which we process
         if not used_ids[single_anns[IMAGE_ID]]:
