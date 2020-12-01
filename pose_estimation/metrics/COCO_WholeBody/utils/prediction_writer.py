@@ -33,10 +33,11 @@ COCO_URL = 'coco_url'
 FILE_NAME = 'file_name'
 DEFAULT_CATEGORY_ID = 1
 
+PADDING = 8
+
 
 # Methods to process image with multiprocessing
 def process_image(
-        model_size: tuple,
         min_size_h: int,
         image_paths: str,
         mode: str,
@@ -44,6 +45,7 @@ def process_image(
         shift: float,
         use_bgr2rgb: bool) -> tuple:
     image = cv2.imread(image_paths)
+    source_size = image.shape[:-1]
 
     # First scale image like in preparation of training data
     # We keep H with certain size and scale other (keesp relation)
@@ -53,18 +55,17 @@ def process_image(
     )
 
     new_H, new_W = (round(y_scale * image.shape[0]), round(x_scale * image.shape[1]))
-    source_size = (new_H, new_W)
 
     image = cv2.resize(image, (new_W, new_H), interpolation=cv2.INTER_AREA).astype(np.float32, copy=False)
+    input_image_size_into_model = (new_H, new_W)
 
-    # To keep human view better, padding with zeros if there is `min_size_h` > new_W
-    if new_W < min_size_h:
-        padding_image = np.zeros((new_H, min_size_h, 3)).astype(np.float32, copy=False)
+    # To keep human view better, padding with zeros
+    # In order to new_W be divided by 8 without remainder
+    if new_W % PADDING != 0:
+        padding_image = np.zeros((new_H, new_W + (PADDING - new_W % PADDING), 3)).astype(np.float32, copy=False)
         padding_image[:, :new_W] = image
         image = padding_image
 
-    # Now resize image to size of `model_size` using area stuf
-    image = cv2.resize(image, (model_size[1], model_size[0]), interpolation=cv2.INTER_AREA)
     if use_bgr2rgb:
         image = image[..., ::-1]
 
@@ -74,11 +75,10 @@ def process_image(
         image /= div
         image -= shift
 
-    return (source_size, image.astype(np.float32, copy=False))
+    return source_size, input_image_size_into_model, image.astype(np.float32, copy=False)
 
 
 def create_prediction_coco_json(
-        model_size: tuple,
         min_size_h: int,
         model: PEModel,
         ann_file_path: str,
@@ -94,10 +94,7 @@ def create_prediction_coco_json(
     Create prediction JSON for evaluation on COCO dataset
 
     Parameters
-    ----------
-    model_size : tuple
-        Size (H, W) of an input image into model,
-        i.e. image will be resized to this size before input into model
+    ---------
     min_size_h : int
         Min size of Height, which was used in preparation of data
     model : pe_model
@@ -178,7 +175,6 @@ def create_prediction_coco_json(
                     cocoDt_json=cocoDt_json,
                     image_ids_list=image_ids_list,
                     imgs_path_list=imgs_path_list,
-                    model_size=model_size,
                     min_size_h=min_size_h,
                     model=model,
                     mode=mode,
@@ -202,7 +198,6 @@ def create_prediction_coco_json(
                 cocoDt_json=cocoDt_json,
                 image_ids_list=image_ids_list,
                 imgs_path_list=imgs_path_list,
-                model_size=model_size,
                 min_size_h=min_size_h,
                 model=model,
                 mode=mode,
@@ -225,7 +220,6 @@ def get_batched_result(
         cocoDt_json: list,
         image_ids_list: list,
         imgs_path_list: list,
-        model_size: tuple,
         min_size_h: int,
         model: PEModel,
         mode=TF,
@@ -237,9 +231,8 @@ def get_batched_result(
 
     """
 
-    source_size_and_norm_img_list = [
+    source_size_and_model_size_and_norm_img_list = [
         process_image(
-            model_size=model_size,
             min_size_h=min_size_h,
             image_paths=imgs_path_list[index],
             mode=mode,
@@ -252,22 +245,25 @@ def get_batched_result(
 
     norm_image_list = []
     source_size_list = []
-    for i in range(len(source_size_and_norm_img_list)):
+    model_size_input_list = []
+    for i in range(len(source_size_and_model_size_and_norm_img_list)):
         # Separate image and their source size (prediction will be scaled to source size)
-        norm_image_list.append(source_size_and_norm_img_list[i][1])  # image
-        source_size_list.append(source_size_and_norm_img_list[i][0]) # source size
+        source_size_list.append(source_size_and_model_size_and_norm_img_list[i][0])        # source size
+        model_size_input_list.append(source_size_and_model_size_and_norm_img_list[i][1])   # model size
+        norm_image_list.append(source_size_and_model_size_and_norm_img_list[i][2])         # image
 
     humans_predicted_list = model.predict(norm_image_list)
 
-    for (source_size_single, single_humans_predicted_list, single_image_ids) in zip(
+    for (source_size_single, model_size_input_single, single_humans_predicted_list, single_image_ids) in zip(
             source_size_list,
+            model_size_input_list,
             humans_predicted_list,
             image_ids_list
     ):
         # Scale prediction for single image
         _ = scale_predicted_kp(
             predictions=[single_humans_predicted_list],
-            model_size=model_size,
+            model_size=model_size_input_single,
             source_size=source_size_single
         )
         for single_prediction in single_humans_predicted_list:
