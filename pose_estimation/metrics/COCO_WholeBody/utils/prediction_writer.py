@@ -33,10 +33,11 @@ COCO_URL = 'coco_url'
 FILE_NAME = 'file_name'
 DEFAULT_CATEGORY_ID = 1
 
+PADDING = 8
+
 
 # Methods to process image with multiprocessing
 def process_image(
-        model_size: tuple,
         min_size_h: int,
         image_paths: str,
         mode: str,
@@ -58,9 +59,10 @@ def process_image(
     image = cv2.resize(image, (new_W, new_H), interpolation=cv2.INTER_AREA).astype(np.float32, copy=False)
     input_image_size_into_model = (new_H, new_W)
 
-    # To keep human view better, padding with zeros if there is `min_size_h` > new_W
-    if new_W < min_size_h:
-        padding_image = np.zeros((new_H, min_size_h, 3)).astype(np.float32, copy=False)
+    # To keep human view better, padding with zeros
+    # In order to new_W be divided by 8 without remainder
+    if new_W % PADDING != 0:
+        padding_image = np.zeros((new_H, new_W + (PADDING - new_W % PADDING), 3)).astype(np.float32, copy=False)
         padding_image[:, :new_W] = image
         image = padding_image
 
@@ -77,7 +79,6 @@ def process_image(
 
 
 def create_prediction_coco_json(
-        model_size: tuple,
         min_size_h: int,
         model: PEModel,
         ann_file_path: str,
@@ -93,10 +94,7 @@ def create_prediction_coco_json(
     Create prediction JSON for evaluation on COCO dataset
 
     Parameters
-    ----------
-    model_size : tuple
-        Size (H, W) of an input image into model,
-        i.e. image will be resized to this size before input into model
+    ---------
     min_size_h : int
         Min size of Height, which was used in preparation of data
     model : pe_model
@@ -177,7 +175,6 @@ def create_prediction_coco_json(
                     cocoDt_json=cocoDt_json,
                     image_ids_list=image_ids_list,
                     imgs_path_list=imgs_path_list,
-                    model_size=model_size,
                     min_size_h=min_size_h,
                     model=model,
                     mode=mode,
@@ -201,7 +198,6 @@ def create_prediction_coco_json(
                 cocoDt_json=cocoDt_json,
                 image_ids_list=image_ids_list,
                 imgs_path_list=imgs_path_list,
-                model_size=model_size,
                 min_size_h=min_size_h,
                 model=model,
                 mode=mode,
@@ -224,7 +220,6 @@ def get_batched_result(
         cocoDt_json: list,
         image_ids_list: list,
         imgs_path_list: list,
-        model_size: tuple,
         min_size_h: int,
         model: PEModel,
         mode=TF,
@@ -238,7 +233,6 @@ def get_batched_result(
 
     source_size_and_model_size_and_norm_img_list = [
         process_image(
-            model_size=model_size,
             min_size_h=min_size_h,
             image_paths=imgs_path_list[index],
             mode=mode,
