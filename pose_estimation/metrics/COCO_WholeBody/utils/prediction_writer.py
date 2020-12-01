@@ -44,6 +44,7 @@ def process_image(
         shift: float,
         use_bgr2rgb: bool) -> tuple:
     image = cv2.imread(image_paths)
+    source_size = image.shape[:-1]
 
     # First scale image like in preparation of training data
     # We keep H with certain size and scale other (keesp relation)
@@ -53,7 +54,6 @@ def process_image(
     )
 
     new_H, new_W = (round(y_scale * image.shape[0]), round(x_scale * image.shape[1]))
-    source_size = (new_H, new_W)
 
     image = cv2.resize(image, (new_W, new_H), interpolation=cv2.INTER_AREA).astype(np.float32, copy=False)
 
@@ -63,8 +63,7 @@ def process_image(
         padding_image[:, :new_W] = image
         image = padding_image
 
-    # Now resize image to size of `model_size` using area stuf
-    image = cv2.resize(image, (model_size[1], model_size[0]), interpolation=cv2.INTER_AREA)
+
     if use_bgr2rgb:
         image = image[..., ::-1]
 
