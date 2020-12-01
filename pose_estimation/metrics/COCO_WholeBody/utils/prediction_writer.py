@@ -51,18 +51,17 @@ def process_image(
         image_size=image.shape[:-1],
         resize_to=min_size_h
     )
+
     new_H, new_W = (round(y_scale * image.shape[0]), round(x_scale * image.shape[1]))
+    source_size = (new_H, new_W)
+
     image = cv2.resize(image, (new_W, new_H), interpolation=cv2.INTER_AREA).astype(np.float32, copy=False)
 
     # To keep human view better, padding with zeros if there is `min_size_h` > new_W
     if new_W < min_size_h:
         padding_image = np.zeros((new_H, min_size_h, 3)).astype(np.float32, copy=False)
         padding_image[:, :new_W] = image
-        source_size = padding_image.shape[:-1]
-
         image = padding_image
-    else:
-        source_size = (new_H, new_W)
 
     # Now resize image to size of `model_size` using area stuf
     image = cv2.resize(image, (model_size[1], model_size[0]), interpolation=cv2.INTER_AREA)
