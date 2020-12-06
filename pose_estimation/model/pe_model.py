@@ -208,12 +208,34 @@ class PEModel(PoseEstimatorInterface):
 
         # [N, W, H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS * 2]
         paf_prediction_reshaped = paf_prediction.reshape(*shape_paf[:-2], -1)
+        batched_paf = np.zeros((N, resize_to[0], resize_to[1], paf_prediction_reshaped.shape[-1]), dtype=np.float32)
+
+        for i in range(len(paf_prediction_reshaped)):
+            batched_paf[i] = cv2.resize(
+                paf_prediction_reshaped[i],
+                (resize_to[1], resize_to[0]),
+                interpolation=cv2.INTER_AREA
+            )
+        """
+        # OLD
         batched_paf = np.stack(
             [
                 cv2.resize(paf_prediction_reshaped[i], (resize_to[1], resize_to[0]), interpolation=cv2.INTER_AREA)
                 for i in range(len(paf_prediction_reshaped))
             ]
         )
+        """
+
+        batched_heatmap = np.zeros((N, resize_to[0], resize_to[1], heatmap_prediction.shape[-1]), dtype=np.float32)
+
+        for i in range(len(heatmap_prediction)):
+            batched_heatmap[i] = cv2.resize(
+                heatmap_prediction[i],
+                (resize_to[1], resize_to[0]),
+                interpolation=cv2.INTER_AREA
+            )
+        """
+        # OLD
         # Process HEATMAP
         batched_heatmap = np.stack(
             [
@@ -221,6 +243,7 @@ class PEModel(PoseEstimatorInterface):
                 for i in range(len(heatmap_prediction))
             ]
         )
+        """
         # Get peaks
         batched_heatmap, batched_peaks = self._session.run(
             [self._smoother.get_output(), self._peaks],
