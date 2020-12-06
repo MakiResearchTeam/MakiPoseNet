@@ -216,15 +216,6 @@ class PEModel(PoseEstimatorInterface):
                 (resize_to[1], resize_to[0]),
                 interpolation=cv2.INTER_AREA
             )
-        """
-        # OLD
-        batched_paf = np.stack(
-            [
-                cv2.resize(paf_prediction_reshaped[i], (resize_to[1], resize_to[0]), interpolation=cv2.INTER_AREA)
-                for i in range(len(paf_prediction_reshaped))
-            ]
-        )
-        """
 
         batched_heatmap = np.zeros((N, resize_to[0], resize_to[1], heatmap_prediction.shape[-1]), dtype=np.float32)
 
@@ -234,16 +225,7 @@ class PEModel(PoseEstimatorInterface):
                 (resize_to[1], resize_to[0]),
                 interpolation=cv2.INTER_AREA
             )
-        """
-        # OLD
-        # Process HEATMAP
-        batched_heatmap = np.stack(
-            [
-                cv2.resize(heatmap_prediction[i], (resize_to[1], resize_to[0]), interpolation=cv2.INTER_AREA)
-                for i in range(len(heatmap_prediction))
-            ]
-        )
-        """
+
         # Get peaks
         batched_heatmap, batched_peaks = self._session.run(
             [self._smoother.get_output(), self._peaks],
