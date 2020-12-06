@@ -208,23 +208,27 @@ class PEModel(PoseEstimatorInterface):
 
         # [N, W, H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS * 2]
         paf_prediction_reshaped = paf_prediction.reshape(*shape_paf[:-2], -1)
-        batched_paf = np.stack(
-            [
-                cv2.resize(paf_prediction_reshaped[i], (resize_to[1], resize_to[0]), interpolation=cv2.INTER_AREA)
-                for i in range(len(paf_prediction_reshaped))
-            ]
-        )
-        # Process HEATMAP
-        batched_heatmap = np.stack(
-            [
-                cv2.resize(heatmap_prediction[i], (resize_to[1], resize_to[0]), interpolation=cv2.INTER_AREA)
-                for i in range(len(heatmap_prediction))
-            ]
-        )
+        batched_paf = np.empty((N, resize_to[0], resize_to[1], paf_prediction_reshaped.shape[-1]), dtype=np.float32)
+        for i in range(len(paf_prediction_reshaped)):
+            batched_paf[i] = cv2.resize(
+                paf_prediction_reshaped[i],
+                (resize_to[1], resize_to[0]),
+                interpolation=cv2.INTER_AREA
+            )
+
+        # Process heatmap
+        batched_heatmap = np.empty((N, resize_to[0], resize_to[1], heatmap_prediction.shape[-1]), dtype=np.float32)
+        for i in range(len(heatmap_prediction)):
+            batched_heatmap[i] = cv2.resize(
+                heatmap_prediction[i],
+                (resize_to[1], resize_to[0]),
+                interpolation=cv2.INTER_AREA
+            )
+
         # Get peaks
         batched_heatmap, batched_peaks = self._session.run(
             [self._smoother.get_output(), self._peaks],
-            feed_dict={self.input_smoothed_image: batched_heatmap.astype(np.float32, copy=False)}
+            feed_dict={self.input_smoothed_image: batched_heatmap}
         )
 
         if using_estimate_alg:
@@ -233,12 +237,8 @@ class PEModel(PoseEstimatorInterface):
             batched_humans = []
 
             for i in range(len(batched_peaks)):
-                single_peaks = batched_peaks[i].astype(np.float32, copy=False)
-                single_heatmap = batched_heatmap[i].astype(np.float32, copy=False)
-                single_paff = batched_paf[i].astype(np.float32, copy=False)
-
                 # Estimate
-                humans_list = estimate_paf(single_peaks, single_heatmap, single_paff)
+                humans_list = estimate_paf(batched_peaks[i], batched_heatmap[i], batched_paf[i])
                 # Remove similar points, simple merge similar skeletons
                 humans_merged_list = merge_similar_skelets(humans_list)
 
