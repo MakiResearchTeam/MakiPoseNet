@@ -201,7 +201,7 @@ class PEModel(PoseEstimatorInterface):
             feed_dict={self._input_data_tensors[0]: x}
         )
 
-        # Process paf
+        # Process PAF
         # [N, W, H, NUM_PAFS, 2]
         shape_paf = paf_prediction.shape
         N, num_pafs = shape_paf[0], shape_paf[3]
@@ -209,31 +209,21 @@ class PEModel(PoseEstimatorInterface):
         # [N, W, H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS * 2]
         paf_prediction_reshaped = paf_prediction.reshape(*shape_paf[:-2], -1)
         batched_paf = np.empty((N, resize_to[0], resize_to[1], paf_prediction_reshaped.shape[-1]), dtype=np.float32)
-        _ = np.stack([
-                cv2.resize(
-                    paf_prediction_reshaped[i],
-                    (resize_to[1], resize_to[0]),
-                    interpolation=cv2.INTER_AREA
-                )
-                for i in range(len(paf_prediction_reshaped))
-            ],
-            axis=0,
-            out=batched_paf
-        )
+        for i in range(len(paf_prediction_reshaped)):
+            batched_paf[i] = cv2.resize(
+                paf_prediction_reshaped[i],
+                (resize_to[1], resize_to[0]),
+                interpolation=cv2.INTER_AREA
+            )
 
         # Process heatmap
         batched_heatmap = np.empty((N, resize_to[0], resize_to[1], heatmap_prediction.shape[-1]), dtype=np.float32)
-        _ = np.stack([
-                cv2.resize(
-                    heatmap_prediction[i],
-                    (resize_to[1], resize_to[0]),
-                    interpolation=cv2.INTER_AREA
-                )
-                for i in range(len(heatmap_prediction))
-            ],
-            axis=0,
-            out=batched_heatmap
-        )
+        for i in range(len(heatmap_prediction)):
+            batched_heatmap[i] = cv2.resize(
+                heatmap_prediction[i],
+                (resize_to[1], resize_to[0]),
+                interpolation=cv2.INTER_AREA
+            )
 
         # Get peaks
         batched_heatmap, batched_peaks = self._session.run(
