@@ -125,7 +125,7 @@ class PEModel(PoseEstimatorInterface):
         num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
         
         self.input_smoothed_image = tf.placeholder(
-            shape=[1, None, None, num_keypoints],
+            shape=[self.get_batch_size(), None, None, num_keypoints],
             dtype=tf.float32,
             name='smoothed_input_image'
         )
