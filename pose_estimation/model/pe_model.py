@@ -224,7 +224,7 @@ class PEModel(PoseEstimatorInterface):
         # Get peaks
         batched_heatmap, batched_peaks = self._session.run(
             [self._smoother.get_output(), self._peaks],
-            feed_dict={self.input_smoothed_image: batched_heatmap.astype(np.float32, copy=False)}
+            feed_dict={self.input_smoothed_image: batched_heatmap}
         )
 
         if using_estimate_alg:
@@ -233,12 +233,8 @@ class PEModel(PoseEstimatorInterface):
             batched_humans = []
 
             for i in range(len(batched_peaks)):
-                single_peaks = batched_peaks[i].astype(np.float32, copy=False)
-                single_heatmap = batched_heatmap[i].astype(np.float32, copy=False)
-                single_paff = batched_paf[i].astype(np.float32, copy=False)
-
                 # Estimate
-                humans_list = estimate_paf(single_peaks, single_heatmap, single_paff)
+                humans_list = estimate_paf(batched_peaks[i], batched_heatmap[i], batched_paf[i])
                 # Remove similar points, simple merge similar skeletons
                 humans_merged_list = merge_similar_skelets(humans_list)
 
