@@ -91,9 +91,8 @@ class Smoother(object):
         return out_filter
 
     def make_gauss_var(self, name, size, sigma, c_i):
-        # with tf.device("/cpu:0"):
         kernel = self.gauss_kernel(size, sigma, c_i)
-        var = tf.Variable(tf.convert_to_tensor(kernel), name=name)
+        var = tf.constant(kernel.astype(np.float32), name=name, dtype=tf.float32)
         return var
 
     def get_output(self):

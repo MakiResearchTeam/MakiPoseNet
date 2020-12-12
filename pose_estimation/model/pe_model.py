@@ -156,7 +156,6 @@ class PEModel(PoseEstimatorInterface):
         )
 
     def set_session(self, session: tf.Session):
-        session.run(tf.variables_initializer(self._smoother.get_variables()))
         super().set_session(session)
 
     def predict(self, x: list, resize_to=None, using_estimate_alg=True):
