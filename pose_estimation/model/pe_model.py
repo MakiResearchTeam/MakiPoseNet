@@ -221,7 +221,8 @@ class PEModel(PoseEstimatorInterface):
         batched_paf, batched_heatmap, batched_peaks = self._session.run(
             [self.resized_paf, self._smoother.get_output(), self._peaks],
             feed_dict={
-                self._input_data_tensors[0]: x
+                self._input_data_tensors[0]: x,
+                self.upsample_size: resize_to
             }
         )
 
