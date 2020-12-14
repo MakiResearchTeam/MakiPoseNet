@@ -137,14 +137,14 @@ class PEModel(PoseEstimatorInterface):
             main_paf,
             shape=tf.stack([shape_paf[0], shape_paf[1], shape_paf[2], -1], axis=0)
         )
-        self.resized_paf = tf.image.resize_nearest_neighbor(
+        self._resized_paf = tf.image.resize_nearest_neighbor(
             main_paf,
             self.upsample_size,
             align_corners=False,
             name='upsample_paf'
         )
 
-        self.resized_heatmap = tf.image.resize_nearest_neighbor(
+        self._resized_heatmap = tf.image.resize_nearest_neighbor(
             self.get_main_heatmap_tensor(),
             self.upsample_size,
             align_corners=False,
@@ -153,7 +153,7 @@ class PEModel(PoseEstimatorInterface):
 
         num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
         self._smoother = Smoother(
-            {Smoother.DATA: self.resized_heatmap},
+            {Smoother.DATA: self._resized_heatmap},
             25,
             3.0,
             num_keypoints
@@ -219,7 +219,7 @@ class PEModel(PoseEstimatorInterface):
             resize_to = x[0].shape[:2]
 
         batched_paf, batched_heatmap, batched_peaks = self._session.run(
-            [self.resized_paf, self._smoother.get_output(), self._peaks],
+            [self._resized_paf, self._smoother.get_output(), self._peaks],
             feed_dict={
                 self._input_data_tensors[0]: x,
                 self.upsample_size: resize_to
@@ -245,6 +245,15 @@ class PEModel(PoseEstimatorInterface):
             num_pafs = shape_paf[-1] // 2
             # [N, NEW_W, NEW_H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS, 2]
             return batched_peaks, batched_heatmap, batched_paf.reshape(N, *resize_to, num_pafs, 2)
+
+    def get_peaks_tensor(self) -> tf.Tensor:
+        return self._peaks
+
+    def get_resized_paf_tensor(self) -> tf.Tensor:
+        return self._resized_paf
+
+    def get_smoother_output_heatmap_tensor(self) -> tf.Tensor:
+        return self._smoother.get_output()
 
     def get_main_paf_tensor(self):
         return self._output_data_tensors[self._index_of_main_paf]
