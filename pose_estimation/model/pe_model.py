@@ -321,6 +321,12 @@ class PEModel(PoseEstimatorInterface):
         indeces = np.stack(indeces, axis=-1)
         return indeces, peaks
 
+    def get_indeces_tensor(self) -> tf.Tensor:
+        return self.__indeces
+
+    def get_peaks_score_tensor(self) -> tf.Tensor:
+        return self.__peaks_score
+
     def get_peaks_tensor(self) -> tf.Tensor:
         return self._peaks
 
