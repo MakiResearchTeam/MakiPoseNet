@@ -3009,8 +3009,9 @@ SWIG_Python_NonDynamicSetAttr(PyObject *obj, PyObject *name, PyObject *value) {
 #define SWIGTYPE_p_VectorXY swig_types[3]
 #define SWIGTYPE_p_a_2__int swig_types[4]
 #define SWIGTYPE_p_char swig_types[5]
-static swig_type_info *swig_types[7];
-static swig_module_info swig_module = {swig_types, 6, 0, 0, 0, 0};
+#define SWIGTYPE_p_int swig_types[6]
+static swig_type_info *swig_types[8];
+static swig_module_info swig_module = {swig_types, 7, 0, 0, 0, 0};
 #define SWIG_TypeQuery(name) SWIG_TypeQueryModule(&swig_module, &swig_module, name)
 #define SWIG_MangledTypeQuery(name) SWIG_MangledTypeQueryModule(&swig_module, &swig_module, name)
 
@@ -4961,69 +4962,73 @@ SWIGINTERN PyObject *Connection_swigregister(PyObject *SWIGUNUSEDPARM(self), PyO
 SWIGINTERN PyObject *_wrap_process_paf(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   int arg1 ;
-  int arg2 ;
+  float *arg2 = (float *) 0 ;
   int arg3 ;
-  float *arg4 = (float *) 0 ;
-  int arg5 ;
+  int arg4 ;
+  int *arg5 = (int *) 0 ;
   int arg6 ;
   int arg7 ;
-  float *arg8 = (float *) 0 ;
-  int arg9 ;
-  int arg10 ;
-  int arg11 ;
-  float *arg12 = (float *) 0 ;
+  int arg8 ;
+  float *arg9 = (float *) 0 ;
   PyArrayObject *array1 = NULL ;
   int is_new_object1 = 0 ;
-  PyArrayObject *array5 = NULL ;
-  int is_new_object5 = 0 ;
-  PyArrayObject *array9 = NULL ;
-  int is_new_object9 = 0 ;
+  int val3 ;
+  int ecode3 = 0 ;
+  int val4 ;
+  int ecode4 = 0 ;
+  void *argp5 = 0 ;
+  int res5 = 0 ;
+  PyArrayObject *array6 = NULL ;
+  int is_new_object6 = 0 ;
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
   PyObject * obj2 = 0 ;
+  PyObject * obj3 = 0 ;
+  PyObject * obj4 = 0 ;
   int result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOO:process_paf",&obj0,&obj1,&obj2)) SWIG_fail;
+  if (!PyArg_ParseTuple(args,(char *)"OOOOO:process_paf",&obj0,&obj1,&obj2,&obj3,&obj4)) SWIG_fail;
   {
-    npy_intp size[3] = {
-      -1, -1, -1 
+    npy_intp size[1] = {
+      -1
     };
-    array1 = obj_to_array_contiguous_allow_conversion(obj0, NPY_FLOAT,
+    array1 = obj_to_array_contiguous_allow_conversion(obj0,
+      NPY_FLOAT,
       &is_new_object1);
-    if (!array1 || !require_dimensions(array1, 3) ||
-      !require_size(array1, size, 3)) SWIG_fail;
+    if (!array1 || !require_dimensions(array1, 1) ||
+      !require_size(array1, size, 1)) SWIG_fail;
     arg1 = (int) array_size(array1,0);
-    arg2 = (int) array_size(array1,1);
-    arg3 = (int) array_size(array1,2);
-    arg4 = (float*) array_data(array1);
+    arg2 = (float*) array_data(array1);
   }
+  ecode3 = SWIG_AsVal_int(obj1, &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "process_paf" "', argument " "3"" of type '" "int""'");
+  } 
+  arg3 = static_cast< int >(val3);
+  ecode4 = SWIG_AsVal_int(obj2, &val4);
+  if (!SWIG_IsOK(ecode4)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "process_paf" "', argument " "4"" of type '" "int""'");
+  } 
+  arg4 = static_cast< int >(val4);
+  res5 = SWIG_ConvertPtr(obj3, &argp5,SWIGTYPE_p_int, 0 |  0 );
+  if (!SWIG_IsOK(res5)) {
+    SWIG_exception_fail(SWIG_ArgError(res5), "in method '" "process_paf" "', argument " "5"" of type '" "int *""'"); 
+  }
+  arg5 = reinterpret_cast< int * >(argp5);
   {
     npy_intp size[3] = {
       -1, -1, -1 
     };
-    array5 = obj_to_array_contiguous_allow_conversion(obj1, NPY_FLOAT,
-      &is_new_object5);
-    if (!array5 || !require_dimensions(array5, 3) ||
-      !require_size(array5, size, 3)) SWIG_fail;
-    arg5 = (int) array_size(array5,0);
-    arg6 = (int) array_size(array5,1);
-    arg7 = (int) array_size(array5,2);
-    arg8 = (float*) array_data(array5);
+    array6 = obj_to_array_contiguous_allow_conversion(obj4, NPY_FLOAT,
+      &is_new_object6);
+    if (!array6 || !require_dimensions(array6, 3) ||
+      !require_size(array6, size, 3)) SWIG_fail;
+    arg6 = (int) array_size(array6,0);
+    arg7 = (int) array_size(array6,1);
+    arg8 = (int) array_size(array6,2);
+    arg9 = (float*) array_data(array6);
   }
-  {
-    npy_intp size[3] = {
-      -1, -1, -1 
-    };
-    array9 = obj_to_array_contiguous_allow_conversion(obj2, NPY_FLOAT,
-      &is_new_object9);
-    if (!array9 || !require_dimensions(array9, 3) ||
-      !require_size(array9, size, 3)) SWIG_fail;
-    arg9 = (int) array_size(array9,0);
-    arg10 = (int) array_size(array9,1);
-    arg11 = (int) array_size(array9,2);
-    arg12 = (float*) array_data(array9);
-  }
-  result = (int)process_paf(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12);
+  result = (int)process_paf(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9);
   resultobj = SWIG_From_int(static_cast< int >(result));
   {
     if (is_new_object1 && array1)
@@ -5032,15 +5037,9 @@ SWIGINTERN PyObject *_wrap_process_paf(PyObject *SWIGUNUSEDPARM(self), PyObject 
     }
   }
   {
-    if (is_new_object5 && array5)
+    if (is_new_object6 && array6)
     {
-      Py_DECREF(array5); 
-    }
-  }
-  {
-    if (is_new_object9 && array9)
-    {
-      Py_DECREF(array9); 
+      Py_DECREF(array6); 
     }
   }
   return resultobj;
@@ -5052,15 +5051,9 @@ fail:
     }
   }
   {
-    if (is_new_object5 && array5)
+    if (is_new_object6 && array6)
     {
-      Py_DECREF(array5); 
-    }
-  }
-  {
-    if (is_new_object9 && array9)
-    {
-      Py_DECREF(array9); 
+      Py_DECREF(array6); 
     }
   }
   return NULL;
@@ -5262,6 +5255,7 @@ static swig_type_info _swigt__p_Peak = {"_p_Peak", "Peak *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_VectorXY = {"_p_VectorXY", "VectorXY *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_a_2__int = {"_p_a_2__int", "int (*)[2]", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_char = {"_p_char", "char *", 0, 0, (void*)0, 0};
+static swig_type_info _swigt__p_int = {"_p_int", "int *", 0, 0, (void*)0, 0};
 
 static swig_type_info *swig_type_initial[] = {
   &_swigt__p_Connection,
@@ -5270,6 +5264,7 @@ static swig_type_info *swig_type_initial[] = {
   &_swigt__p_VectorXY,
   &_swigt__p_a_2__int,
   &_swigt__p_char,
+  &_swigt__p_int,
 };
 
 static swig_cast_info _swigc__p_Connection[] = {  {&_swigt__p_Connection, 0, 0, 0},{0, 0, 0, 0}};
@@ -5278,6 +5273,7 @@ static swig_cast_info _swigc__p_Peak[] = {  {&_swigt__p_Peak, 0, 0, 0},{0, 0, 0,
 static swig_cast_info _swigc__p_VectorXY[] = {  {&_swigt__p_VectorXY, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_a_2__int[] = {  {&_swigt__p_a_2__int, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_char[] = {  {&_swigt__p_char, 0, 0, 0},{0, 0, 0, 0}};
+static swig_cast_info _swigc__p_int[] = {  {&_swigt__p_int, 0, 0, 0},{0, 0, 0, 0}};
 
 static swig_cast_info *swig_cast_initial[] = {
   _swigc__p_Connection,
@@ -5286,6 +5282,7 @@ static swig_cast_info *swig_cast_initial[] = {
   _swigc__p_VectorXY,
   _swigc__p_a_2__int,
   _swigc__p_char,
+  _swigc__p_int,
 };
 
 

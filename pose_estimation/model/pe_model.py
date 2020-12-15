@@ -231,8 +231,9 @@ class PEModel(PoseEstimatorInterface):
             batched_humans = []
 
             for i in range(len(batched_peaks)):
+                indeces, peaks = self.__get_peak_indeces(batched_peaks[i])
                 # Estimate
-                humans_list = estimate_paf(batched_peaks[i], batched_heatmap[i], batched_paf[i])
+                humans_list = estimate_paf(peaks, indeces, batched_paf[i])
                 # Remove similar points, simple merge similar skeletons
                 humans_merged_list = merge_similar_skelets(humans_list)
                 batched_humans.append(humans_merged_list)
@@ -245,6 +246,35 @@ class PEModel(PoseEstimatorInterface):
             num_pafs = shape_paf[-1] // 2
             # [N, NEW_W, NEW_H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS, 2]
             return batched_peaks, batched_heatmap, batched_paf.reshape(N, *resize_to, num_pafs, 2)
+
+    def __get_peak_indeces(self, array, thresh=0.1):
+        """
+        Returns array indeces of the values larger than threshold.
+
+        Parameters
+        ----------
+        array : ndarray of any shape
+            Tensor which values' indeces to gather.
+        thresh : float
+            Threshold value.
+
+        Returns
+        -------
+        ndarray of shape [n_peaks, dim(array)]
+            Array of indeces of the values larger than threshold.
+        ndarray of shape [n_peaks]
+            Array of the values at corresponding indeces.
+        """
+        flat_peaks = np.reshape(array, -1)
+        coords = np.arange(len(flat_peaks))
+
+        peaks_coords = coords[flat_peaks > thresh]
+
+        peaks = flat_peaks.take(peaks_coords)
+
+        indeces = np.unravel_index(peaks_coords, shape=array.shape)
+        indeces = np.stack(indeces, axis=-1)
+        return indeces, peaks
 
     def get_peaks_tensor(self) -> tf.Tensor:
         return self._peaks
