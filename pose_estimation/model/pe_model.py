@@ -122,6 +122,7 @@ class PEModel(PoseEstimatorInterface):
         Initialize tensors for prediction
 
         """
+        self.__saved_mesh_grid = None
 
         # Store (H, W) - final size of the prediction
         self.upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=PEModel.UPSAMPLE_SIZE)
@@ -270,9 +271,10 @@ class PEModel(PoseEstimatorInterface):
             Array of the values at corresponding indeces.
         """
         flat_peaks = np.reshape(array, -1)
-        coords = np.arange(len(flat_peaks))
+        if self.__saved_mesh_grid is not None and len(flat_peaks) != self.__saved_mesh_grid.shape[0]:
+            self.__saved_mesh_grid = np.arange(len(flat_peaks))
 
-        peaks_coords = coords[flat_peaks > thresh]
+        peaks_coords = self.__saved_mesh_grid[flat_peaks > thresh]
 
         peaks = flat_peaks.take(peaks_coords)
 
