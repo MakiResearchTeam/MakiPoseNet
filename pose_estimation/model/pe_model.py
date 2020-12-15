@@ -233,7 +233,11 @@ class PEModel(PoseEstimatorInterface):
             for i in range(len(batched_peaks)):
                 indeces, peaks = self.__get_peak_indeces(batched_peaks[i])
                 # Estimate
-                humans_list = estimate_paf(peaks, indeces, batched_paf[i])
+                humans_list = estimate_paf(
+                    peaks.astype(np.float32, copy=False),
+                    indeces.astype(np.int32, copy=False),
+                    batched_paf[i]
+                )
                 # Remove similar points, simple merge similar skeletons
                 humans_merged_list = merge_similar_skelets(humans_list)
                 batched_humans.append(humans_merged_list)
