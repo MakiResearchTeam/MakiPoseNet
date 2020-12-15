@@ -271,7 +271,7 @@ class PEModel(PoseEstimatorInterface):
             Array of the values at corresponding indeces.
         """
         flat_peaks = np.reshape(array, -1)
-        if self.__saved_mesh_grid is not None and len(flat_peaks) != self.__saved_mesh_grid.shape[0]:
+        if self.__saved_mesh_grid is not None or len(flat_peaks) != self.__saved_mesh_grid.shape[0]:
             self.__saved_mesh_grid = np.arange(len(flat_peaks))
 
         peaks_coords = self.__saved_mesh_grid[flat_peaks > thresh]
