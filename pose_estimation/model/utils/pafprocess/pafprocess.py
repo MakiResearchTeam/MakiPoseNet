@@ -242,8 +242,8 @@ Connection_swigregister = _pafprocess.Connection_swigregister
 Connection_swigregister(Connection)
 
 
-def process_paf(size_score_from_peaks, p1, p2, peak_info_data, f1):
-    return _pafprocess.process_paf(size_score_from_peaks, p1, p2, peak_info_data, f1)
+def process_paf(size_score_from_peaks, p1, f1):
+    return _pafprocess.process_paf(size_score_from_peaks, p1, f1)
 process_paf = _pafprocess.process_paf
 
 def get_num_humans():
