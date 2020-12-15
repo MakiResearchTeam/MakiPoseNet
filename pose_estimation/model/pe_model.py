@@ -179,6 +179,8 @@ class PEModel(PoseEstimatorInterface):
             tf.zeros_like(self._smoother.get_output())
         )
 
+        self.__indeces, self.__peaks_score = self.__get_peak_indeces_tf(self._peaks[0])
+
     def set_session(self, session: tf.Session):
         super().set_session(session)
 
@@ -219,20 +221,20 @@ class PEModel(PoseEstimatorInterface):
             # Take `H`, `W` from input image
             resize_to = x[0].shape[:2]
 
-        batched_paf, batched_heatmap, batched_peaks = self._session.run(
-            [self._resized_paf, self._smoother.get_output(), self._peaks],
-            feed_dict={
-                self._input_data_tensors[0]: x,
-                self.upsample_size: resize_to
-            }
-        )
-
         if using_estimate_alg:
+
+            batched_paf, indeces, peaks = self._session.run(
+                [self._resized_paf, self.__indeces, self.__peaks_score],
+                feed_dict={
+                    self._input_data_tensors[0]: x,
+                    self.upsample_size: resize_to
+                }
+            )
+
             # Connect skeletons by applying two algorithms
             batched_humans = []
 
-            for i in range(len(batched_peaks)):
-                indeces, peaks = self.__get_peak_indeces(batched_peaks[i])
+            for i in range(len(batched_paf)):
                 # Estimate
                 humans_list = estimate_paf(
                     peaks.astype(np.float32, copy=False),
@@ -244,6 +246,15 @@ class PEModel(PoseEstimatorInterface):
                 batched_humans.append(humans_merged_list)
             return batched_humans
         else:
+
+            batched_paf, batched_heatmap, batched_peaks = self._session.run(
+                [self._resized_paf, self._smoother.get_output(), self._peaks],
+                feed_dict={
+                    self._input_data_tensors[0]: x,
+                    self.upsample_size: resize_to
+                }
+            )
+
             # For paf
             # [N, NEW_W, NEW_H, NUM_PAFS * 2]
             shape_paf = batched_paf.shape
@@ -251,6 +262,34 @@ class PEModel(PoseEstimatorInterface):
             num_pafs = shape_paf[-1] // 2
             # [N, NEW_W, NEW_H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS, 2]
             return batched_peaks, batched_heatmap, batched_paf.reshape(N, *resize_to, num_pafs, 2)
+
+    def __get_peak_indeces_tf(self, array: tf.Tensor, thresh=0.1):
+        """
+        Returns array indeces of the values larger than threshold.
+
+        Parameters
+        ----------
+        array : ndarray of any shape
+            Tensor which values' indeces to gather.
+        thresh : float
+            Threshold value.
+
+        Returns
+        -------
+        ndarray of shape [n_peaks, dim(array)]
+            Array of indeces of the values larger than threshold.
+        ndarray of shape [n_peaks]
+            Array of the values at corresponding indeces.
+        """
+        flat_peaks = tf.reshape(array, [-1])
+        coords = tf.range(0, tf.shape(flat_peaks)[0], dtype=tf.int32)
+
+        peaks_coords = coords[flat_peaks > thresh]
+
+        peaks = tf.gather(flat_peaks, peaks_coords)
+
+        indeces = tf.transpose(tf.unravel_index(peaks_coords, dims=tf.shape(array)), [1, 0])
+        return indeces, peaks
 
     def __get_peak_indeces(self, array, thresh=0.1):
         """
