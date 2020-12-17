@@ -91,6 +91,7 @@ class PEModel(PoseEstimatorInterface):
         input_x: MakiTensor,
         output_paf_list: list,
         output_heatmap_list: list,
+        smoother_kernel_size=25,
         name="Pose_estimation"
     ):
         """
@@ -115,9 +116,9 @@ class PEModel(PoseEstimatorInterface):
         self._heatmap_list = output_heatmap_list
         self._index_of_main_paf = len(output_paf_list) - 1
         super().__init__(outputs=output_paf_list + output_heatmap_list, inputs=[input_x])
-        self._init_tensors_for_prediction()
+        self._init_tensors_for_prediction(smoother_kernel_size=smoother_kernel_size)
 
-    def _init_tensors_for_prediction(self):
+    def _init_tensors_for_prediction(self, smoother_kernel_size):
         """
         Initialize tensors for prediction
 
@@ -155,7 +156,7 @@ class PEModel(PoseEstimatorInterface):
         num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
         self._smoother = Smoother(
             {Smoother.DATA: self._resized_heatmap},
-            25,
+            smoother_kernel_size,
             3.0,
             num_keypoints
         )
