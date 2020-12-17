@@ -43,7 +43,7 @@ class PEModel(PoseEstimatorInterface):
         }
 
     @staticmethod
-    def from_json(path_to_model: str, input_tensor: MakiTensor = None):
+    def from_json(path_to_model: str, input_tensor: MakiTensor = None, smoother_kernel_size=25):
         """
         Creates and returns PEModel from json file contains its architecture
 
@@ -83,6 +83,7 @@ class PEModel(PoseEstimatorInterface):
             input_x=input_x,
             output_heatmap_list=output_heatmap_list,
             output_paf_list=output_paf_list,
+            smoother_kernel_size=smoother_kernel_size,
             name=model_name
         )
 
