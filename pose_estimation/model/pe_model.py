@@ -40,7 +40,8 @@ class PEModel(PoseEstimatorInterface):
     def from_json(
             path_to_model: str, input_tensor: MakiTensor = None,
             smoother_kernel_size=25, fast_mode=False,
-            prediction_down_scale=1, ignore_last_dim_inference=True):
+            prediction_down_scale=1, ignore_last_dim_inference=True,
+            threash_hold_peaks=0.1):
         """
         Creates and returns PEModel from json file contains its architecture
 
@@ -62,6 +63,9 @@ class PEModel(PoseEstimatorInterface):
             Size of a kernel in the smoother (aka gaussian filter)
         ignore_last_dim_inference : bool
             In most models, last dimension is background heatmap and its does not used in inference
+        threash_hold_peaks : float
+            pass
+
         """
         # Read architecture from file
         json_file = open(path_to_model)
@@ -102,6 +106,7 @@ class PEModel(PoseEstimatorInterface):
             fast_mode=fast_mode,
             prediction_down_scale=prediction_down_scale,
             ignore_last_dim_inference=ignore_last_dim_inference,
+            threash_hold_peaks=threash_hold_peaks,
             name=model_name
         )
 
@@ -314,6 +319,7 @@ class PEModel(PoseEstimatorInterface):
         ignore_last_dim_inference=True,
         prediction_down_scale=1,
         fast_mode=False,
+        threash_hold_peaks=0.1,
         name="Pose_estimation"
     ):
         """
@@ -336,6 +342,8 @@ class PEModel(PoseEstimatorInterface):
         prediction_down_scale : int
             At which scale build skeletons,
             If more than 1, final keypoint will be scaled to size of the input image
+        threash_hold_peaks : float
+            pass
         fast_mode : bool
             If equal to True, max_pool operation will be change to a binary operations,
             which are faster, but can give lower accuracy
@@ -352,7 +360,8 @@ class PEModel(PoseEstimatorInterface):
             smoother_kernel_size=smoother_kernel_size,
             ignore_last_dim_inference=ignore_last_dim_inference,
             prediction_down_scale=prediction_down_scale,
-            fast_mode=fast_mode
+            fast_mode=fast_mode,
+            threash_hold_peaks=threash_hold_peaks
         )
 
     def _init_tensors_for_prediction(
@@ -360,7 +369,8 @@ class PEModel(PoseEstimatorInterface):
             smoother_kernel_size,
             ignore_last_dim_inference,
             prediction_down_scale,
-            fast_mode):
+            fast_mode,
+            threash_hold_peaks):
         """
         Initialize tensors for prediction
 
@@ -376,7 +386,8 @@ class PEModel(PoseEstimatorInterface):
             main_paf, main_heatmap,
             smoother_kernel_size=smoother_kernel_size,
             prediction_down_scale=prediction_down_scale,
-            fast_mode=fast_mode
+            fast_mode=fast_mode,
+            threash_hold_peaks=threash_hold_peaks
         )
         self.upsample_size = tensors[0]
         self._smoother = tensors[1]
