@@ -44,6 +44,24 @@ class PEModel(PoseEstimatorInterface):
         """
         Creates and returns PEModel from json file contains its architecture
 
+        Parameters
+        ----------
+        path_to_model : str
+            Path to model which are saved as json file.
+            Example: /home/user/model.json
+        input_tensor : MakiTensor
+            Custom input tensor for model, in most cases its just placeholder.
+            By default equal to None, i.e. placeholder as input for model will be created automatically
+        fast_mode : bool
+            If equal to True, max_pool operation will be change to a binary operations,
+            which are faster, but can give lower accuracy
+        prediction_down_scale : int
+            At which scale build skeletons,
+            If more than 1, final keypoint will be scaled to size of the input image
+        smoother_kernel_size : int
+            Size of a kernel in the smoother (aka gaussian filter)
+        ignore_last_dim_inference : bool
+            In most models, last dimension is background heatmap and its does not used in inference
         """
         # Read architecture from file
         json_file = open(path_to_model)
@@ -364,7 +382,7 @@ class PEModel(PoseEstimatorInterface):
         self._smoother = tensors[1]
         self._resized_paf = tensors[2]
         self._resized_heatmap = tensors[3]
-        self.__peaks = tensors[4]
+        self._peaks = tensors[4]
         self.__indices = tensors[5]
         self.__peaks_score = tensors[6]
 
