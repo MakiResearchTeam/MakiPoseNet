@@ -138,6 +138,19 @@ class PEModel(PoseEstimatorInterface):
             Shape: [N, num_ind]
 
         """
+        if not isinstance(prediction_down_scale, int):
+            raise TypeError(f"Parameter: `prediction_down_scale` should have type int, "
+                            f"but type:`{type(prediction_down_scale)}` were given with value: {prediction_down_scale}.")
+
+        if not isinstance(smoother_kernel_size, int) or smoother_kernel_size <= 0 or smoother_kernel_size >= 50:
+            raise TypeError(f"Parameter: `smoother_kernel_size` should have type int "
+                            f"and this value should be in range (0, 50), "
+                            f"but type:`{type(smoother_kernel_size)}` were given with value: {smoother_kernel_size}.")
+
+        if threash_hold_peaks <= 0.0 or threash_hold_peaks >= 1.0:
+            raise TypeError(f"Parameter: `threash_hold_peaks` should be in range (0.0, 1.0), "
+                            f"but value: {threash_hold_peaks} were given.")
+
         # Store (H, W) - final size of the prediction
         upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=PEModel.UPSAMPLE_SIZE)
 
@@ -156,6 +169,8 @@ class PEModel(PoseEstimatorInterface):
             name='upsample_paf'
         )
 
+        # For more faster inference,
+        # We can take peaks on low res heatmap
         if prediction_down_scale > 1:
             final_heatmap_size = upsample_size // prediction_down_scale
         else:
