@@ -233,7 +233,9 @@ class PEModel(PoseEstimatorInterface):
         indices, peaks_score = PEModel._get_peak_indices_tf(peaks, thresh=threash_hold_peaks)
 
         if prediction_down_scale > 1:
-            indices = indices * np.array([prediction_down_scale]*2, dtype=np.float32)
+            # indices - [num_indx, 3], first two dimensions - xy,
+            # last dims - keypoint class (in order to save keypoint class scale to 1)
+            indices = indices * np.array([prediction_down_scale]*2 +[1], dtype=np.int32)
 
         return [
             upsample_size, smoother,
