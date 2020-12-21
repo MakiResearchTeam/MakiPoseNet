@@ -87,6 +87,146 @@ class PEModel(PoseEstimatorInterface):
             name=model_name
         )
 
+    @staticmethod
+    def build_inference_part(
+            main_paf: tf.Tensor, main_heatmap: tf.Tensor,
+            fast_mode=False, prediction_down_scale=1,
+            smoother_kernel_size=25, threash_hold_peaks=0.1):
+        """
+        Build inference part of the graph
+
+        Parameters
+        ----------
+        main_paf : tf.Tensor
+            pass
+            Shape: [N, W, H, NUM_KP // 2, 2]
+        main_heatmap : tf.Tensor
+            pass
+            Shape: [N, W, H, NUM_KP]
+        fast_mode : bool
+            pass
+        prediction_down_scale : int
+            pass
+        smoother_kernel_size : int
+            pass
+        threash_hold_peaks : float
+            pass
+
+        Returns
+        -------
+        upsample_size : tf.placeholder
+            pass
+            Shape: [N, W, H, NUM_KP]
+        smoother : Smoother obj
+            pass
+            Shape: [N, W, H, NUM_KP]
+        resized_paf : tf.Tensor
+            pass
+            Shape: [N, W, H, NUM_KP]
+        resized_heatmap : tf.Tensor
+            pass
+            Shape: [N, W, H, NUM_KP]
+        peaks : tf.Tensor
+            pass
+            Shape: [N, W, H, NUM_KP]
+        indices : tf.Tensor
+            pass
+            Shape: [N, W, H, NUM_KP]
+        peaks_score : tf.Tensor
+            pass
+            Shape: [N, W, H, NUM_KP]
+
+        """
+        # Store (H, W) - final size of the prediction
+        upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=PEModel.UPSAMPLE_SIZE)
+
+        # [N, W, H, NUM_PAFS, 2]
+        shape_paf = tf.shape(main_paf)
+
+        # [N, W, H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS * 2]
+        main_paf = tf.reshape(
+            main_paf,
+            shape=tf.stack([shape_paf[0], shape_paf[1], shape_paf[2], -1], axis=0)
+        )
+        resized_paf = tf.image.resize_nearest_neighbor(
+            main_paf,
+            upsample_size,
+            align_corners=False,
+            name='upsample_paf'
+        )
+
+        resized_heatmap = tf.image.resize_nearest_neighbor(
+            main_heatmap,
+            upsample_size,
+            align_corners=False,
+            name='upsample_heatmap'
+        )
+
+        num_keypoints = main_heatmap.get_shape().as_list()[-1]
+        smoother = Smoother(
+            {Smoother.DATA: resized_heatmap},
+            smoother_kernel_size,
+            3.0,
+            num_keypoints
+        )
+
+        # Apply NMS (Non maximum suppression)
+        # Apply max pool operation to heatmap
+        max_pooled_heatmap = tf.nn.max_pool(
+            smoother.get_output(),
+            PEModel._DEFAULT_KERNEL_MAX_POOL,
+            strides=[1, 1, 1, 1],
+            padding='SAME'
+        )
+        # Take only values that equal to heatmap from max pooling,
+        # i.e. biggest numbers of heatmaps
+        peaks = tf.where(
+            tf.equal(
+                smoother.get_output(),
+                max_pooled_heatmap
+            ),
+            smoother.get_output(),
+            tf.zeros_like(smoother.get_output())
+        )
+
+        indices, peaks_score = PEModel.__get_peak_indices_tf(peaks[0], threash=threash_hold_peaks)
+
+        return [
+            upsample_size, smoother,
+            resized_paf, resized_heatmap,
+            peaks, indices, peaks_score
+        ]
+
+    @staticmethod
+    def __get_peak_indices_tf(array: tf.Tensor, thresh=0.1):
+        """
+        Returns array indices of the values larger than threshold.
+
+        Parameters
+        ----------
+        array : ndarray of any shape
+            Tensor which values' indices to gather.
+        thresh : float
+            Threshold value.
+
+        Returns
+        -------
+        ndarray of shape [n_peaks, dim(array)]
+            Array of indices of the values larger than threshold.
+        ndarray of shape [n_peaks]
+            Array of the values at corresponding indices.
+        """
+        flat_peaks = tf.reshape(array, [-1])
+        coords = tf.range(0, tf.shape(flat_peaks)[0], dtype=tf.int32)
+
+        peaks_coords = coords[flat_peaks > thresh]
+
+        peaks = tf.gather(flat_peaks, peaks_coords)
+
+        indices = tf.transpose(tf.unravel_index(peaks_coords, dims=tf.shape(array)), [1, 0])
+        return indices, peaks,g
+
+
     def __init__(
         self,
         input_x: MakiTensor,
@@ -181,7 +321,7 @@ class PEModel(PoseEstimatorInterface):
             tf.zeros_like(self._smoother.get_output())
         )
 
-        self.__indeces, self.__peaks_score = self.__get_peak_indeces_tf(self._peaks[0])
+        self.__indices, self.__peaks_score = self.__get_peak_indices_tf(self._peaks[0])
 
     def set_session(self, session: tf.Session):
         super().set_session(session)
@@ -201,6 +341,7 @@ class PEModel(PoseEstimatorInterface):
         using_estimate_alg : bool
             If equal True, when algorithm to build skeletons will be used
             And method will return list of the class Human (See Return for more detail)
+            NOTICE! If equal True, then only first batch size (i.e. with batch_size = 1) will be processed.
             Otherwise, method will return peaks, heatmap and paf
 
         Returns
@@ -208,6 +349,7 @@ class PEModel(PoseEstimatorInterface):
         if using_estimate_alg is True:
             list
                 List of predictions to each input image.
+                NOTICE! Only first batch size (i.e. with batch_size = 1) will be processed.
                 Single element of this list is a List of classes Human which were detected.
 
         Otherwise:
@@ -225,30 +367,23 @@ class PEModel(PoseEstimatorInterface):
 
         if using_estimate_alg:
 
-            batched_paf, indeces, peaks = self._session.run(
-                [self._resized_paf, self.__indeces, self.__peaks_score],
+            batched_paf, indices, peaks = self._session.run(
+                [self._resized_paf, self.__indices, self.__peaks_score],
                 feed_dict={
                     self._input_data_tensors[0]: x,
                     self.upsample_size: resize_to
                 }
             )
 
-            # Connect skeletons by applying two algorithms
-            batched_humans = []
+            return [
+                merge_similar_skelets(estimate_paf(
+                    peaks=peaks.astype(np.float32, copy=False),
+                    indices=indices.astype(np.int32, copy=False),
+                    paf_mat=batched_paf[0]
+                ))
+            ]
 
-            for i in range(len(batched_paf)):
-                # Estimate
-                humans_list = estimate_paf(
-                    peaks.astype(np.float32, copy=False),
-                    indeces.astype(np.int32, copy=False),
-                    batched_paf[i]
-                )
-                # Remove similar points, simple merge similar skeletons
-                humans_merged_list = merge_similar_skelets(humans_list)
-                batched_humans.append(humans_merged_list)
-            return batched_humans
         else:
-
             batched_paf, batched_heatmap, batched_peaks = self._session.run(
                 [self._resized_paf, self._smoother.get_output(), self._peaks],
                 feed_dict={
@@ -265,51 +400,23 @@ class PEModel(PoseEstimatorInterface):
             # [N, NEW_W, NEW_H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS, 2]
             return batched_peaks, batched_heatmap, batched_paf.reshape(N, *resize_to, num_pafs, 2)
 
-    def __get_peak_indeces_tf(self, array: tf.Tensor, thresh=0.1):
+    def __get_peak_indices(self, array, thresh=0.1):
         """
-        Returns array indeces of the values larger than threshold.
+        Returns array indices of the values larger than threshold.
 
         Parameters
         ----------
         array : ndarray of any shape
-            Tensor which values' indeces to gather.
+            Tensor which values' indices to gather.
         thresh : float
             Threshold value.
 
         Returns
         -------
         ndarray of shape [n_peaks, dim(array)]
-            Array of indeces of the values larger than threshold.
+            Array of indices of the values larger than threshold.
         ndarray of shape [n_peaks]
-            Array of the values at corresponding indeces.
-        """
-        flat_peaks = tf.reshape(array, [-1])
-        coords = tf.range(0, tf.shape(flat_peaks)[0], dtype=tf.int32)
-
-        peaks_coords = coords[flat_peaks > thresh]
-
-        peaks = tf.gather(flat_peaks, peaks_coords)
-
-        indeces = tf.transpose(tf.unravel_index(peaks_coords, dims=tf.shape(array)), [1, 0])
-        return indeces, peaks
-
-    def __get_peak_indeces(self, array, thresh=0.1):
-        """
-        Returns array indeces of the values larger than threshold.
-
-        Parameters
-        ----------
-        array : ndarray of any shape
-            Tensor which values' indeces to gather.
-        thresh : float
-            Threshold value.
-
-        Returns
-        -------
-        ndarray of shape [n_peaks, dim(array)]
-            Array of indeces of the values larger than threshold.
-        ndarray of shape [n_peaks]
-            Array of the values at corresponding indeces.
+            Array of the values at corresponding indices.
         """
         flat_peaks = np.reshape(array, -1)
         if self.__saved_mesh_grid is None or len(flat_peaks) != self.__saved_mesh_grid.shape[0]:
@@ -319,12 +426,12 @@ class PEModel(PoseEstimatorInterface):
 
         peaks = flat_peaks.take(peaks_coords)
 
-        indeces = np.unravel_index(peaks_coords, shape=array.shape)
-        indeces = np.stack(indeces, axis=-1)
-        return indeces, peaks
+        indices = np.unravel_index(peaks_coords, shape=array.shape)
+        indices = np.stack(indices, axis=-1)
+        return indices, peaks
 
-    def get_indeces_tensor(self) -> tf.Tensor:
-        return self.__indeces
+    def get_indices_tensor(self) -> tf.Tensor:
+        return self.__indices
 
     def get_peaks_score_tensor(self) -> tf.Tensor:
         return self.__peaks_score

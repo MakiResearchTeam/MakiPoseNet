@@ -27,7 +27,7 @@ except ModuleNotFoundError as e:
     exit(-1)
 
 
-def estimate_paf(peaks, indeces, paf_mat):
+def estimate_paf(peaks, indices, paf_mat) -> list:
     """
     Estimate paff by using heatmap and peaks
 
@@ -35,7 +35,7 @@ def estimate_paf(peaks, indeces, paf_mat):
     ----------
     peaks : np.ndarray
         [N], value of peak
-    indeces : np.ndarray
+    indices : np.ndarray
         [N, 3], first 2 dimensions - yx coord, last dimension - keypoint class
     paf_mat : np.ndarray
         Numpy array of the PAF (Party affinity fields) which is usually prediction of the network
@@ -45,7 +45,7 @@ def estimate_paf(peaks, indeces, paf_mat):
     list
         List of the Human which contains body keypoints
     """
-    pafprocess.process_paf(peaks, indeces, paf_mat)
+    pafprocess.process_paf(peaks, indices, paf_mat)
     humans = []
     for human_id in range(pafprocess.get_num_humans()):
         human = Human()
@@ -73,7 +73,7 @@ def estimate_paf(peaks, indeces, paf_mat):
     return humans
 
 
-def merge_similar_skelets(humans: list, th_hold_x=0.5, th_hold_y=0.5):
+def merge_similar_skelets(humans: list, th_hold_x=0.5, th_hold_y=0.5) -> list:
     """
     Merge similar skeletons into one skelet
 
