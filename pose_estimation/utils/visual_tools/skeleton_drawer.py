@@ -16,17 +16,47 @@
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
 import cv2
+import abc
+import numpy as np
 from .constants import CONNECT_INDEXES
 from pose_estimation.utils.visual_tools.visualize_tools import draw_skeleton
 
 
+
+
 class SkeletonDrawer:
-    def __init__(self, video_path, connect_indexes=CONNECT_INDEXES, fps=20, color=(255, 0, 0)):
+    def __init__(
+            self, video_path, connect_indexes=CONNECT_INDEXES,
+            fps=20, color=(255, 0, 0), custom_method_to_draw=None):
+        """
+
+        Parameters
+        ----------
+        video_path
+        connect_indexes
+        fps
+        color
+        custom_method_to_draw : function
+            Input parameters: image, prediction: list, index_to_connect_skeleton: list
+
+        """
         self._video_path = video_path
         self._connect_indexes = connect_indexes
         self._fps = fps
         self._color = color
         self._video = None
+        self._custom_method_to_draw = custom_method_to_draw
+
+    def set_method_to_draw(self, method_to_draw):
+        """
+
+        Parameters
+        ----------
+        custom_method_to_draw : function
+            Input parameters: image, prediction: list, index_to_connect_skeleton: list
+
+        """
+        self._custom_method_to_draw = method_to_draw
 
     def _init(self, frame_size):
         height, width = frame_size
@@ -50,7 +80,10 @@ class SkeletonDrawer:
             self._init((h, w))
 
         for image, prediction in zip(images, predictions):
-            image = draw_skeleton(image, prediction, self._connect_indexes, self._color)
+            if self._custom_method_to_draw is not None:
+                image = self._custom_method_to_draw(image, prediction, self._connect_indexes)
+            else:
+                image = draw_skeleton(image, prediction, self._connect_indexes, self._color)
             self._video.write(image)
 
     def release(self):

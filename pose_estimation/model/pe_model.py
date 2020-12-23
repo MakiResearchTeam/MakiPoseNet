@@ -110,206 +110,6 @@ class PEModel(PoseEstimatorInterface):
             name=model_name
         )
 
-    @staticmethod
-    def build_inference_part(
-            main_paf: tf.Tensor, main_heatmap: tf.Tensor,
-            fast_mode=False, prediction_down_scale=1,
-            smoother_kernel_size=25, threash_hold_peaks=0.1):
-        """
-        Build inference part of the graph
-
-        Parameters
-        ----------
-        main_paf : tf.Tensor
-            Main (final) paf tensor
-            Shape: [N, H, W, NUM_KP // 2, 2]
-        main_heatmap : tf.Tensor
-            Main (final) heatmap tensor
-            Shape: [N, H, W, NUM_KP]
-        fast_mode : bool
-            If equal to True, max_pool operation will be change to a binary operations,
-            which are faster, but can give lower accuracy
-        prediction_down_scale : int
-            At which scale build skeletons,
-            If more than 1, final keypoint will be scaled to size of the input image
-        smoother_kernel_size : int
-            Size of a kernel in the smoother (aka gaussian filter)
-        threash_hold_peaks : float
-            Threash hold for peaks
-
-        Returns
-        -------
-        upsample_size : tf.placeholder
-            Placeholder, final heatmap and paf size after resize op
-            Shape: [2]
-        smoother : Smoother obj
-            Gaussian filter obj
-        resized_paf : tf.Tensor
-            Resized paf to upsample_size size
-            Shape: [N, upsample_size[0], upsample_size[1], NUM_KP // 2, 2]
-        resized_heatmap : tf.Tensor
-            Resized heatmap to upsample_size size
-            Shape: [N, upsample_size[0], upsample_size[1], NUM_KP ]
-        peaks : tf.Tensor
-            Peaks of the predictions
-            Shape: [N, W, H, NUM_KP]
-        indices : tf.Tensor
-            Indices of the maximum values on the peaks, store x,y coordinate and keypoint class (int)
-            Shape: [N, num_ind, 3]
-        peaks_score : tf.Tensor
-            Score for every indices
-            Shape: [N, num_ind]
-
-        """
-        if not isinstance(prediction_down_scale, int):
-            raise TypeError(f"Parameter: `prediction_down_scale` should have type int, "
-                            f"but type:`{type(prediction_down_scale)}` were given with value: {prediction_down_scale}.")
-
-        if not isinstance(smoother_kernel_size, int) or smoother_kernel_size <= 0 or smoother_kernel_size >= 50:
-            raise TypeError(f"Parameter: `smoother_kernel_size` should have type int "
-                            f"and this value should be in range (0, 50), "
-                            f"but type:`{type(smoother_kernel_size)}` were given with value: {smoother_kernel_size}.")
-
-        if threash_hold_peaks <= 0.0 or threash_hold_peaks >= 1.0:
-            raise TypeError(f"Parameter: `threash_hold_peaks` should be in range (0.0, 1.0), "
-                            f"but value: {threash_hold_peaks} were given.")
-
-        # Store (H, W) - final size of the prediction
-        upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=PEModel.UPSAMPLE_SIZE)
-
-        # [N, W, H, NUM_PAFS, 2]
-        shape_paf = tf.shape(main_paf)
-
-        # [N, W, H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS * 2]
-        main_paf = tf.reshape(
-            main_paf,
-            shape=tf.stack([shape_paf[0], shape_paf[1], shape_paf[2], -1], axis=0)
-        )
-        resized_paf = tf.image.resize_nearest_neighbor(
-            main_paf,
-            upsample_size,
-            align_corners=False,
-            name='upsample_paf'
-        )
-
-        # For more faster inference,
-        # We can take peaks on low res heatmap
-        if prediction_down_scale > 1:
-            final_heatmap_size = upsample_size // prediction_down_scale
-        else:
-            final_heatmap_size = upsample_size
-
-        resized_heatmap = tf.image.resize_nearest_neighbor(
-            main_heatmap,
-            final_heatmap_size,
-            align_corners=False,
-            name='upsample_heatmap'
-        )
-
-        num_keypoints = main_heatmap.get_shape().as_list()[-1]
-        smoother = Smoother(
-            {Smoother.DATA: resized_heatmap},
-            smoother_kernel_size,
-            3.0,
-            num_keypoints
-        )
-
-        if fast_mode:
-            heatmap_tf = smoother.get_output()[0]
-            heatmap_tf = tf.where(
-                tf.less(heatmap_tf, threash_hold_peaks),
-                tf.zeros_like(heatmap_tf), heatmap_tf
-            )
-
-            heatmap_with_borders = tf.pad(heatmap_tf, [(2, 2), (2, 2), (0, 0)])
-            heatmap_center = heatmap_with_borders[
-                             1:tf.shape(heatmap_with_borders)[0] - 1,
-                             1:tf.shape(heatmap_with_borders)[1] - 1
-            ]
-            heatmap_left = heatmap_with_borders[
-                           1:tf.shape(heatmap_with_borders)[0] - 1,
-                           2:tf.shape(heatmap_with_borders)[1]
-            ]
-            heatmap_right = heatmap_with_borders[
-                            1:tf.shape(heatmap_with_borders)[0] - 1,
-                            0:tf.shape(heatmap_with_borders)[1] - 2
-            ]
-            heatmap_up = heatmap_with_borders[
-                         2:tf.shape(heatmap_with_borders)[0],
-                         1:tf.shape(heatmap_with_borders)[1] - 1
-            ]
-            heatmap_down = heatmap_with_borders[
-                           0:tf.shape(heatmap_with_borders)[0] - 2,
-                           1:tf.shape(heatmap_with_borders)[1] - 1
-            ]
-
-            peaks = (heatmap_center > heatmap_left)  & \
-                    (heatmap_center > heatmap_right) & \
-                    (heatmap_center > heatmap_up)    & \
-                    (heatmap_center > heatmap_down)
-            peaks = tf.cast(peaks, tf.float32)
-        else:
-            # Apply NMS (Non maximum suppression)
-            # Apply max pool operation to heatmap
-            max_pooled_heatmap = tf.nn.max_pool(
-                smoother.get_output(),
-                PEModel._DEFAULT_KERNEL_MAX_POOL,
-                strides=[1, 1, 1, 1],
-                padding='SAME'
-            )
-            # Take only values that equal to heatmap from max pooling,
-            # i.e. biggest numbers of heatmaps
-            peaks = tf.where(
-                tf.equal(
-                    smoother.get_output(),
-                    max_pooled_heatmap
-                ),
-                smoother.get_output(),
-                tf.zeros_like(smoother.get_output())
-            )[0]
-
-        indices, peaks_score = PEModel._get_peak_indices_tf(peaks, thresh=threash_hold_peaks)
-
-        if prediction_down_scale > 1:
-            # indices - [num_indx, 3], first two dimensions - xy,
-            # last dims - keypoint class (in order to save keypoint class scale to 1)
-            indices = indices * np.array([prediction_down_scale]*2 +[1], dtype=np.int32)
-
-        return [
-            upsample_size, smoother,
-            resized_paf, resized_heatmap,
-            peaks, indices, peaks_score
-        ]
-
-    @staticmethod
-    def _get_peak_indices_tf(array: tf.Tensor, thresh=0.1):
-        """
-        Returns array indices of the values larger than threshold.
-
-        Parameters
-        ----------
-        array : ndarray of any shape
-            Tensor which values' indices to gather.
-        thresh : float
-            Threshold value.
-
-        Returns
-        -------
-        ndarray of shape [n_peaks, dim(array)]
-            Array of indices of the values larger than threshold.
-        ndarray of shape [n_peaks]
-            Array of the values at corresponding indices.
-        """
-        flat_peaks = tf.reshape(array, [-1])
-        coords = tf.range(0, tf.shape(flat_peaks)[0], dtype=tf.int32)
-
-        peaks_coords = coords[flat_peaks > thresh]
-
-        peaks = tf.gather(flat_peaks, peaks_coords)
-
-        indices = tf.transpose(tf.unravel_index(peaks_coords, dims=tf.shape(array)), [1, 0])
-        return indices, peaks
-
     def __init__(
         self,
         input_x: MakiTensor,
@@ -382,20 +182,119 @@ class PEModel(PoseEstimatorInterface):
 
         main_paf = self.get_main_paf_tensor()
 
-        tensors = PEModel.build_inference_part(
-            main_paf, main_heatmap,
-            smoother_kernel_size=smoother_kernel_size,
-            prediction_down_scale=prediction_down_scale,
-            fast_mode=fast_mode,
-            threash_hold_peaks=threash_hold_peaks
+        if not isinstance(prediction_down_scale, int):
+            raise TypeError(f"Parameter: `prediction_down_scale` should have type int, "
+                            f"but type:`{type(prediction_down_scale)}` were given with value: {prediction_down_scale}.")
+
+        if not isinstance(smoother_kernel_size, int) or smoother_kernel_size <= 0 or smoother_kernel_size >= 50:
+            raise TypeError(f"Parameter: `smoother_kernel_size` should have type int "
+                            f"and this value should be in range (0, 50), "
+                            f"but type:`{type(smoother_kernel_size)}` were given with value: {smoother_kernel_size}.")
+
+        if threash_hold_peaks <= 0.0 or threash_hold_peaks >= 1.0:
+            raise TypeError(f"Parameter: `threash_hold_peaks` should be in range (0.0, 1.0), "
+                            f"but value: {threash_hold_peaks} were given.")
+
+        # Store (H, W) - final size of the prediction
+        self.upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=PEModel.UPSAMPLE_SIZE)
+
+        # [N, W, H, NUM_PAFS, 2]
+        shape_paf = tf.shape(main_paf)
+
+        # [N, W, H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS * 2]
+        main_paf = tf.reshape(
+            main_paf,
+            shape=tf.stack([shape_paf[0], shape_paf[1], shape_paf[2], -1], axis=0)
         )
-        self.upsample_size = tensors[0]
-        self._smoother = tensors[1]
-        self._resized_paf = tensors[2]
-        self._resized_heatmap = tensors[3]
-        self._peaks = tensors[4]
-        self.__indices = tensors[5]
-        self.__peaks_score = tensors[6]
+        self._resized_paf = tf.image.resize_nearest_neighbor(
+            main_paf,
+            self.upsample_size,
+            align_corners=False,
+            name='upsample_paf'
+        )
+
+        # For more faster inference,
+        # We can take peaks on low res heatmap
+        if prediction_down_scale > 1:
+            final_heatmap_size = self.upsample_size // prediction_down_scale
+        else:
+            final_heatmap_size = self.upsample_size
+
+        self._resized_heatmap = tf.image.resize_nearest_neighbor(
+            main_heatmap,
+            final_heatmap_size,
+            align_corners=False,
+            name='upsample_heatmap'
+        )
+
+        num_keypoints = main_heatmap.get_shape().as_list()[-1]
+        self._smoother = Smoother(
+            {Smoother.DATA: self._resized_heatmap},
+            smoother_kernel_size,
+            3.0,
+            num_keypoints
+        )
+
+        if fast_mode:
+            heatmap_tf = self._smoother.get_output()[0]
+            heatmap_tf = tf.where(
+                tf.less(heatmap_tf, threash_hold_peaks),
+                tf.zeros_like(heatmap_tf), heatmap_tf
+            )
+
+            heatmap_with_borders = tf.pad(heatmap_tf, [(2, 2), (2, 2), (0, 0)])
+            heatmap_center = heatmap_with_borders[
+                             1:tf.shape(heatmap_with_borders)[0] - 1,
+                             1:tf.shape(heatmap_with_borders)[1] - 1
+            ]
+            heatmap_left = heatmap_with_borders[
+                           1:tf.shape(heatmap_with_borders)[0] - 1,
+                           2:tf.shape(heatmap_with_borders)[1]
+            ]
+            heatmap_right = heatmap_with_borders[
+                            1:tf.shape(heatmap_with_borders)[0] - 1,
+                            0:tf.shape(heatmap_with_borders)[1] - 2
+            ]
+            heatmap_up = heatmap_with_borders[
+                         2:tf.shape(heatmap_with_borders)[0],
+                         1:tf.shape(heatmap_with_borders)[1] - 1
+            ]
+            heatmap_down = heatmap_with_borders[
+                           0:tf.shape(heatmap_with_borders)[0] - 2,
+                           1:tf.shape(heatmap_with_borders)[1] - 1
+            ]
+
+            peaks = (heatmap_center > heatmap_left)  & \
+                    (heatmap_center > heatmap_right) & \
+                    (heatmap_center > heatmap_up)    & \
+                    (heatmap_center > heatmap_down)
+            self._peaks = tf.cast(peaks, tf.float32)
+        else:
+            # Apply NMS (Non maximum suppression)
+            # Apply max pool operation to heatmap
+            max_pooled_heatmap = tf.nn.max_pool(
+                self._smoother.get_output(),
+                PEModel._DEFAULT_KERNEL_MAX_POOL,
+                strides=[1, 1, 1, 1],
+                padding='SAME'
+            )
+            # Take only values that equal to heatmap from max pooling,
+            # i.e. biggest numbers of heatmaps
+            self._peaks = tf.where(
+                tf.equal(
+                    self._smoother.get_output(),
+                    max_pooled_heatmap
+                ),
+                self._smoother.get_output(),
+                tf.zeros_like(self._smoother.get_output())
+            )[0]
+
+        self.__indices, self.__peaks_score = PEModel._get_peak_indices_tf(self._peaks, thresh=threash_hold_peaks)
+
+        if prediction_down_scale > 1:
+            # indices - [num_indx, 3], first two dimensions - xy,
+            # last dims - keypoint class (in order to save keypoint class scale to 1)
+            self.__indices = self.__indices * np.array([prediction_down_scale]*2 +[1], dtype=np.int32)
 
     def set_session(self, session: tf.Session):
         super().set_session(session)
@@ -473,6 +372,35 @@ class PEModel(PoseEstimatorInterface):
             num_pafs = shape_paf[-1] // 2
             # [N, NEW_W, NEW_H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS, 2]
             return batched_peaks, batched_heatmap, batched_paf.reshape(N, *resize_to, num_pafs, 2)
+
+    def __get_peak_indices_tf(array: tf.Tensor, thresh=0.1):
+        """
+        Returns array indices of the values larger than threshold.
+
+        Parameters
+        ----------
+        array : ndarray of any shape
+            Tensor which values' indices to gather.
+        thresh : float
+            Threshold value.
+
+        Returns
+        -------
+        ndarray of shape [n_peaks, dim(array)]
+            Array of indices of the values larger than threshold.
+        ndarray of shape [n_peaks]
+            Array of the values at corresponding indices.
+
+        """
+        flat_peaks = tf.reshape(array, [-1])
+        coords = tf.range(0, tf.shape(flat_peaks)[0], dtype=tf.int32)
+
+        peaks_coords = coords[flat_peaks > thresh]
+
+        peaks = tf.gather(flat_peaks, peaks_coords)
+
+        indices = tf.transpose(tf.unravel_index(peaks_coords, dims=tf.shape(array)), [1, 0])
+        return indices, peaks
 
     def __get_peak_indices(self, array, thresh=0.1):
         """
