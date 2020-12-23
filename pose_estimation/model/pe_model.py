@@ -373,7 +373,7 @@ class PEModel(PoseEstimatorInterface):
             # [N, NEW_W, NEW_H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS, 2]
             return batched_peaks, batched_heatmap, batched_paf.reshape(N, *resize_to, num_pafs, 2)
 
-    def __get_peak_indices_tf(array: tf.Tensor, thresh=0.1):
+    def __get_peak_indices_tf(self, array: tf.Tensor, thresh=0.1):
         """
         Returns array indices of the values larger than threshold.
 
