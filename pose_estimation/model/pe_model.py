@@ -289,7 +289,7 @@ class PEModel(PoseEstimatorInterface):
                 tf.zeros_like(self._smoother.get_output())
             )[0]
 
-        self.__indices, self.__peaks_score = PEModel._get_peak_indices_tf(self._peaks, thresh=threash_hold_peaks)
+        self.__indices, self.__peaks_score = self.__get_peak_indices_tf(self._peaks, thresh=threash_hold_peaks)
 
         if prediction_down_scale > 1:
             # indices - [num_indx, 3], first two dimensions - xy,
