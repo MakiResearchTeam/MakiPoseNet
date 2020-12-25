@@ -716,7 +716,7 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
 
 
 class ResizePostMethod(TFRPostMapMethod):
-    _EXCEPTION_INTERPOLATION_IS_NOT_FOUND = "Interpolation {} don't exist"
+    _EXCEPTION_INTERPOLATION_IS_NOT_FOUND = "Interpolation {} does not exist"
 
     INTERPOLATION_BILINEAR = 'bilinear'
     INTERPOLATION_NEAREST_NEIGHBOR = 'nearest_neighbor'
@@ -864,6 +864,8 @@ class DropBlockPostMethod(TFRPostMapMethod):
         else:
             element = serialized_example
         image = element[RIterator.IMAGE]
+
+        # This method work only with batch of images
         if len(image.get_shape().as_list()) != 4:
             raise TypeError("Input image must be batched, i.e. must have 4 dims!,"
                             f"But {len(image.get_shape().as_list())} were given")
@@ -871,21 +873,21 @@ class DropBlockPostMethod(TFRPostMapMethod):
         box_min = self.__min_size_box
         box_max = self.__max_size_box
 
-        N_batch = tf.shape(image)[0]
-        height = tf.shape(image)[1]
-        width = tf.shape(image)[2]
+        N_batch, height, width = tf.shape(image)[0], tf.shape(image)[1], tf.shape(image)[2]
 
+        # Generate size of box
         box_w = tf.random.uniform([N_batch], box_min[1], box_max[1], tf.int32)
         box_h = tf.random.uniform([N_batch], box_min[0], box_max[0], tf.int32)
         box_size = tf.expand_dims(tf.expand_dims(tf.stack([box_w, box_h], axis=-1), axis=1), axis=1)
-
+        # Generate left corner of position where should be started cutout op
         h = tf.map_fn(lambda x: tf.random.uniform([], DropBlockPostMethod.__ZERO, height - x, tf.int32), box_h)
         w = tf.map_fn(lambda x: tf.random.uniform([], DropBlockPostMethod.__ZERO, width  - x, tf.int32), box_w)
         wh_tf = tf.expand_dims(tf.expand_dims(tf.stack([w, h], axis=-1), axis=1), axis=1)
-
+        # Generate grid for cutout
         x_grid, y_grid = tf.meshgrid(tf.range(width), tf.range(height))
         xy_grid = tf.expand_dims(tf.stack([x_grid, y_grid], axis=-1), axis=0)
 
+        # Cutout area that bigger and lower of generated bounds
         # Bigger
         coord_block_b = tf.greater(xy_grid, wh_tf)
         bool_ans_b = tf.math.logical_and(coord_block_b[..., 0], coord_block_b[..., 1])
@@ -913,7 +915,6 @@ class DropBlockPostMethod(TFRPostMapMethod):
 
 
 class NoisePostMethod(TFRPostMapMethod):
-
 
     def __init__(self, std=1.0, mean=0.0):
         """
