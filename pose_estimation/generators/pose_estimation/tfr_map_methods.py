@@ -826,7 +826,7 @@ class DropBlockPostMethod(TFRPostMapMethod):
     __ZERO = 0
     __COLOR_DIMS_DEFAULT = 3
 
-    def __init__(self, min_size_box, max_size_box):
+    def __init__(self, min_size_box, max_size_box, prob_rate=0.5):
         """
         Cutout (fill it with zeros) random square on the image
 
@@ -840,8 +840,14 @@ class DropBlockPostMethod(TFRPostMapMethod):
             Maximum size of a cutout box, tuple - (Height, Width),
             If only int value provided, then height and width will be equal  to `min_size_box`,
             i.e. it will be square with certain border size
+        prob_rate : float
+            Probability to cutout block of image.
+            Must be in range (0, 1)
 
         """
+        if prob_rate < 0.0 or prob_rate > 1.0:
+            raise ValueError(f"Wrong value for `prob_rate`. Value must be in range (0, 1), but {prob_rate} were given")
+
         if isinstance(min_size_box, int):
             min_size_box = [min_size_box, min_size_box]
         elif not (isinstance(min_size_box, tuple) or isinstance(min_size_box, list)):
@@ -854,8 +860,21 @@ class DropBlockPostMethod(TFRPostMapMethod):
             raise TypeError("Wrong input type for `max_size_box`, it must be int or tuple with size 2\n"
                             f"but were given type: {type(max_size_box)} with value: {max_size_box}")
 
+        if min_size_box[0] > max_size_box[0]:
+            raise ValueError("Wrong value for `min_size_box` at 0 index (Height). "
+                             f"Value must be lower than `max_size_box[0]`, i.e. max Height, "
+                             f"but {max_size_box[0]} were given."
+            )
+
+        if min_size_box[1] > max_size_box[1]:
+            raise ValueError("Wrong value for `min_size_box` at 1 index (Width). "
+                             f"Value must be lower than `max_size_box[1]`, i.e. max Width, "
+                             f"but {max_size_box[1]} were given."
+            )
+
         self.__min_size_box = min_size_box
         self.__max_size_box = max_size_box
+        self.__prob_rate = prob_rate
         super().__init__()
 
     def read_record(self, serialized_example) -> dict:
@@ -904,31 +923,48 @@ class DropBlockPostMethod(TFRPostMapMethod):
         )
         # Apply mask
         # `where` in this case faster than simple multiplication, because we must cast boolean array
-        cutout_image = tf.where(
+        get_cutout_image = lambda: tf.where(
             add_color_dims_boolean,
             tf.zeros_like(image, dtype=image.dtype),
             image
         )
 
-        element[RIterator.IMAGE] = cutout_image
+        p = tf.random.uniform(minval=0, maxval=1, shape=[])
+        final_image = tf.cond(
+            p < self.__prob_rate,
+            get_cutout_image, # True
+            lambda: image,    # False
+        )
+
+        element[RIterator.IMAGE] = final_image
         return element
 
 
 class NoisePostMethod(TFRPostMapMethod):
 
-    def __init__(self, std=1.0, mean=0.0):
+    def __init__(self, std=1.0, mean=0.0, prob_rate=0.5):
         """
         Add noise to image
 
         Parameters
         ----------
         std : float
-
+            Std for tf.random_normal method
         mean : float
+            Mean for tf.random_normal method
+        prob_rate : float
+            Probability to apply noise to image.
+            Must be in range (0, 1)
 
         """
+        if prob_rate < 0.0 or prob_rate > 1.0:
+            raise ValueError(f"Wrong value for `prob_rate`. Value must be in range (0, 1), "
+                             f"but {prob_rate} were given"
+            )
+
         self.__std = std
         self.__mean = mean
+        self.__prob_rate = prob_rate
         super().__init__()
 
     def read_record(self, serialized_example) -> dict:
@@ -939,9 +975,16 @@ class NoisePostMethod(TFRPostMapMethod):
         image = element[RIterator.IMAGE]
 
         noise = tf.random_normal(shape=tf.shape(image), mean=self.__mean, stddev=self.__std, dtype=tf.float32)
-        image_noised = tf.add(tf.cast(image, dtype=tf.float32), noise)
+        apply_image_noised = lambda: tf.add(tf.cast(image, dtype=tf.float32), noise)
 
-        element[RIterator.IMAGE] = image_noised
+        p = tf.random.uniform(minval=0, maxval=1, shape=[])
+        final_image = tf.cond(
+            p < self.__prob_rate,
+            apply_image_noised, # True
+            lambda: image,      # False
+        )
+
+        element[RIterator.IMAGE] = final_image
         return element
 
 
