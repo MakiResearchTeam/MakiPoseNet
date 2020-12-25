@@ -76,6 +76,10 @@ class CocoTester(Tester):
     _CENTRAL_SIZE = 600
     _LENGHT_VIDEO = 600
     _ZERO_VALUE = 0.0
+    # Check if H and W will be divide by `_SCALE_VALUE` without reminder,
+    # This is need to better prediction
+    _SCALE_VALUE = 8
+
 
     def _init(self):
         # Test images
@@ -98,14 +102,7 @@ class CocoTester(Tester):
             if not self._use_bgr2rgb:
                 single_train_image = cv2.cvtColor(single_train_image, cv2.COLOR_BGR2RGB)
 
-            xy_scales = scales_image_single_dim_keep_dims(
-                image_size=single_train_image.shape[:-1],
-                resize_to=self.min_size_h
-            )
-            new_w, new_h = (
-                round(single_train_image.shape[1] * xy_scales[0]),
-                round(single_train_image.shape[0] * xy_scales[1])
-            )
+            new_w, new_h = self.__get_wh_with_scale_by(single_train_image.shape[:-1])
             single_train_image = cv2.resize(single_train_image, (new_w, new_h))
 
             self._norm_images_train.append(
@@ -131,14 +128,7 @@ class CocoTester(Tester):
             if test_image is None:
                 raise TypeError(CocoTester._EXCEPTION_IMAGE_WAS_NOT_FOUND.format(self._config[CocoTester.TEST_IMAGE]))
 
-            xy_scales = scales_image_single_dim_keep_dims(
-                image_size=test_image.shape[:-1],
-                resize_to=self.min_size_h
-            )
-            new_w, new_h = (
-                round(test_image.shape[1] * xy_scales[0]),
-                round(test_image.shape[0] * xy_scales[1])
-            )
+            new_w, new_h = self.__get_wh_with_scale_by(test_image.shape[:-1])
 
             test_image = cv2.resize(test_image, (new_w, new_h))
             if self._use_bgr2rgb:
@@ -303,18 +293,10 @@ class CocoTester(Tester):
         # Function for preprocessing images before put them into model
         def transform(batch_images, min_size_h, mode, use_bgr2rgb, func_preprocess=None):
             new_images = []
-            for i in range(len(batch_images)):
-                single_image = batch_images[i]
+            for indx_image in range(len(batch_images)):
+                single_image = batch_images[indx_image]
 
-                xy_scales = scales_image_single_dim_keep_dims(
-                    image_size=single_image.shape[:-1],
-                    resize_to=min_size_h
-                )
-                new_w, new_h = (
-                    round(single_image.shape[1] * xy_scales[0]),
-                    round(single_image.shape[0] * xy_scales[1])
-                )
-
+                new_w, new_h = self.__get_wh_with_scale_by(single_image.shape[:-1])
                 single_image = cv2.resize(single_image, (new_w, new_h))
                 if use_bgr2rgb:
                     single_image = cv2.cvtColor(single_image, cv2.COLOR_BGR2RGB)
@@ -401,3 +383,15 @@ class CocoTester(Tester):
 
         return norm_image
 
+    def __get_wh_with_scale_by(self, image_size: tuple) -> (int, int):
+        xy_scales = scales_image_single_dim_keep_dims(
+            image_size=image_size,
+            resize_to=self.min_size_h
+        )
+        new_w, new_h = (
+            round(image_size[1] * xy_scales[0]),
+            round(image_size[0] * xy_scales[1])
+        )
+        new_w += self._SCALE_VALUE - (new_w % self._SCALE_VALUE)
+
+        return new_w, new_h

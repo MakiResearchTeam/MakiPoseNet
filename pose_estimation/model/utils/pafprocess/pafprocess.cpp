@@ -3,8 +3,7 @@
 #include <math.h>
 #include "pafprocess.h"
 
-#define PEAKS(i, j, k) peaks[k+p3*(j+p2*i)]
-#define HEAT(i, j, k) heatmap[k+h3*(j+h2*i)]
+#define PEAKS(i, j) peak_info_data[j+p2*i]
 #define PAF(i, j, k) pafmap[k+f3*(j+f2*i)]
 
 using namespace std;
@@ -16,31 +15,26 @@ int roundpaf(float v);
 vector<VectorXY> get_paf_vectors(float *pafmap, const int& ch_id1, const int& ch_id2, int& f2, int& f3, Peak& peak1, Peak& peak2);
 bool comp_candidate(ConnectionCandidate a, ConnectionCandidate b);
 
-int process_paf(int p1, int p2, int p3, float *peaks, int h1, int h2, int h3, float *heatmap, int f1, int f2, int f3, float *pafmap) {
-//    const int THRE_CNT = 4;
-//    const double THRESH_PAF = 0.40;
-    vector<Peak> peak_infos[NUM_PART];
-    int peak_cnt = 0;
-    for (int part_id = 0; part_id < NUM_PART; part_id ++) {
-        for (int y = 0; y < p1; y ++) {
-            for (int x = 0; x < p2; x ++) {
-                if (PEAKS(y, x, part_id) > THRESH_HEAT) {
-                    Peak info;
-                    info.id = peak_cnt++;
-                    info.x = x;
-                    info.y = y;
-                    info.score = HEAT(y, x, part_id);
-                    peak_infos[part_id].push_back(info);
-                }
-            }
-        }
-    }
-
+int process_paf(
+    int size_score_from_peaks, float *score_from_peaks,
+    int p1, int p2, int *peak_info_data,
+    int f1, int f2, int f3, float *pafmap
+){
     peak_infos_line.clear();
-    for (int part_id = 0; part_id < NUM_PART; part_id ++) {
-        for (int i = 0; i < (int) peak_infos[part_id].size(); i ++) {
-            peak_infos_line.push_back(peak_infos[part_id][i]);
-        }
+    vector<Peak> peak_infos[NUM_PART];
+
+    for (int peaks_indx = 0; peaks_indx < p1; peaks_indx++){
+        // peak_info_data - first 2 dimensions - y, x coord
+        // last dimension - keypoint class
+
+        Peak info;
+        info.id = peaks_indx;
+        info.y = PEAKS(peaks_indx, 0);
+        info.x = PEAKS(peaks_indx, 1);
+        info.score = score_from_peaks[peaks_indx];
+
+        peak_infos[PEAKS(peaks_indx, 2)].push_back(info);
+        peak_infos_line.push_back(info);
     }
 
     // Start to Connect
@@ -80,7 +74,7 @@ int process_paf(int p1, int p2, int p3, float *peaks, int h1, int h2, int h3, fl
                     if (score > THRESH_VECTOR_SCORE) criterion1 += 1;
                 }
 
-                float criterion2 = scores / STEP_PAF + min(0.0, 0.5 * h1 / norm - 1.0);
+                float criterion2 = scores / STEP_PAF + min(0.0, 0.5 * f1 / norm - 1.0);
 
                 if (criterion1 > THRESH_VECTOR_CNT1 && criterion2 > 0) {
                     ConnectionCandidate candidate;

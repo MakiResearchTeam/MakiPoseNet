@@ -183,8 +183,8 @@ def scales_image_single_dim_keep_dims(
 
 if __name__ == "__main__":
 
-    image_size = (256, 512)
+    image_size = (720, 1280)
 
-    xy_scale = scales_image_single_dim_keep_dims(image_size, resize_to=512)
+    xy_scale = scales_image_single_dim_keep_dims(image_size, resize_to=298)
 
     print(f'h: {int(image_size[0]*xy_scale[1])} w: {int(image_size[1]*xy_scale[0])}')

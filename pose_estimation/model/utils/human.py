@@ -23,15 +23,13 @@ class Human:
     Store keypoints of the single human
 
     """
-    __slots__ = ('body_parts', 'pairs', 'uidx_list', 'score')
+    __slots__ = ('body_parts', 'score')
 
     def __init__(self):
         """
         Init class to store keypoints of the single human
 
         """
-        self.pairs = []
-        self.uidx_list = set()
         self.body_parts = {}
         self.score = 0.0
 

@@ -18,7 +18,6 @@
 import json
 import numpy as np
 import tensorflow as tf
-import cv2
 
 from .core import PoseEstimatorInterface
 from .utils.algorithm_connect_skelet import estimate_paf, merge_similar_skelets
@@ -37,15 +36,35 @@ class PEModel(PoseEstimatorInterface):
 
     _DEFAULT_KERNEL_MAX_POOL = [1, 3, 3, 1]
 
-    def get_feed_dict_config(self) -> dict:
-        return {
-            self._in_x: 0
-        }
-
     @staticmethod
-    def from_json(path_to_model: str, input_tensor: MakiTensor = None):
+    def from_json(
+            path_to_model: str, input_tensor: MakiTensor = None,
+            smoother_kernel_size=25, fast_mode=False,
+            prediction_down_scale=1, ignore_last_dim_inference=True,
+            threash_hold_peaks=0.1):
         """
         Creates and returns PEModel from json file contains its architecture
+
+        Parameters
+        ----------
+        path_to_model : str
+            Path to model which are saved as json file.
+            Example: /home/user/model.json
+        input_tensor : MakiTensor
+            Custom input tensor for model, in most cases its just placeholder.
+            By default equal to None, i.e. placeholder as input for model will be created automatically
+        fast_mode : bool
+            If equal to True, max_pool operation will be change to a binary operations,
+            which are faster, but can give lower accuracy
+        prediction_down_scale : int
+            At which scale build skeletons,
+            If more than 1, final keypoint will be scaled to size of the input image
+        smoother_kernel_size : int
+            Size of a kernel in the smoother (aka gaussian filter)
+        ignore_last_dim_inference : bool
+            In most models, last dimension is background heatmap and its does not used in inference
+        threash_hold_peaks : float
+            pass
 
         """
         # Read architecture from file
@@ -83,6 +102,11 @@ class PEModel(PoseEstimatorInterface):
             input_x=input_x,
             output_heatmap_list=output_heatmap_list,
             output_paf_list=output_paf_list,
+            smoother_kernel_size=smoother_kernel_size,
+            fast_mode=fast_mode,
+            prediction_down_scale=prediction_down_scale,
+            ignore_last_dim_inference=ignore_last_dim_inference,
+            threash_hold_peaks=threash_hold_peaks,
             name=model_name
         )
 
@@ -91,6 +115,11 @@ class PEModel(PoseEstimatorInterface):
         input_x: MakiTensor,
         output_paf_list: list,
         output_heatmap_list: list,
+        smoother_kernel_size=25,
+        ignore_last_dim_inference=True,
+        prediction_down_scale=1,
+        fast_mode=False,
+        threash_hold_peaks=0.1,
         name="Pose_estimation"
     ):
         """
@@ -106,6 +135,18 @@ class PEModel(PoseEstimatorInterface):
         output_heatmap_list : list
             List of MakiTensors which are output heatmaps.
             Assume that last tensor in the list, will be the main one
+        smoother_kernel_size : int
+            Size of a kernel in the smoother (aka gaussian filter)
+        ignore_last_dim_inference : bool
+            In most models, last dimension is background heatmap and its does not used in inference
+        prediction_down_scale : int
+            At which scale build skeletons,
+            If more than 1, final keypoint will be scaled to size of the input image
+        threash_hold_peaks : float
+            pass
+        fast_mode : bool
+            If equal to True, max_pool operation will be change to a binary operations,
+            which are faster, but can give lower accuracy
         name : str
             Name of this model
         """
@@ -115,19 +156,47 @@ class PEModel(PoseEstimatorInterface):
         self._heatmap_list = output_heatmap_list
         self._index_of_main_paf = len(output_paf_list) - 1
         super().__init__(outputs=output_paf_list + output_heatmap_list, inputs=[input_x])
-        self._init_tensors_for_prediction()
+        self._init_tensors_for_prediction(
+            smoother_kernel_size=smoother_kernel_size,
+            ignore_last_dim_inference=ignore_last_dim_inference,
+            prediction_down_scale=prediction_down_scale,
+            fast_mode=fast_mode,
+            threash_hold_peaks=threash_hold_peaks
+        )
 
-    def _init_tensors_for_prediction(self):
+    def _init_tensors_for_prediction(
+            self,
+            smoother_kernel_size,
+            ignore_last_dim_inference,
+            prediction_down_scale,
+            fast_mode,
+            threash_hold_peaks):
         """
         Initialize tensors for prediction
 
         """
+        self.__saved_mesh_grid = None
+        main_heatmap = self.get_main_heatmap_tensor()
+        if ignore_last_dim_inference:
+            main_heatmap = main_heatmap[..., :-1]
+
+        main_paf = self.get_main_paf_tensor()
+
+        if not isinstance(prediction_down_scale, int):
+            raise TypeError(f"Parameter: `prediction_down_scale` should have type int, "
+                            f"but type:`{type(prediction_down_scale)}` were given with value: {prediction_down_scale}.")
+
+        if not isinstance(smoother_kernel_size, int) or smoother_kernel_size <= 0 or smoother_kernel_size >= 50:
+            raise TypeError(f"Parameter: `smoother_kernel_size` should have type int "
+                            f"and this value should be in range (0, 50), "
+                            f"but type:`{type(smoother_kernel_size)}` were given with value: {smoother_kernel_size}.")
+
+        if threash_hold_peaks <= 0.0 or threash_hold_peaks >= 1.0:
+            raise TypeError(f"Parameter: `threash_hold_peaks` should be in range (0.0, 1.0), "
+                            f"but value: {threash_hold_peaks} were given.")
 
         # Store (H, W) - final size of the prediction
         self.upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=PEModel.UPSAMPLE_SIZE)
-
-        # [N, W, H, NUM_KP]
-        main_paf = self.get_main_paf_tensor()
 
         # [N, W, H, NUM_PAFS, 2]
         shape_paf = tf.shape(main_paf)
@@ -144,39 +213,88 @@ class PEModel(PoseEstimatorInterface):
             name='upsample_paf'
         )
 
+        # For more faster inference,
+        # We can take peaks on low res heatmap
+        if prediction_down_scale > 1:
+            final_heatmap_size = self.upsample_size // prediction_down_scale
+        else:
+            final_heatmap_size = self.upsample_size
+
         self._resized_heatmap = tf.image.resize_nearest_neighbor(
-            self.get_main_heatmap_tensor(),
-            self.upsample_size,
+            main_heatmap,
+            final_heatmap_size,
             align_corners=False,
             name='upsample_heatmap'
         )
 
-        num_keypoints = self.get_main_heatmap_tensor().get_shape().as_list()[-1]
+        num_keypoints = main_heatmap.get_shape().as_list()[-1]
         self._smoother = Smoother(
             {Smoother.DATA: self._resized_heatmap},
-            25,
+            smoother_kernel_size,
             3.0,
             num_keypoints
         )
 
-        # Apply NMS (Non maximum suppression)
-        # Apply max pool operation to heatmap
-        max_pooled_heatmap = tf.nn.max_pool(
-            self._smoother.get_output(),
-            self._DEFAULT_KERNEL_MAX_POOL,
-            strides=[1, 1, 1, 1],
-            padding='SAME'
-        )
-        # Take only values that equal to heatmap from max pooling,
-        # i.e. biggest numbers of heatmaps
-        self._peaks = tf.where(
-            tf.equal(
+        if fast_mode:
+            heatmap_tf = self._smoother.get_output()[0]
+            heatmap_tf = tf.where(
+                tf.less(heatmap_tf, threash_hold_peaks),
+                tf.zeros_like(heatmap_tf), heatmap_tf
+            )
+
+            heatmap_with_borders = tf.pad(heatmap_tf, [(2, 2), (2, 2), (0, 0)])
+            heatmap_center = heatmap_with_borders[
+                             1:tf.shape(heatmap_with_borders)[0] - 1,
+                             1:tf.shape(heatmap_with_borders)[1] - 1
+            ]
+            heatmap_left = heatmap_with_borders[
+                           1:tf.shape(heatmap_with_borders)[0] - 1,
+                           2:tf.shape(heatmap_with_borders)[1]
+            ]
+            heatmap_right = heatmap_with_borders[
+                            1:tf.shape(heatmap_with_borders)[0] - 1,
+                            0:tf.shape(heatmap_with_borders)[1] - 2
+            ]
+            heatmap_up = heatmap_with_borders[
+                         2:tf.shape(heatmap_with_borders)[0],
+                         1:tf.shape(heatmap_with_borders)[1] - 1
+            ]
+            heatmap_down = heatmap_with_borders[
+                           0:tf.shape(heatmap_with_borders)[0] - 2,
+                           1:tf.shape(heatmap_with_borders)[1] - 1
+            ]
+
+            peaks = (heatmap_center > heatmap_left)  & \
+                    (heatmap_center > heatmap_right) & \
+                    (heatmap_center > heatmap_up)    & \
+                    (heatmap_center > heatmap_down)
+            self._peaks = tf.cast(peaks, tf.float32)
+        else:
+            # Apply NMS (Non maximum suppression)
+            # Apply max pool operation to heatmap
+            max_pooled_heatmap = tf.nn.max_pool(
                 self._smoother.get_output(),
-                max_pooled_heatmap
-            ),
-            self._smoother.get_output(),
-            tf.zeros_like(self._smoother.get_output())
-        )
+                PEModel._DEFAULT_KERNEL_MAX_POOL,
+                strides=[1, 1, 1, 1],
+                padding='SAME'
+            )
+            # Take only values that equal to heatmap from max pooling,
+            # i.e. biggest numbers of heatmaps
+            self._peaks = tf.where(
+                tf.equal(
+                    self._smoother.get_output(),
+                    max_pooled_heatmap
+                ),
+                self._smoother.get_output(),
+                tf.zeros_like(self._smoother.get_output())
+            )[0]
+
+        self.__indices, self.__peaks_score = self.__get_peak_indices_tf(self._peaks, thresh=threash_hold_peaks)
+
+        if prediction_down_scale > 1:
+            # indices - [num_indx, 3], first two dimensions - xy,
+            # last dims - keypoint class (in order to save keypoint class scale to 1)
+            self.__indices = self.__indices * np.array([prediction_down_scale]*2 +[1], dtype=np.int32)
 
     def set_session(self, session: tf.Session):
         super().set_session(session)
@@ -196,6 +314,7 @@ class PEModel(PoseEstimatorInterface):
         using_estimate_alg : bool
             If equal True, when algorithm to build skeletons will be used
             And method will return list of the class Human (See Return for more detail)
+            NOTICE! If equal True, then only first batch size (i.e. with batch_size = 1) will be processed.
             Otherwise, method will return peaks, heatmap and paf
 
         Returns
@@ -203,6 +322,7 @@ class PEModel(PoseEstimatorInterface):
         if using_estimate_alg is True:
             list
                 List of predictions to each input image.
+                NOTICE! Only first batch size (i.e. with batch_size = 1) will be processed.
                 Single element of this list is a List of classes Human which were detected.
 
         Otherwise:
@@ -218,26 +338,33 @@ class PEModel(PoseEstimatorInterface):
             # Take `H`, `W` from input image
             resize_to = x[0].shape[:2]
 
-        batched_paf, batched_heatmap, batched_peaks = self._session.run(
-            [self._resized_paf, self._smoother.get_output(), self._peaks],
-            feed_dict={
-                self._input_data_tensors[0]: x,
-                self.upsample_size: resize_to
-            }
-        )
-
         if using_estimate_alg:
-            # Connect skeletons by applying two algorithms
-            batched_humans = []
 
-            for i in range(len(batched_peaks)):
-                # Estimate
-                humans_list = estimate_paf(batched_peaks[i], batched_heatmap[i], batched_paf[i])
-                # Remove similar points, simple merge similar skeletons
-                humans_merged_list = merge_similar_skelets(humans_list)
-                batched_humans.append(humans_merged_list)
-            return batched_humans
+            batched_paf, indices, peaks = self._session.run(
+                [self._resized_paf, self.__indices, self.__peaks_score],
+                feed_dict={
+                    self._input_data_tensors[0]: x,
+                    self.upsample_size: resize_to
+                }
+            )
+
+            return [
+                merge_similar_skelets(estimate_paf(
+                    peaks=peaks.astype(np.float32, copy=False),
+                    indices=indices.astype(np.int32, copy=False),
+                    paf_mat=batched_paf[0]
+                ))
+            ]
+
         else:
+            batched_paf, batched_heatmap, batched_peaks = self._session.run(
+                [self._resized_paf, self._smoother.get_output(), self._peaks],
+                feed_dict={
+                    self._input_data_tensors[0]: x,
+                    self.upsample_size: resize_to
+                }
+            )
+
             # For paf
             # [N, NEW_W, NEW_H, NUM_PAFS * 2]
             shape_paf = batched_paf.shape
@@ -245,6 +372,71 @@ class PEModel(PoseEstimatorInterface):
             num_pafs = shape_paf[-1] // 2
             # [N, NEW_W, NEW_H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS, 2]
             return batched_peaks, batched_heatmap, batched_paf.reshape(N, *resize_to, num_pafs, 2)
+
+    def __get_peak_indices_tf(self, array: tf.Tensor, thresh=0.1):
+        """
+        Returns array indices of the values larger than threshold.
+
+        Parameters
+        ----------
+        array : ndarray of any shape
+            Tensor which values' indices to gather.
+        thresh : float
+            Threshold value.
+
+        Returns
+        -------
+        ndarray of shape [n_peaks, dim(array)]
+            Array of indices of the values larger than threshold.
+        ndarray of shape [n_peaks]
+            Array of the values at corresponding indices.
+
+        """
+        flat_peaks = tf.reshape(array, [-1])
+        coords = tf.range(0, tf.shape(flat_peaks)[0], dtype=tf.int32)
+
+        peaks_coords = coords[flat_peaks > thresh]
+
+        peaks = tf.gather(flat_peaks, peaks_coords)
+
+        indices = tf.transpose(tf.unravel_index(peaks_coords, dims=tf.shape(array)), [1, 0])
+        return indices, peaks
+
+    def __get_peak_indices(self, array, thresh=0.1):
+        """
+        Returns array indices of the values larger than threshold.
+
+        Parameters
+        ----------
+        array : ndarray of any shape
+            Tensor which values' indices to gather.
+        thresh : float
+            Threshold value.
+
+        Returns
+        -------
+        ndarray of shape [n_peaks, dim(array)]
+            Array of indices of the values larger than threshold.
+        ndarray of shape [n_peaks]
+            Array of the values at corresponding indices.
+        """
+        flat_peaks = np.reshape(array, -1)
+        if self.__saved_mesh_grid is None or len(flat_peaks) != self.__saved_mesh_grid.shape[0]:
+            self.__saved_mesh_grid = np.arange(len(flat_peaks))
+
+        peaks_coords = self.__saved_mesh_grid[flat_peaks > thresh]
+
+        peaks = flat_peaks.take(peaks_coords)
+
+        indices = np.unravel_index(peaks_coords, shape=array.shape)
+        indices = np.stack(indices, axis=-1)
+        return indices, peaks
+
+    def get_indices_tensor(self) -> tf.Tensor:
+        return self.__indices
+
+    def get_peaks_score_tensor(self) -> tf.Tensor:
+        return self.__peaks_score
 
     def get_peaks_tensor(self) -> tf.Tensor:
         return self._peaks
@@ -278,6 +470,11 @@ class PEModel(PoseEstimatorInterface):
         Return batch size
         """
         return self._inputs[0].get_shape()[0]
+
+    def get_feed_dict_config(self) -> dict:
+        return {
+            self._in_x: 0
+        }
 
     def _get_model_info(self):
         """
