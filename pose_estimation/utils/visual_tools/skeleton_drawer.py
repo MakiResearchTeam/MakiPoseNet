@@ -16,12 +16,8 @@
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
 import cv2
-import abc
-import numpy as np
 from .constants import CONNECT_INDEXES
 from pose_estimation.utils.visual_tools.visualize_tools import draw_skeleton
-
-
 
 
 class SkeletonDrawer:
@@ -64,7 +60,8 @@ class SkeletonDrawer:
         height, width = frame_size
         self._video = cv2.VideoWriter(
             self._video_path, cv2.VideoWriter_fourcc(*'mp4v'), self._fps,
-            (width, height))
+            (width, height)
+        )
 
     def write(self, images, predictions):
         """

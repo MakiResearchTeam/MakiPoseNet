@@ -17,15 +17,13 @@
 
 import cv2
 import numpy as np
-
 from pose_estimation.model.utils.human import Human
 
 
 def visualize_paf(
         img,
         pafs,
-        colors=((255, 0, 0), (255, 85, 0), (255, 170, 0), (255, 255, 0), (170, 255, 0))
-):
+        colors=((255, 0, 0), (255, 85, 0), (255, 170, 0), (255, 255, 0), (170, 255, 0))):
     img = img.copy()
     color_iter = 0
     for i in range(pafs.shape[2]):
