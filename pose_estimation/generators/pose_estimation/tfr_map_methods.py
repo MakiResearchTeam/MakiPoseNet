@@ -904,7 +904,7 @@ class DropBlockPostMethod(TFRPostMapMethod):
         # `where` in this case faster than simple multiplication, because we must cast boolean array
         cutout_image = tf.where(
             add_color_dims_boolean,
-            tf.zeros_like(image, dtype=tf.uint8),
+            tf.zeros_like(image, dtype=image.dtype),
             image
         )
 
