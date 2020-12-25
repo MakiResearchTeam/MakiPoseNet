@@ -820,3 +820,127 @@ class ApplyMaskToImagePostMethod(TFRPostMapMethod):
         element[RIterator.IMAGE] = image * image_mask
         return element
 
+
+class DropBlockPostMethod(TFRPostMapMethod):
+
+    __ZERO = 0
+    __COLOR_DIMS_DEFAULT = 3
+
+    def __init__(self, min_size_box, max_size_box):
+        """
+        Cutout (fill it with zeros) random square on the image
+
+        Parameters
+        ----------
+        min_size_box : tuple or int
+            Minimum size of a cutout box, tuple - (Height, Width),
+            If only int value provided, then height and width will be equal  to `min_size_box`,
+            i.e. it will be square with certain border size
+        max_size_box : tuple or int
+            Maximum size of a cutout box, tuple - (Height, Width),
+            If only int value provided, then height and width will be equal  to `min_size_box`,
+            i.e. it will be square with certain border size
+
+        """
+        if isinstance(min_size_box, int):
+            min_size_box = [min_size_box, min_size_box]
+        elif not (isinstance(min_size_box, tuple) or isinstance(min_size_box, list)):
+            raise TypeError("Wrong input type for `min_size_box`, it must be int or tuple with size 2\n"
+                            f"but were given type: {type(min_size_box)} with value: {min_size_box}")
+
+        if isinstance(max_size_box, int):
+            max_size_box = [max_size_box, max_size_box]
+        elif not (isinstance(max_size_box, tuple) or isinstance(max_size_box, list)):
+            raise TypeError("Wrong input type for `max_size_box`, it must be int or tuple with size 2\n"
+                            f"but were given type: {type(max_size_box)} with value: {max_size_box}")
+
+        self.__min_size_box = min_size_box
+        self.__max_size_box = max_size_box
+        super().__init__()
+
+    def read_record(self, serialized_example) -> dict:
+        if self._parent_method is not None:
+            element = self._parent_method.read_record(serialized_example)
+        else:
+            element = serialized_example
+        image = element[RIterator.IMAGE]
+        if len(image.get_shape().as_list()) != 4:
+            raise TypeError("Input image must be batched, i.e. must have 4 dims!,"
+                            f"But {len(image.get_shape().as_list())} were given")
+        # For easy access
+        box_min = self.__min_size_box
+        box_max = self.__max_size_box
+
+        N_batch = tf.shape(image)[0]
+        height = tf.shape(image)[1]
+        width = tf.shape(image)[2]
+
+        box_w = tf.random.uniform([N_batch], box_min[1], box_max[1], tf.int32)
+        box_h = tf.random.uniform([N_batch], box_min[0], box_max[0], tf.int32)
+        box_size = tf.expand_dims(tf.expand_dims(tf.stack([box_w, box_h], axis=-1), axis=1), axis=1)
+
+        h = tf.map_fn(lambda x: tf.random.uniform([], DropBlockPostMethod.__ZERO, height - x, tf.int32), box_h)
+        w = tf.map_fn(lambda x: tf.random.uniform([], DropBlockPostMethod.__ZERO, width  - x, tf.int32), box_w)
+        wh_tf = tf.expand_dims(tf.expand_dims(tf.stack([w, h], axis=-1), axis=1), axis=1)
+
+        x_grid, y_grid = tf.meshgrid(tf.range(width), tf.range(height))
+        xy_grid = tf.expand_dims(tf.stack([x_grid, y_grid], axis=-1), axis=0)
+
+        # Bigger
+        coord_block_b = tf.greater(xy_grid, wh_tf)
+        bool_ans_b = tf.math.logical_and(coord_block_b[..., 0], coord_block_b[..., 1])
+        # Lower
+        coord_block_l = tf.less(xy_grid, wh_tf + box_size)
+        bool_ans_l = tf.math.logical_and(coord_block_l[..., 0], coord_block_l[..., 1])
+        # Bigger AND Lower
+        bool_final = tf.math.logical_and(bool_ans_l, bool_ans_b)
+
+        # Append color shape
+        add_color_dims_boolean = tf.concat(
+            [tf.expand_dims(bool_final, axis=-1)] * DropBlockPostMethod.__COLOR_DIMS_DEFAULT,
+            axis=-1
+        )
+        # Apply mask
+        # `where` in this case faster than simple multiplication, because we must cast boolean array
+        cutout_image = tf.where(
+            add_color_dims_boolean,
+            tf.zeros_like(image, dtype=tf.uint8),
+            image
+        )
+
+        element[RIterator.IMAGE] = cutout_image
+        return element
+
+
+class NoisePostMethod(TFRPostMapMethod):
+
+
+    def __init__(self, std=1.0, mean=0.0):
+        """
+        Add noise to image
+
+        Parameters
+        ----------
+        std : float
+
+        mean : float
+
+        """
+        self.__std = std
+        self.__mean = mean
+        super().__init__()
+
+    def read_record(self, serialized_example) -> dict:
+        if self._parent_method is not None:
+            element = self._parent_method.read_record(serialized_example)
+        else:
+            element = serialized_example
+        image = element[RIterator.IMAGE]
+
+        noise = tf.random_normal(shape=tf.shape(image), mean=self.__mean, stddev=self.__std, dtype=tf.float32)
+        image_noised = tf.add(tf.cast(image, dtype=tf.float32), noise)
+
+        element[RIterator.IMAGE] = image_noised
+        return element
+
+

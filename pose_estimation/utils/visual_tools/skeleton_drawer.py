@@ -37,7 +37,8 @@ class SkeletonDrawer:
         fps
         color
         custom_method_to_draw : function
-            Input parameters: image, prediction: list, index_to_connect_skeleton: list
+            Input parameters: (image, prediction: list, index_to_connect_skeleton: list),
+            Method must return image
 
         """
         self._video_path = video_path
@@ -54,6 +55,7 @@ class SkeletonDrawer:
         ----------
         custom_method_to_draw : function
             Input parameters: image, prediction: list, index_to_connect_skeleton: list
+            Method must return image
 
         """
         self._custom_method_to_draw = method_to_draw
