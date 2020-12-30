@@ -140,7 +140,7 @@ def gauss_blur_tf(im, gauss_im):
     im = tf.cast(im, tf.complex64)
     fft_im = tf.signal.fft2d(im)
     fft_im = tf.signal.fftshift(fft_im, axes=(2, 3))
-    fft_im = fft_im * gauss_im
+    fft_im = fft_im * np.expand_dims(np.expand_dims(gauss_im, axis=0), axis=0)
     new_im = tf.signal.ifft2d(fft_im)
     return tf.cast(tf.abs(new_im), dtype=tf.float32)
 
