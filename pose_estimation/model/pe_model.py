@@ -264,7 +264,7 @@ class PEModel(PoseEstimatorInterface):
             self._resized_heatmap.set_shape((N, *img_size, num_keypoints))
             self.__fft_gaus_img_placeholder = tf.placeholder(
                 dtype=tf.complex64,
-                shape=img_size[::-1],
+                shape=img_size,
                 name='fft_gaus_img_placeholder'
             )
             transposed_heatmap = tf.transpose(self._resized_heatmap, (0, 3, 1, 2))
