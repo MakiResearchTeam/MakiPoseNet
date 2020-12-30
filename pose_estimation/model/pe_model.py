@@ -21,7 +21,7 @@ import tensorflow as tf
 
 from .core import PoseEstimatorInterface
 from .utils.algorithm_connect_skelet import estimate_paf, merge_similar_skelets
-from .utils.smoother import Smoother
+from .utils.smoother import Smoother, gauss_blur_tf, gauss_im
 from makiflow.core import MakiTensor, MakiModel
 from makiflow.core.inference.maki_builder import MakiBuilder
 
@@ -41,7 +41,7 @@ class PEModel(PoseEstimatorInterface):
             path_to_model: str, input_tensor: MakiTensor = None,
             smoother_kernel_size=25, fast_mode=False,
             prediction_down_scale=1, ignore_last_dim_inference=True,
-            threash_hold_peaks=0.1):
+            threash_hold_peaks=0.1, use_fft_smoother=False, fft_kernel=15, fft_coef=3.0):
         """
         Creates and returns PEModel from json file contains its architecture
 
@@ -107,6 +107,9 @@ class PEModel(PoseEstimatorInterface):
             prediction_down_scale=prediction_down_scale,
             ignore_last_dim_inference=ignore_last_dim_inference,
             threash_hold_peaks=threash_hold_peaks,
+            use_fft_smoother=use_fft_smoother,
+            fft_kernel=fft_kernel,
+            fft_coef=fft_coef,
             name=model_name
         )
 
@@ -120,6 +123,9 @@ class PEModel(PoseEstimatorInterface):
         prediction_down_scale=1,
         fast_mode=False,
         threash_hold_peaks=0.1,
+        use_fft_smoother=False,
+        fft_kernel=15,
+        fft_coef=3.0,
         name="Pose_estimation"
     ):
         """
@@ -161,7 +167,10 @@ class PEModel(PoseEstimatorInterface):
             ignore_last_dim_inference=ignore_last_dim_inference,
             prediction_down_scale=prediction_down_scale,
             fast_mode=fast_mode,
-            threash_hold_peaks=threash_hold_peaks
+            threash_hold_peaks=threash_hold_peaks,
+            use_fft_smoother=use_fft_smoother,
+            fft_kernel=fft_kernel,
+            fft_coef=fft_coef
         )
 
     def _init_tensors_for_prediction(
@@ -170,12 +179,21 @@ class PEModel(PoseEstimatorInterface):
             ignore_last_dim_inference,
             prediction_down_scale,
             fast_mode,
-            threash_hold_peaks):
+            threash_hold_peaks,
+            use_fft_smoother,
+            fft_kernel,
+            fft_coef):
         """
         Initialize tensors for prediction
 
         """
         self.__saved_mesh_grid = None
+        self.__saved_gaus_img = None
+        self.__fft_kernel = fft_kernel
+        self.__fft_coef = fft_coef
+
+        self.__use_fft_smoother = use_fft_smoother
+
         main_heatmap = self.get_main_heatmap_tensor()
         if ignore_last_dim_inference:
             main_heatmap = main_heatmap[..., :-1]
@@ -228,15 +246,26 @@ class PEModel(PoseEstimatorInterface):
         )
 
         num_keypoints = main_heatmap.get_shape().as_list()[-1]
-        self._smoother = Smoother(
-            {Smoother.DATA: self._resized_heatmap},
-            smoother_kernel_size,
-            3.0,
-            num_keypoints
-        )
+        if not use_fft_smoother:
+            self._smoother = Smoother(
+                {Smoother.DATA: self._resized_heatmap},
+                smoother_kernel_size,
+                3.0,
+                num_keypoints
+            )
+            self._blured_heatmap= self._smoother.get_output()
+        else:
+            self.__fft_gaus_img_placeholder = tf.placeholder(
+                dtype=tf.complex64,
+                shape=(None, None),
+                name='fft_gaus_img_placeholder'
+            )
+            transposed_heatmap = tf.transpose(self._resized_heatmap, (0, 3, 1, 2))
+            blured_heatmap = gauss_blur_tf(transposed_heatmap, self.__fft_gaus_img_placeholder)
+            self._blured_heatmap = tf.transpose(blured_heatmap, 0, 2, 3, 1)
 
         if fast_mode:
-            heatmap_tf = self._smoother.get_output()[0]
+            heatmap_tf = self._blured_heatmap[0]
             heatmap_tf = tf.where(
                 tf.less(heatmap_tf, threash_hold_peaks),
                 tf.zeros_like(heatmap_tf), heatmap_tf
@@ -273,7 +302,7 @@ class PEModel(PoseEstimatorInterface):
             # Apply NMS (Non maximum suppression)
             # Apply max pool operation to heatmap
             max_pooled_heatmap = tf.nn.max_pool(
-                self._smoother.get_output(),
+                self._blured_heatmap,
                 PEModel._DEFAULT_KERNEL_MAX_POOL,
                 strides=[1, 1, 1, 1],
                 padding='SAME'
@@ -282,11 +311,11 @@ class PEModel(PoseEstimatorInterface):
             # i.e. biggest numbers of heatmaps
             self._peaks = tf.where(
                 tf.equal(
-                    self._smoother.get_output(),
+                    self._blured_heatmap,
                     max_pooled_heatmap
                 ),
-                self._smoother.get_output(),
-                tf.zeros_like(self._smoother.get_output())
+                self._blured_heatmap,
+                tf.zeros_like(self._blured_heatmap)
             )[0]
 
         self.__indices, self.__peaks_score = self.__get_peak_indices_tf(self._peaks, thresh=threash_hold_peaks)
@@ -340,13 +369,26 @@ class PEModel(PoseEstimatorInterface):
 
         if using_estimate_alg:
 
-            batched_paf, indices, peaks = self._session.run(
-                [self._resized_paf, self.__indices, self.__peaks_score],
-                feed_dict={
-                    self._input_data_tensors[0]: x,
-                    self.upsample_size: resize_to
-                }
-            )
+            if self.__use_fft_smoother:
+                if self.__saved_gaus_img is None or self.__saved_gaus_img.shape != resize_to:
+                    self.__saved_gaus_img = gauss_im(resize_to, self.__fft_kernel, self.__fft_coef)
+
+                batched_paf, indices, peaks = self._session.run(
+                    [self._resized_paf, self.__indices, self.__peaks_score],
+                    feed_dict={
+                        self._input_data_tensors[0]: x,
+                        self.upsample_size: resize_to,
+                        self.__fft_gaus_img_placeholder: self.__saved_gaus_img
+                    }
+                )
+            else:
+                batched_paf, indices, peaks = self._session.run(
+                    [self._resized_paf, self.__indices, self.__peaks_score],
+                    feed_dict={
+                        self._input_data_tensors[0]: x,
+                        self.upsample_size: resize_to
+                    }
+                )
 
             return [
                 merge_similar_skelets(estimate_paf(
@@ -358,7 +400,7 @@ class PEModel(PoseEstimatorInterface):
 
         else:
             batched_paf, batched_heatmap, batched_peaks = self._session.run(
-                [self._resized_paf, self._smoother.get_output(), self._peaks],
+                [self._resized_paf, self._blured_heatmap, self._peaks],
                 feed_dict={
                     self._input_data_tensors[0]: x,
                     self.upsample_size: resize_to
@@ -445,7 +487,7 @@ class PEModel(PoseEstimatorInterface):
         return self._resized_paf
 
     def get_smoother_output_heatmap_tensor(self) -> tf.Tensor:
-        return self._smoother.get_output()
+        return self._blured_heatmap
 
     def get_main_paf_tensor(self):
         return self._output_data_tensors[self._index_of_main_paf]

@@ -20,7 +20,6 @@
 
 import numpy as np
 import scipy.stats as st
-
 import tensorflow as tf
 
 
@@ -118,4 +117,30 @@ class Smoother(object):
 
     def get_variables(self):
         return [self.kernel]
+
+
+def gauss_im(im_size, l=21, sigma=1):
+    """
+    im_size : tuple (w, h)
+    """
+    w = np.linspace(-l / 2, l / 2, im_size[0])
+    h = np.linspace(-l / 2, l / 2, im_size[1])
+    grid = np.stack(np.meshgrid(w, h), axis=-1)
+
+    sigma_f = 1 / (np.pi * 2 * sigma)
+    exp = np.exp(-(grid[..., 0] ** 2 + grid[..., 1] ** 2) / sigma ** 2 / 2)
+    return exp
+
+
+def gauss_blur_tf(im, gauss_im):
+    """
+    im : ndarray of shape [..., h, w]
+    gauss_im : ndarray of shape [..., h, w]
+    """
+    im = tf.cast(im, tf.complex64)
+    fft_im = tf.signal.fft2d(im)
+    fft_im = tf.signal.fftshift(fft_im, axes=(2, 3))
+    fft_im = fft_im * gauss_im
+    new_im = tf.signal.ifft2d(fft_im)
+    return tf.cast(tf.abs(new_im), dtype=tf.float32)
 
