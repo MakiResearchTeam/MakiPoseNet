@@ -42,7 +42,7 @@ class PEModel(PoseEstimatorInterface):
             smoother_kernel_size=25, fast_mode=False,
             prediction_down_scale=1, ignore_last_dim_inference=True,
             threash_hold_peaks=0.1, use_fft_smoother=False, fft_kernel=15, fft_coef=3.0, img_size=None,
-            use_blur=True):
+            use_blur=True, heatmap_resize_method=tf.image.resize_bilinear):
         """
         Creates and returns PEModel from json file contains its architecture
 
@@ -113,6 +113,7 @@ class PEModel(PoseEstimatorInterface):
             fft_coef=fft_coef,
             img_size=img_size,
             use_blur=use_blur,
+            heatmap_resize_method=heatmap_resize_method,
             name=model_name
         )
 
@@ -131,6 +132,7 @@ class PEModel(PoseEstimatorInterface):
         fft_coef=3.0,
         img_size=None,
         use_blur=True,
+        heatmap_resize_method=tf.image.resize_bilinear,
         name="Pose_estimation"
     ):
         """
@@ -177,6 +179,7 @@ class PEModel(PoseEstimatorInterface):
             fft_kernel=fft_kernel,
             fft_coef=fft_coef,
             img_size=img_size,
+            heatmap_resize_method=heatmap_resize_method,
             use_blur=use_blur
         )
 
@@ -191,6 +194,7 @@ class PEModel(PoseEstimatorInterface):
             fft_kernel,
             fft_coef,
             img_size,
+            heatmap_resize_method,
             use_blur):
         """
         Initialize tensors for prediction
@@ -198,6 +202,7 @@ class PEModel(PoseEstimatorInterface):
         """
         self.__saved_mesh_grid = None
         self.__img_size = img_size
+        self.__use_blur = use_blur
 
         self.__use_fft_smoother = use_fft_smoother
 
@@ -245,7 +250,7 @@ class PEModel(PoseEstimatorInterface):
         else:
             final_heatmap_size = self.upsample_size
 
-        self._resized_heatmap = tf.image.resize_bilinear(
+        self._resized_heatmap = heatmap_resize_method(
             main_heatmap,
             final_heatmap_size,
             align_corners=False,
@@ -377,7 +382,7 @@ class PEModel(PoseEstimatorInterface):
 
         if using_estimate_alg:
 
-            if not self.__use_fft_smoother:
+            if not self.__use_fft_smoother or not self.__use_blur:
                 batched_paf, indices, peaks = self._session.run(
                     [self._resized_paf, self.__indices, self.__peaks_score],
                     feed_dict={
