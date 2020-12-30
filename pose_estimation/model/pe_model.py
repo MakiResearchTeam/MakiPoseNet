@@ -192,9 +192,6 @@ class PEModel(PoseEstimatorInterface):
 
         """
         self.__saved_mesh_grid = None
-        self.__saved_gaus_img = None
-        self.__fft_kernel = fft_kernel
-        self.__fft_coef = fft_coef
         self.__img_size = img_size
 
         self.__use_fft_smoother = use_fft_smoother
@@ -262,13 +259,8 @@ class PEModel(PoseEstimatorInterface):
         else:
             N = main_heatmap.get_shape().as_list()[0]
             self._resized_heatmap.set_shape((N, *img_size, num_keypoints))
-            self.__fft_gaus_img_placeholder = tf.placeholder(
-                dtype=tf.complex64,
-                shape=img_size,
-                name='fft_gaus_img_placeholder'
-            )
             transposed_heatmap = tf.transpose(self._resized_heatmap, (0, 3, 1, 2))
-            blured_heatmap = gauss_blur_tf(transposed_heatmap, self.__fft_gaus_img_placeholder)
+            blured_heatmap = gauss_blur_tf(transposed_heatmap, gauss_im=gauss_im(img_size[::-1], fft_kernel, fft_coef))
             self._blured_heatmap = tf.transpose(blured_heatmap, (0, 2, 3, 1))
 
         if fast_mode:
@@ -377,15 +369,12 @@ class PEModel(PoseEstimatorInterface):
         if using_estimate_alg:
 
             if self.__use_fft_smoother:
-                if self.__saved_gaus_img is None or self.__saved_gaus_img.shape != resize_to:
-                    self.__saved_gaus_img = gauss_im(resize_to[::-1], self.__fft_kernel, self.__fft_coef)
 
                 batched_paf, indices, peaks = self._session.run(
                     [self._resized_paf, self.__indices, self.__peaks_score],
                     feed_dict={
                         self._input_data_tensors[0]: x,
-                        self.upsample_size: resize_to,
-                        self.__fft_gaus_img_placeholder: self.__saved_gaus_img
+                        self.upsample_size: resize_to
                     }
                 )
             else:
