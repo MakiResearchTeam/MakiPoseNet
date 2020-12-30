@@ -240,7 +240,7 @@ class PEModel(PoseEstimatorInterface):
         else:
             final_heatmap_size = self.upsample_size
 
-        self._resized_heatmap = tf.image.resize_nearest_neighbor(
+        self._resized_heatmap = tf.image.resize_bilinear(
             main_heatmap,
             final_heatmap_size,
             align_corners=False,
