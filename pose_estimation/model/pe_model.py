@@ -41,7 +41,8 @@ class PEModel(PoseEstimatorInterface):
             path_to_model: str, input_tensor: MakiTensor = None,
             smoother_kernel_size=25, fast_mode=False,
             prediction_down_scale=1, ignore_last_dim_inference=True,
-            threash_hold_peaks=0.1, use_fft_smoother=False, fft_kernel=15, fft_coef=3.0, img_size=None):
+            threash_hold_peaks=0.1, use_fft_smoother=False, fft_kernel=15, fft_coef=3.0, img_size=None,
+            use_blur=True):
         """
         Creates and returns PEModel from json file contains its architecture
 
@@ -111,6 +112,7 @@ class PEModel(PoseEstimatorInterface):
             fft_kernel=fft_kernel,
             fft_coef=fft_coef,
             img_size=img_size,
+            use_blur=use_blur,
             name=model_name
         )
 
@@ -128,6 +130,7 @@ class PEModel(PoseEstimatorInterface):
         fft_kernel=15,
         fft_coef=3.0,
         img_size=None,
+        use_blur=True,
         name="Pose_estimation"
     ):
         """
@@ -173,7 +176,8 @@ class PEModel(PoseEstimatorInterface):
             use_fft_smoother=use_fft_smoother,
             fft_kernel=fft_kernel,
             fft_coef=fft_coef,
-            img_size=img_size
+            img_size=img_size,
+            use_blur=use_blur
         )
 
     def _init_tensors_for_prediction(
@@ -186,7 +190,8 @@ class PEModel(PoseEstimatorInterface):
             use_fft_smoother,
             fft_kernel,
             fft_coef,
-            img_size):
+            img_size,
+            use_blur):
         """
         Initialize tensors for prediction
 
@@ -248,21 +253,24 @@ class PEModel(PoseEstimatorInterface):
         )
         num_keypoints = main_heatmap.get_shape().as_list()[-1]
 
-        if not use_fft_smoother:
-            self._smoother = Smoother(
-                {Smoother.DATA: self._resized_heatmap},
-                smoother_kernel_size,
-                3.0,
-                num_keypoints
-            )
-            self._blured_heatmap= self._smoother.get_output()
+        if use_blur:
+            if not use_fft_smoother:
+                self._smoother = Smoother(
+                    {Smoother.DATA: self._resized_heatmap},
+                    smoother_kernel_size,
+                    3.0,
+                    num_keypoints
+                )
+                self._blured_heatmap= self._smoother.get_output()
+            else:
+                N = main_heatmap.get_shape().as_list()[0]
+                self._resized_heatmap.set_shape((N, *img_size, num_keypoints))
+                self.blur_placholder = tf.placeholder(shape=(N, *img_size, num_keypoints), dtype=tf.float32, name='asdas')
+                transposed_heatmap = tf.transpose(self.blur_placholder, (0, 3, 1, 2))
+                blured_heatmap = gauss_blur_tf(transposed_heatmap, gauss_im=gauss_im(img_size[::-1], fft_kernel, fft_coef))
+                self._blured_heatmap = tf.transpose(blured_heatmap, (0, 2, 3, 1))
         else:
-            N = main_heatmap.get_shape().as_list()[0]
-            self._resized_heatmap.set_shape((N, *img_size, num_keypoints))
-            self.blur_placholder = tf.placeholder(shape=(N, *img_size, num_keypoints), dtype=tf.float32, name='asdas')
-            transposed_heatmap = tf.transpose(self.blur_placholder, (0, 3, 1, 2))
-            blured_heatmap = gauss_blur_tf(transposed_heatmap, gauss_im=gauss_im(img_size[::-1], fft_kernel, fft_coef))
-            self._blured_heatmap = tf.transpose(blured_heatmap, (0, 2, 3, 1))
+            self._blured_heatmap = self._resized_heatmap
 
         if fast_mode:
             heatmap_tf = self._blured_heatmap[0]
