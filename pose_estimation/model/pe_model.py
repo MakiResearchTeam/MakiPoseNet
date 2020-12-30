@@ -269,7 +269,7 @@ class PEModel(PoseEstimatorInterface):
             )
             transposed_heatmap = tf.transpose(self._resized_heatmap, (0, 3, 1, 2))
             blured_heatmap = gauss_blur_tf(transposed_heatmap, self.__fft_gaus_img_placeholder)
-            self._blured_heatmap = tf.transpose(blured_heatmap, 0, 2, 3, 1)
+            self._blured_heatmap = tf.transpose(blured_heatmap, (0, 2, 3, 1))
 
         if fast_mode:
             heatmap_tf = self._blured_heatmap[0]
