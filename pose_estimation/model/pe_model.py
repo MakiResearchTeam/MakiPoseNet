@@ -259,7 +259,8 @@ class PEModel(PoseEstimatorInterface):
         else:
             N = main_heatmap.get_shape().as_list()[0]
             self._resized_heatmap.set_shape((N, *img_size, num_keypoints))
-            transposed_heatmap = tf.transpose(self._resized_heatmap, (0, 3, 1, 2))
+            self.blur_placholder = tf.placeholder(shape=(N, *img_size, num_keypoints), dtype=tf.float32, name='asdas')
+            transposed_heatmap = tf.transpose(self.blur_placholder, (0, 3, 1, 2))
             blured_heatmap = gauss_blur_tf(transposed_heatmap, gauss_im=gauss_im(img_size[::-1], fft_kernel, fft_coef))
             self._blured_heatmap = tf.transpose(blured_heatmap, (0, 2, 3, 1))
 
@@ -368,13 +369,29 @@ class PEModel(PoseEstimatorInterface):
 
         if using_estimate_alg:
 
-            batched_paf, indices, peaks = self._session.run(
-                [self._resized_paf, self.__indices, self.__peaks_score],
-                feed_dict={
-                    self._input_data_tensors[0]: x,
-                    self.upsample_size: resize_to
-                }
-            )
+            if not self.__use_fft_smoother:
+                batched_paf, indices, peaks = self._session.run(
+                    [self._resized_paf, self.__indices, self.__peaks_score],
+                    feed_dict={
+                        self._input_data_tensors[0]: x,
+                        self.upsample_size: resize_to
+                    }
+                )
+            else:
+                batched_paf, batched_heatmap = self._session.run(
+                    [self._resized_paf, self._resized_heatmap],
+                    feed_dict={
+                        self._input_data_tensors[0]: x,
+                        self.upsample_size: resize_to
+                    }
+                )
+
+                indices, peaks = self._session.run(
+                    [self.__indices, self.__peaks_score],
+                    feed_dict={
+                        self.blur_placholder: batched_heatmap
+                    }
+                )
 
             return [
                 merge_similar_skelets(estimate_paf(
