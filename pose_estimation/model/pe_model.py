@@ -244,9 +244,7 @@ class PEModel(PoseEstimatorInterface):
             align_corners=False,
             name='upsample_heatmap'
         )
-        N = main_heatmap.get_shape().as_list()[0]
         num_keypoints = main_heatmap.get_shape().as_list()[-1]
-        self._resized_heatmap.set_shape((N, final_heatmap_size[0], final_heatmap_size[1], num_keypoints))
 
         if not use_fft_smoother:
             self._smoother = Smoother(
