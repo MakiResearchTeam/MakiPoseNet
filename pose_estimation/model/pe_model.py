@@ -41,8 +41,8 @@ class PEModel(PoseEstimatorInterface):
             path_to_model: str, input_tensor: MakiTensor = None,
             smoother_kernel_size=25, fast_mode=False,
             prediction_down_scale=1, ignore_last_dim_inference=True,
-            threash_hold_peaks=0.1, use_fft_smoother=False, fft_kernel=15, fft_coef=3.0, img_size=None,
-            use_blur=True, heatmap_resize_method=tf.image.resize_bilinear):
+            threash_hold_peaks=0.1, img_size=None, use_blur=True,
+            heatmap_resize_method=tf.image.resize_bilinear):
         """
         Creates and returns PEModel from json file contains its architecture
 
@@ -108,9 +108,6 @@ class PEModel(PoseEstimatorInterface):
             prediction_down_scale=prediction_down_scale,
             ignore_last_dim_inference=ignore_last_dim_inference,
             threash_hold_peaks=threash_hold_peaks,
-            use_fft_smoother=use_fft_smoother,
-            fft_kernel=fft_kernel,
-            fft_coef=fft_coef,
             img_size=img_size,
             use_blur=use_blur,
             heatmap_resize_method=heatmap_resize_method,
@@ -127,9 +124,6 @@ class PEModel(PoseEstimatorInterface):
         prediction_down_scale=1,
         fast_mode=False,
         threash_hold_peaks=0.1,
-        use_fft_smoother=False,
-        fft_kernel=15,
-        fft_coef=3.0,
         img_size=None,
         use_blur=True,
         heatmap_resize_method=tf.image.resize_bilinear,
@@ -175,9 +169,6 @@ class PEModel(PoseEstimatorInterface):
             prediction_down_scale=prediction_down_scale,
             fast_mode=fast_mode,
             threash_hold_peaks=threash_hold_peaks,
-            use_fft_smoother=use_fft_smoother,
-            fft_kernel=fft_kernel,
-            fft_coef=fft_coef,
             img_size=img_size,
             heatmap_resize_method=heatmap_resize_method,
             use_blur=use_blur
@@ -190,9 +181,6 @@ class PEModel(PoseEstimatorInterface):
             prediction_down_scale,
             fast_mode,
             threash_hold_peaks,
-            use_fft_smoother,
-            fft_kernel,
-            fft_coef,
             img_size,
             heatmap_resize_method,
             use_blur):
@@ -201,10 +189,7 @@ class PEModel(PoseEstimatorInterface):
 
         """
         self.__saved_mesh_grid = None
-        self.__img_size = img_size
         self.__use_blur = use_blur
-
-        self.__use_fft_smoother = use_fft_smoother
 
         main_heatmap = self.get_main_heatmap_tensor()
         if ignore_last_dim_inference:
@@ -259,21 +244,13 @@ class PEModel(PoseEstimatorInterface):
         num_keypoints = main_heatmap.get_shape().as_list()[-1]
 
         if use_blur:
-            if not use_fft_smoother:
-                self._smoother = Smoother(
-                    {Smoother.DATA: self._resized_heatmap},
-                    smoother_kernel_size,
-                    3.0,
-                    num_keypoints
-                )
-                self._blured_heatmap= self._smoother.get_output()
-            else:
-                N = main_heatmap.get_shape().as_list()[0]
-                self._resized_heatmap.set_shape((N, *img_size, num_keypoints))
-                self.blur_placholder = tf.placeholder(shape=(N, *img_size, num_keypoints), dtype=tf.float32, name='asdas')
-                transposed_heatmap = tf.transpose(self.blur_placholder, (0, 3, 1, 2))
-                blured_heatmap = gauss_blur_tf(transposed_heatmap, gauss_im=gauss_im(img_size[::-1], fft_kernel, fft_coef))
-                self._blured_heatmap = tf.transpose(blured_heatmap, (0, 2, 3, 1))
+            self._smoother = Smoother(
+                {Smoother.DATA: self._resized_heatmap},
+                smoother_kernel_size,
+                3.0,
+                num_keypoints
+            )
+            self._blured_heatmap= self._smoother.get_output()
         else:
             self._blured_heatmap = self._resized_heatmap
 
@@ -381,30 +358,13 @@ class PEModel(PoseEstimatorInterface):
             resize_to = x[0].shape[:2]
 
         if using_estimate_alg:
-
-            if not self.__use_fft_smoother or not self.__use_blur:
-                batched_paf, indices, peaks = self._session.run(
-                    [self._resized_paf, self.__indices, self.__peaks_score],
-                    feed_dict={
-                        self._input_data_tensors[0]: x,
-                        self.upsample_size: resize_to
-                    }
-                )
-            else:
-                batched_paf, batched_heatmap = self._session.run(
-                    [self._resized_paf, self._resized_heatmap],
-                    feed_dict={
-                        self._input_data_tensors[0]: x,
-                        self.upsample_size: resize_to
-                    }
-                )
-
-                indices, peaks = self._session.run(
-                    [self.__indices, self.__peaks_score],
-                    feed_dict={
-                        self.blur_placholder: batched_heatmap
-                    }
-                )
+            batched_paf, indices, peaks = self._session.run(
+                [self._resized_paf, self.__indices, self.__peaks_score],
+                feed_dict={
+                    self._input_data_tensors[0]: x,
+                    self.upsample_size: resize_to
+                }
+            )
 
             return [
                 merge_similar_skelets(estimate_paf(
