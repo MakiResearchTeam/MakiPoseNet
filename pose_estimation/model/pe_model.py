@@ -41,7 +41,7 @@ class PEModel(PoseEstimatorInterface):
             path_to_model: str, input_tensor: MakiTensor = None,
             smoother_kernel_size=25, fast_mode=False,
             prediction_down_scale=1, ignore_last_dim_inference=True,
-            threash_hold_peaks=0.1, use_fft_smoother=False, fft_kernel=15, fft_coef=3.0):
+            threash_hold_peaks=0.1, use_fft_smoother=False, fft_kernel=15, fft_coef=3.0, img_size=None):
         """
         Creates and returns PEModel from json file contains its architecture
 
@@ -110,6 +110,7 @@ class PEModel(PoseEstimatorInterface):
             use_fft_smoother=use_fft_smoother,
             fft_kernel=fft_kernel,
             fft_coef=fft_coef,
+            img_size=img_size,
             name=model_name
         )
 
@@ -126,6 +127,7 @@ class PEModel(PoseEstimatorInterface):
         use_fft_smoother=False,
         fft_kernel=15,
         fft_coef=3.0,
+        img_size=None,
         name="Pose_estimation"
     ):
         """
@@ -170,7 +172,8 @@ class PEModel(PoseEstimatorInterface):
             threash_hold_peaks=threash_hold_peaks,
             use_fft_smoother=use_fft_smoother,
             fft_kernel=fft_kernel,
-            fft_coef=fft_coef
+            fft_coef=fft_coef,
+            img_size=img_size
         )
 
     def _init_tensors_for_prediction(
@@ -182,7 +185,8 @@ class PEModel(PoseEstimatorInterface):
             threash_hold_peaks,
             use_fft_smoother,
             fft_kernel,
-            fft_coef):
+            fft_coef,
+            img_size):
         """
         Initialize tensors for prediction
 
@@ -191,6 +195,7 @@ class PEModel(PoseEstimatorInterface):
         self.__saved_gaus_img = None
         self.__fft_kernel = fft_kernel
         self.__fft_coef = fft_coef
+        self.__img_size = img_size
 
         self.__use_fft_smoother = use_fft_smoother
 
@@ -255,9 +260,11 @@ class PEModel(PoseEstimatorInterface):
             )
             self._blured_heatmap= self._smoother.get_output()
         else:
+            N = main_heatmap.get_shape().as_list()[0]
+            self._resized_heatmap.set_shape((N, *img_size, num_keypoints))
             self.__fft_gaus_img_placeholder = tf.placeholder(
                 dtype=tf.complex64,
-                shape=(None, None),
+                shape=img_size[::-1],
                 name='fft_gaus_img_placeholder'
             )
             transposed_heatmap = tf.transpose(self._resized_heatmap, (0, 3, 1, 2))
@@ -371,7 +378,7 @@ class PEModel(PoseEstimatorInterface):
 
             if self.__use_fft_smoother:
                 if self.__saved_gaus_img is None or self.__saved_gaus_img.shape != resize_to:
-                    self.__saved_gaus_img = gauss_im(resize_to, self.__fft_kernel, self.__fft_coef)
+                    self.__saved_gaus_img = gauss_im(resize_to[::-1], self.__fft_kernel, self.__fft_coef)
 
                 batched_paf, indices, peaks = self._session.run(
                     [self._resized_paf, self.__indices, self.__peaks_score],
