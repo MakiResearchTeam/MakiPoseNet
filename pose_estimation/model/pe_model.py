@@ -368,23 +368,13 @@ class PEModel(PoseEstimatorInterface):
 
         if using_estimate_alg:
 
-            if self.__use_fft_smoother:
-
-                batched_paf, indices, peaks = self._session.run(
-                    [self._resized_paf, self.__indices, self.__peaks_score],
-                    feed_dict={
-                        self._input_data_tensors[0]: x,
-                        self.upsample_size: resize_to
-                    }
-                )
-            else:
-                batched_paf, indices, peaks = self._session.run(
-                    [self._resized_paf, self.__indices, self.__peaks_score],
-                    feed_dict={
-                        self._input_data_tensors[0]: x,
-                        self.upsample_size: resize_to
-                    }
-                )
+            batched_paf, indices, peaks = self._session.run(
+                [self._resized_paf, self.__indices, self.__peaks_score],
+                feed_dict={
+                    self._input_data_tensors[0]: x,
+                    self.upsample_size: resize_to
+                }
+            )
 
             return [
                 merge_similar_skelets(estimate_paf(
