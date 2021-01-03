@@ -74,7 +74,6 @@ class CocoTester(Tester):
     AR_IOU_050 = "AR with IOU 0.50"
 
     _CENTRAL_SIZE = 600
-    _LENGHT_VIDEO = 600
     _ZERO_VALUE = 0.0
     # Check if H and W will be divide by `_SCALE_VALUE` without reminder,
     # This is need to better prediction
@@ -329,7 +328,7 @@ class CocoTester(Tester):
         for i, batch_image in enumerate(video_generator):
 
             # After certain frames, break
-            if i == self._LENGHT_VIDEO:
+            if self._video_test_length is not None and i == self._video_test_length:
                 break
 
             # Transform batch

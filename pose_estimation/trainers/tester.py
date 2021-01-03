@@ -46,6 +46,7 @@ class Tester(ABC):
     PATH_TO_TRAIN_ANNOT = 'path_to_train_annot'
     IMAGE_IDS_FROM_TRAIN = 'image_ids_from_train'
     TEST_VIDEO = "path_to_test_video"
+    TEST_VIDEO_LENGTH = 'test_video_length'
     SAVE_PREDICTED_VIDEO_FOLDER = 'folder_to_save_pred_video'
 
     NAME_RELAYOUR_ANNOT_JSON = "relayour_annot.json"
@@ -116,6 +117,7 @@ class Tester(ABC):
             self._train_annot = None
 
         self._video_path = self._config[self.TEST_VIDEO]
+        self._video_test_length = self._config.get(self.TEST_VIDEO_LENGTH)
         self._video_counter = 0
         self._save_pred_video_folder = self._config.get(self.SAVE_PREDICTED_VIDEO_FOLDER)
 
