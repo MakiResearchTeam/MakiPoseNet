@@ -21,7 +21,7 @@ import tensorflow as tf
 
 from .core import PoseEstimatorInterface
 from .utils.algorithm_connect_skelet import estimate_paf, merge_similar_skelets
-from .utils.smoother import Smoother, gauss_blur_tf, gauss_im
+from .utils.smoother import Smoother
 from makiflow.core import MakiTensor, MakiModel
 from makiflow.core.inference.maki_builder import MakiBuilder
 
@@ -41,8 +41,8 @@ class PEModel(PoseEstimatorInterface):
             path_to_model: str, input_tensor: MakiTensor = None,
             smoother_kernel_size=25, fast_mode=False,
             prediction_down_scale=1, ignore_last_dim_inference=True,
-            threash_hold_peaks=0.1, img_size=None, use_blur=True,
-            heatmap_resize_method=tf.image.resize_bilinear):
+            threash_hold_peaks=0.1, use_blur=True,
+            heatmap_resize_method=tf.image.resize_nearest_neighbor):
         """
         Creates and returns PEModel from json file contains its architecture
 
@@ -108,7 +108,6 @@ class PEModel(PoseEstimatorInterface):
             prediction_down_scale=prediction_down_scale,
             ignore_last_dim_inference=ignore_last_dim_inference,
             threash_hold_peaks=threash_hold_peaks,
-            img_size=img_size,
             use_blur=use_blur,
             heatmap_resize_method=heatmap_resize_method,
             name=model_name
@@ -124,9 +123,8 @@ class PEModel(PoseEstimatorInterface):
         prediction_down_scale=1,
         fast_mode=False,
         threash_hold_peaks=0.1,
-        img_size=None,
         use_blur=True,
-        heatmap_resize_method=tf.image.resize_bilinear,
+        heatmap_resize_method=tf.image.resize_nearest_neighbor,
         name="Pose_estimation"
     ):
         """
@@ -169,7 +167,6 @@ class PEModel(PoseEstimatorInterface):
             prediction_down_scale=prediction_down_scale,
             fast_mode=fast_mode,
             threash_hold_peaks=threash_hold_peaks,
-            img_size=img_size,
             heatmap_resize_method=heatmap_resize_method,
             use_blur=use_blur
         )
@@ -181,7 +178,6 @@ class PEModel(PoseEstimatorInterface):
             prediction_down_scale,
             fast_mode,
             threash_hold_peaks,
-            img_size,
             heatmap_resize_method,
             use_blur):
         """

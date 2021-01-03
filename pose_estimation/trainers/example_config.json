@@ -1,0 +1,145 @@
+{
+    "tb_config": {
+        "layer_histograms": [
+            "layer_1",
+            "layer_n"
+        ]
+    },
+    
+    "genlayer_config": {
+        "tfrecords_path": [
+            "/home/user/tfrecords_1",
+            "/home/user/tfrecords_n"
+        ],
+        "im_hw": [512, 512],
+        "batch_size": 46,
+        "prefetch_size": 2,
+        "keypoints_shape": [24, 8]
+    },
+    
+    "training_config": {
+        "epochs": 800,
+        "iters": 880,
+        "test_period": 1,
+        "save_period": 1,
+        "print_period": 10,
+        "gym_folder": "/home/user/long_exp_num_1",
+        "optimizer_info": {
+            "type": "AdamOptimizer",
+                "params": {
+                    "learning_rate": 4e-4,
+                    "beta1": 0.9,
+                    "beta2": 0.999,
+                    "use_locking": false,
+                    "epsilon": 1e-8,
+                    "name": "adam1"
+            }
+        }
+            
+    },
+    
+    "heatmap_config": {
+        "gaussian": true,
+        "params": {
+            "im_size": [320, 320],
+            "delta": 18.0,
+            "resize_to": null,
+            "vectorize": false
+        }
+    },
+
+    "paf_config": {
+        "params": {
+            "im_size": [320, 320],
+            "sigma": 7.0,
+            "resize_to": null,
+            "skeleton": [
+                [1, 2],
+                [2, 4],
+                [1, 3],
+                [3, 5],
+                [1, 7],
+                [7, 9],
+                [9, 11],
+                [11, 22],
+                [11, 23],
+                [1, 6],
+                [6, 8],
+                [8, 10],
+                [10, 20],
+                [10, 21],
+                [1, 0],
+                [0, 12],
+                [0, 13],
+                [13, 15],
+                [15, 17],
+                [17, 19],
+                [12, 14],
+                [14, 16],
+                [16, 18],
+                [5, 7],
+                [4, 6],
+                [7, 13],
+                [6, 12]
+            ],
+            "vectorize": false
+        }
+    },
+    
+    "model_config": {
+        "arch_path": "model.json",
+        "weights_path": null,
+        "pretrained_layers": null
+    },
+    "trainer_config": {
+        "trainer_info": {
+            "type": "MSETrainer",
+            "params": {
+                "resize_to": [40, 40],
+                "paf_scale": null,
+                "heatmap_scale": null,
+                "heatmap_weight": null,
+                "paf_weight": null
+            }
+        },
+        "untrainable_layers": null,
+        "l1_reg": null,
+        "l2_reg": null,
+        "l2_reg_layers": null,
+        
+        "distillation_info": {
+            "weights": "/home/user/model/weights/weights.ckpt",
+            "arch": "/home/user/model/model_1heads.json",
+            "type": "CosineDistillator",
+            "params": {
+                "layer_pairs": [
+                    ["layer_student_1",  "layer_teacher_1"],
+                    ["layer_student_n",  "layer_teacher_n"]
+                ],
+                "scale": 40.0,
+                "axis": [1, 2, 3]
+            }
+        }
+    },
+    
+    "test_config": {
+        "test_image": [
+            "test_image/1.png",
+            "test_image/n.png"
+        ],
+        "annot_gt_json": "/home/user/val_data.json",
+        "path_to_val_images": "/home/user/images/val2017",
+        "limit_annot": null,
+        "norm_mode": "caffe",
+        "normalization_shift": null,
+        "normalization_div": null,
+        "use_bgr2rgb": false,
+        "model_size": [320, 320],
+        "min_size_h": 320,
+        "path_to_train_annot": "/home/user/train_data.json",
+        "image_ids_from_train": [570188, 117424],
+        "path_to_test_video": "/home/user/videos/1.mp4",
+        "test_video_length": null
+    }
+        
+}
