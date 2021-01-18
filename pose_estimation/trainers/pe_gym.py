@@ -183,6 +183,11 @@ class PEGym:
         )
         self._model.save_weights(save_path)
 
+        save_path = os.path.join(
+            gym_folder, 'model.json'
+        )
+        self._model.save_architecture(save_path)
+
 
 
 
