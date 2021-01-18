@@ -455,6 +455,9 @@ class PEModel(PoseEstimatorInterface):
     def get_peaks_tensor(self) -> tf.Tensor:
         return self._peaks
 
+    def get_resized_heatmap_tensor(self) -> tf.Tensor:
+        return self._resized_heatmap
+
     def get_resized_paf_tensor(self) -> tf.Tensor:
         return self._resized_paf
 
