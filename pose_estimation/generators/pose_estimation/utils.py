@@ -45,8 +45,8 @@ def cutout_kp_in_box(keypoints, box_left_corner, box_size):
             1 - visible point
 
     """
-    box_left_corner = tf.convert_to_tensor(box_left_corner, dtype=tf.float32)
-    box_size = tf.convert_to_tensor(box_size, dtype=tf.float32)
+    box_left_corner = tf.cast(tf.convert_to_tensor(box_left_corner), dtype=tf.float32)
+    box_size = tf.cast(tf.convert_to_tensor(box_size), dtype=tf.float32)
     xy_kp = keypoints[..., :2]
     # Bigger
     coord_block_b = tf.less(xy_kp, box_left_corner)
