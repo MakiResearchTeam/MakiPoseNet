@@ -941,7 +941,7 @@ class DropBlockPostMethod(TFRPostMapMethod):
         )
 
         element[RIterator.IMAGE] = final_image
-        if self.__show_kp_under_dropblock:
+        if not self.__show_kp_under_dropblock:
             keypoints = element[RIterator.KEYPOINTS]
             keypoints_mask = element[RIterator.KEYPOINTS_MASK]
             element[RIterator.KEYPOINTS_MASK] = keypoints_mask * cutout_kp_in_box(keypoints, wh_tf, box_size)
