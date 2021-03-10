@@ -49,13 +49,14 @@ def cutout_kp_in_box(keypoints, box_left_corner, box_size):
     box_size = tf.cast(tf.convert_to_tensor(box_size), dtype=tf.float32)
     xy_kp = keypoints[..., :2]
     # Bigger
-    coord_block_b = tf.less(xy_kp, box_left_corner)
+    coord_block_b = tf.greater(xy_kp, box_left_corner)
     bool_ans_b = tf.math.logical_and(coord_block_b[..., 0], coord_block_b[..., 1])
     # Lower
-    coord_block_l = tf.greater(xy_kp, box_left_corner + box_size)
+    coord_block_l = tf.less(xy_kp, box_left_corner + box_size)
     bool_ans_l = tf.math.logical_and(coord_block_l[..., 0], coord_block_l[..., 1])
     # Bigger AND Lower
-    bool_final = tf.math.logical_or(bool_ans_l, bool_ans_b)
+    bool_final = tf.math.logical_and(bool_ans_l, bool_ans_b)
+    bool_final = tf.math.logical_not(bool_final)
 
     return tf.cast(bool_final, dtype=tf.float32)
 
