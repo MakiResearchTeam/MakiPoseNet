@@ -795,7 +795,7 @@ class ResizePostMethod(TFRPostMapMethod):
         element[RIterator.ABSENT_HUMAN_MASK] = resized_mask
         element[RIterator.KEYPOINTS] = scaled_keypoints
         # Check which keypoints are beyond the image
-        element[RIterator.KEYPOINTS_MASK] = keypoints_mask * tf.expand_dims(check_bounds(scaled_keypoints, self._resize_to), axis=-1)
+        element[RIterator.KEYPOINTS_MASK] = keypoints_mask * check_bounds(scaled_keypoints, self._resize_to)
         return element
 
 
@@ -944,7 +944,7 @@ class DropBlockPostMethod(TFRPostMapMethod):
         if not self.__show_kp_under_dropblock:
             keypoints = element[RIterator.KEYPOINTS]
             keypoints_mask = element[RIterator.KEYPOINTS_MASK]
-            element[RIterator.KEYPOINTS_MASK] = keypoints_mask * cutout_kp_in_box(keypoints, wh_tf, box_size)
+            element[RIterator.KEYPOINTS_MASK] = keypoints_mask * tf.expand_dims(cutout_kp_in_box(keypoints, wh_tf, box_size), axis=-1)
         return element
 
 
