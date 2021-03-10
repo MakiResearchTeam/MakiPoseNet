@@ -19,7 +19,7 @@ from makiflow.generators.pipeline.tfr.tfr_map_method import TFRMapMethod, TFRPos
 from .data_preparation import (IMAGE_FNAME, KEYPOINTS_FNAME,
                                KEYPOINTS_MASK_FNAME, IMAGE_PROPERTIES_FNAME,
                                ABSENT_HUMAN_MASK_FNAME)
-from .utils import check_bounds, apply_transformation, apply_transformation_batched
+from .utils import check_bounds, apply_transformation, apply_transformation_batched, cutout_kp_in_box
 from pose_estimation.utils.nns_tools.preprocess import preprocess_input
 
 import tensorflow as tf
@@ -823,10 +823,10 @@ class ApplyMaskToImagePostMethod(TFRPostMapMethod):
 
 class DropBlockPostMethod(TFRPostMapMethod):
 
-    __ZERO = 0
-    __COLOR_DIMS_DEFAULT = 3
+    ZERO = 0
+    COLOR_DIMS_DEFAULT = 3
 
-    def __init__(self, min_size_box, max_size_box, prob_rate=0.5):
+    def __init__(self, min_size_box, max_size_box, prob_rate=0.5, show_kp_under_dropblock=True):
         """
         Cutout (fill it with zeros) random square on the image
 
@@ -843,6 +843,8 @@ class DropBlockPostMethod(TFRPostMapMethod):
         prob_rate : float
             Probability to cutout block of image.
             Must be in range (0, 1)
+        show_kp_under_dropblock : bool
+            If equal tu True, keypoint under dropblock will be shown to NN as it is
 
         """
         if prob_rate < 0.0 or prob_rate > 1.0:
@@ -875,6 +877,7 @@ class DropBlockPostMethod(TFRPostMapMethod):
         self.__min_size_box = min_size_box
         self.__max_size_box = max_size_box
         self.__prob_rate = prob_rate
+        self.__show_kp_under_dropblock = show_kp_under_dropblock
         super().__init__()
 
     def read_record(self, serialized_example) -> dict:
@@ -897,10 +900,11 @@ class DropBlockPostMethod(TFRPostMapMethod):
         # Generate size of box
         box_w = tf.random.uniform([N_batch], box_min[1], box_max[1], tf.int32)
         box_h = tf.random.uniform([N_batch], box_min[0], box_max[0], tf.int32)
+        # Shape: [N, 2] -> [N, 1, 2] -> [N, 1, 1, 2]
         box_size = tf.expand_dims(tf.expand_dims(tf.stack([box_w, box_h], axis=-1), axis=1), axis=1)
         # Generate left corner of position where should be started cutout op
-        h = tf.map_fn(lambda x: tf.random.uniform([], DropBlockPostMethod.__ZERO, height - x, tf.int32), box_h)
-        w = tf.map_fn(lambda x: tf.random.uniform([], DropBlockPostMethod.__ZERO, width  - x, tf.int32), box_w)
+        h = tf.map_fn(lambda x: tf.random.uniform([], DropBlockPostMethod.ZERO, height - x, tf.int32), box_h)
+        w = tf.map_fn(lambda x: tf.random.uniform([], DropBlockPostMethod.ZERO, width  - x, tf.int32), box_w)
         wh_tf = tf.expand_dims(tf.expand_dims(tf.stack([w, h], axis=-1), axis=1), axis=1)
         # Generate grid for cutout
         x_grid, y_grid = tf.meshgrid(tf.range(width), tf.range(height))
@@ -918,7 +922,7 @@ class DropBlockPostMethod(TFRPostMapMethod):
 
         # Append color shape
         add_color_dims_boolean = tf.concat(
-            [tf.expand_dims(bool_final, axis=-1)] * DropBlockPostMethod.__COLOR_DIMS_DEFAULT,
+            [tf.expand_dims(bool_final, axis=-1)] * DropBlockPostMethod.COLOR_DIMS_DEFAULT,
             axis=-1
         )
         # Apply mask
@@ -937,6 +941,10 @@ class DropBlockPostMethod(TFRPostMapMethod):
         )
 
         element[RIterator.IMAGE] = final_image
+        if self.__show_kp_under_dropblock:
+            keypoints = element[RIterator.KEYPOINTS]
+            keypoints_mask = element[RIterator.KEYPOINTS_MASK]
+            element[RIterator.KEYPOINTS_MASK] = keypoints_mask * cutout_kp_in_box(keypoints, wh_tf, box_size)
         return element
 
 

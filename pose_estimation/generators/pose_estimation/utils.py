@@ -22,6 +22,44 @@ import numpy as np
 DEGREE2RAD = 180.0 / np.pi 
 
 
+def cutout_kp_in_box(keypoints, box_left_corner, box_size):
+    """
+    Create binary mask for keypoints beyond certain box
+    0 - kp inside
+    1 - kp outside
+
+    Parameters
+    ----------
+    keypoints : tf.Tensor
+        Tensor of the keypoints, where last axis is x and y coordinate
+    box_left_corner : list
+        List of [N, x, y]
+    box_size : list
+        List of [N, w, h]
+
+    Returns
+    -------
+    tf.Tensor
+        Binary mask, where:
+            0 - correspond to non-visible point
+            1 - visible point
+
+    """
+    box_left_corner = tf.convert_to_tensor(box_left_corner)
+    box_size = tf.convert_to_tensor(box_size)
+    xy_kp = keypoints[..., :2]
+    # Bigger
+    coord_block_b = tf.less(xy_kp, box_left_corner)
+    bool_ans_b = tf.math.logical_and(coord_block_b[..., 0], coord_block_b[..., 1])
+    # Lower
+    coord_block_l = tf.greater(xy_kp, box_left_corner + box_size)
+    bool_ans_l = tf.math.logical_and(coord_block_l[..., 0], coord_block_l[..., 1])
+    # Bigger AND Lower
+    bool_final = tf.math.logical_and(bool_ans_l, bool_ans_b)
+
+    return tf.cast(bool_final, dtype=tf.float32)
+
+
 def check_bounds(keypoints, image_size):
     """
     Check range of keypoints and return mask for further usage
