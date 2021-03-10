@@ -795,7 +795,7 @@ class ResizePostMethod(TFRPostMapMethod):
         element[RIterator.ABSENT_HUMAN_MASK] = resized_mask
         element[RIterator.KEYPOINTS] = scaled_keypoints
         # Check which keypoints are beyond the image
-        element[RIterator.KEYPOINTS_MASK] = keypoints_mask * check_bounds(scaled_keypoints, self._resize_to)
+        element[RIterator.KEYPOINTS_MASK] = keypoints_mask * tf.expand_dims(check_bounds(scaled_keypoints, self._resize_to), axis=-1)
         return element
 
 
