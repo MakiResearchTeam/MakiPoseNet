@@ -50,6 +50,7 @@ class Smoother:
         if preload_kernel is None:
             kernel = self.gauss_kernel(filter_size, sigma, heat_map_size)
         else:
+            print('Use preload kernel for smoother')
             kernel = preload_kernel
 
         self._smoother_kernel = tf.constant(

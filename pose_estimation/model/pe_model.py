@@ -252,7 +252,8 @@ class PEModel(PoseEstimatorInterface):
                 self._resized_heatmap,
                 smoother_kernel_size,
                 3.0,
-                num_keypoints
+                num_keypoints,
+                preload_kernel=smoother_kernel
             )
             self._blured_heatmap= self._smoother.get_output()
         else:
