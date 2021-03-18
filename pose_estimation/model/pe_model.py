@@ -249,7 +249,7 @@ class PEModel(PoseEstimatorInterface):
 
         if use_blur:
             self._smoother = Smoother(
-                {Smoother.DATA: self._resized_heatmap},
+                self._resized_heatmap,
                 smoother_kernel_size,
                 3.0,
                 num_keypoints
