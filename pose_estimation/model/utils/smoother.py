@@ -29,7 +29,7 @@ class Smoother:
     SMOOTHER_OP_NAME = 'smoother_op'
     SMOOTHER_VAR_NAME = 'smoother_kernel'
 
-    def __init__(self, inputs, filter_size, sigma, heat_map_size=0, preload_kernel=None, dtype=tf.float32):
+    def __init__(self, inputs, filter_size, sigma, heat_map_size=0, preload_kernel=None, dtype=np.float32):
         self.inputs = inputs
         self.filter_size = filter_size
         self.sigma = sigma
