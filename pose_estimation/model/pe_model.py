@@ -71,6 +71,8 @@ class PEModel(PoseEstimatorInterface):
             In most models, last dimension is background heatmap and its does not used in inference
         threash_hold_peaks : float
             pass
+        heatmap_resize_method : tf.image
+            TODO: add docs
         second_heatmap_resize_method : tf.image
             TODO: add docs
         """
@@ -284,7 +286,7 @@ class PEModel(PoseEstimatorInterface):
             self._up_heatmap = self._blured_heatmap
 
         if fast_mode:
-            heatmap_tf = self._blured_heatmap[0]
+            heatmap_tf = self._up_heatmap[0]
             heatmap_tf = tf.where(
                 tf.less(heatmap_tf, threash_hold_peaks),
                 tf.zeros_like(heatmap_tf), heatmap_tf
@@ -321,7 +323,7 @@ class PEModel(PoseEstimatorInterface):
             # Apply NMS (Non maximum suppression)
             # Apply max pool operation to heatmap
             max_pooled_heatmap = tf.nn.max_pool(
-                self._blured_heatmap,
+                self._up_heatmap,
                 PEModel._DEFAULT_KERNEL_MAX_POOL,
                 strides=[1, 1, 1, 1],
                 padding='SAME'
@@ -330,16 +332,16 @@ class PEModel(PoseEstimatorInterface):
             # i.e. biggest numbers of heatmaps
             self._peaks = tf.where(
                 tf.equal(
-                    self._blured_heatmap,
+                    self._up_heatmap,
                     max_pooled_heatmap
                 ),
-                self._blured_heatmap,
-                tf.zeros_like(self._blured_heatmap)
+                self._up_heatmap,
+                tf.zeros_like(self._up_heatmap)
             )[0]
 
         self.__indices, self.__peaks_score = self.__get_peak_indices_tf(self._peaks, thresh=threash_hold_peaks)
 
-        if prediction_down_scale > 1:
+        if prediction_down_scale > 1 and not upsample_heatmap_after_down_scale:
             # indices - [num_indx, 3], first two dimensions - xy,
             # last dims - keypoint class (in order to save keypoint class scale to 1)
             self.__indices = self.__indices * np.array([prediction_down_scale]*2 +[1], dtype=np.int32)
@@ -402,7 +404,7 @@ class PEModel(PoseEstimatorInterface):
 
         else:
             batched_paf, batched_heatmap, batched_peaks = self._session.run(
-                [self._resized_paf, self._blured_heatmap, self._peaks],
+                [self._resized_paf, self._up_heatmap, self._peaks],
                 feed_dict={
                     self._input_data_tensors[0]: x,
                     self.upsample_size: resize_to
