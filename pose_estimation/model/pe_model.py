@@ -39,7 +39,7 @@ class PEModel(PoseEstimatorInterface):
     @staticmethod
     def from_json(
             path_to_model: str, input_tensor: MakiTensor = None,
-            smoother_kernel_size=25, fast_mode=False,
+            smoother_kernel_size=25, smoother_kernel=None, fast_mode=False,
             prediction_down_scale=1, ignore_last_dim_inference=True,
             threash_hold_peaks=0.1, use_blur=True,
             heatmap_resize_method=tf.image.resize_nearest_neighbor):
@@ -62,6 +62,8 @@ class PEModel(PoseEstimatorInterface):
             If more than 1, final keypoint will be scaled to size of the input image
         smoother_kernel_size : int
             Size of a kernel in the smoother (aka gaussian filter)
+        smoother_kernel : np.ndarray
+            TODO: Add docs
         ignore_last_dim_inference : bool
             In most models, last dimension is background heatmap and its does not used in inference
         threash_hold_peaks : float
@@ -104,6 +106,7 @@ class PEModel(PoseEstimatorInterface):
             output_heatmap_list=output_heatmap_list,
             output_paf_list=output_paf_list,
             smoother_kernel_size=smoother_kernel_size,
+            smoother_kernel=smoother_kernel,
             fast_mode=fast_mode,
             prediction_down_scale=prediction_down_scale,
             ignore_last_dim_inference=ignore_last_dim_inference,
@@ -119,6 +122,7 @@ class PEModel(PoseEstimatorInterface):
         output_paf_list: list,
         output_heatmap_list: list,
         smoother_kernel_size=25,
+        smoother_kernel=None,
         ignore_last_dim_inference=True,
         prediction_down_scale=1,
         fast_mode=False,
@@ -142,6 +146,8 @@ class PEModel(PoseEstimatorInterface):
             Assume that last tensor in the list, will be the main one
         smoother_kernel_size : int
             Size of a kernel in the smoother (aka gaussian filter)
+        smoother_kernel : np.ndarray
+            TODO: Add docs
         ignore_last_dim_inference : bool
             In most models, last dimension is background heatmap and its does not used in inference
         prediction_down_scale : int
@@ -163,6 +169,7 @@ class PEModel(PoseEstimatorInterface):
         super().__init__(outputs=output_paf_list + output_heatmap_list, inputs=[input_x])
         self._init_tensors_for_prediction(
             smoother_kernel_size=smoother_kernel_size,
+            smoother_kernel=smoother_kernel,
             ignore_last_dim_inference=ignore_last_dim_inference,
             prediction_down_scale=prediction_down_scale,
             fast_mode=fast_mode,
@@ -174,6 +181,7 @@ class PEModel(PoseEstimatorInterface):
     def _init_tensors_for_prediction(
             self,
             smoother_kernel_size,
+            smoother_kernel,
             ignore_last_dim_inference,
             prediction_down_scale,
             fast_mode,
@@ -310,9 +318,6 @@ class PEModel(PoseEstimatorInterface):
             # indices - [num_indx, 3], first two dimensions - xy,
             # last dims - keypoint class (in order to save keypoint class scale to 1)
             self.__indices = self.__indices * np.array([prediction_down_scale]*2 +[1], dtype=np.int32)
-
-    def set_session(self, session: tf.Session):
-        super().set_session(session)
 
     def predict(self, x: list, resize_to=None, using_estimate_alg=True):
         """
