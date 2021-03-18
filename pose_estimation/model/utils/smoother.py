@@ -44,7 +44,11 @@ class Smoother:
         self.create_graph()
 
     def create_graph(self):
-        self._smoother_op = tf.nn.depthwise_conv2d(self.inputs, self._smoother_kernel, [1, 1, 1, 1], padding='SAME')
+        self._smoother_op = tf.nn.depthwise_conv2d(
+            self.inputs, self._smoother_kernel,
+            [1, 1, 1, 1],
+            padding='SAME', name=Smoother.SMOOTHER_OP_NAME
+        )
 
     def setup_kernel(self, filter_size, sigma, heat_map_size, preload_kernel, dtype):
         if preload_kernel is None:
