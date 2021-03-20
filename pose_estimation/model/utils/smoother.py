@@ -15,9 +15,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
-# vim: sta:et:sw=2:ts=2:sts=2
-# Written by Antonio Loquercio
-
 import numpy as np
 import scipy.stats as st
 import tensorflow as tf
