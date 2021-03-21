@@ -41,6 +41,7 @@ class TFPostProcessModule(InterfacePostProcessModule):
             TODO: add docs
 
         """
+        super().__init__()
         self._smoother_kernel_size = smoother_kernel_size
         self._smoother_kernel = smoother_kernel
 
@@ -58,12 +59,9 @@ class TFPostProcessModule(InterfacePostProcessModule):
 
         self._heatmap_tensor = None
         self._paf_tensor = None
-        self._session = None
+        self.upsample_size = None
         self._is_graph_build = False
         self._is_using_estimate_alg = True
-
-    def set_session(self, session):
-        self._session = session
 
     def set_is_using_estimate_alg(self, is_use: bool):
         self._is_using_estimate_alg = is_use
@@ -72,7 +70,7 @@ class TFPostProcessModule(InterfacePostProcessModule):
         self._paf_tensor = paf
         self._heatmap_tensor = heatmap
 
-    def __call__(self, input_batch, feed_dict):
+    def __call__(self, feed_dict):
         """
 
         Parameters
@@ -87,7 +85,7 @@ class TFPostProcessModule(InterfacePostProcessModule):
         """
         if not self._is_graph_build:
             self._build_postporcess_graph()
-        resize_to = input_batch[0].shape[:2]
+        resize_to = super().get_resize_to()
         feed_dict.update({self.upsample_size: resize_to})
 
         if self._is_using_estimate_alg:
@@ -124,12 +122,6 @@ class TFPostProcessModule(InterfacePostProcessModule):
         Initialize tensors for prediction
 
         """
-        main_heatmap = self._heatmap_tensor
-        if self._ignore_last_dim_inference:
-            main_heatmap = main_heatmap[..., :-1]
-
-        main_paf = self._paf_tensor
-
         if not isinstance(self._prediction_down_scale, int):
             raise TypeError(f"Parameter: `prediction_down_scale` should have type int, "
                             f"but type:`{type(self._prediction_down_scale)}` "
@@ -146,9 +138,12 @@ class TFPostProcessModule(InterfacePostProcessModule):
             raise TypeError(f"Parameter: `threash_hold_peaks` should be in range (0.0, 1.0), "
                             f"but value: {self._threash_hold_peaks} were given.")
 
-        # Store (H, W) - final size of the prediction
-        self.upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=TFPostProcessModule.UPSAMPLE_SIZE)
+        self._build_paf_graph()
+        self._build_heatmap_graph()
+        self._build_peaks_graph()
 
+    def _build_paf_graph(self):
+        main_paf = self._paf_tensor
         # [N, W, H, NUM_PAFS, 2]
         shape_paf = tf.shape(main_paf)
 
@@ -163,6 +158,11 @@ class TFPostProcessModule(InterfacePostProcessModule):
             align_corners=False,
             name='upsample_paf'
         )
+
+    def _build_heatmap_graph(self):
+        main_heatmap = self._heatmap_tensor
+        if self._ignore_last_dim_inference:
+            main_heatmap = main_heatmap[..., :-1]
 
         # For more faster inference,
         # We can take peaks on low res heatmap
@@ -201,6 +201,7 @@ class TFPostProcessModule(InterfacePostProcessModule):
         else:
             self._up_heatmap = self._blured_heatmap
 
+    def _build_peaks_graph(self):
         if self._fast_mode:
             heatmap_tf = self._up_heatmap[0]
             heatmap_tf = tf.where(
