@@ -15,68 +15,50 @@
 # You should have received a copy of the GNU General Public License
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
-# vim: sta:et:sw=2:ts=2:sts=2
-# Written by Antonio Loquercio
-
 import numpy as np
 import scipy.stats as st
 import tensorflow as tf
 
 
-def layer(op):
-    def layer_decorated(self, *args, **kwargs):
-        # Automatically set a name if not provided.
-        name = kwargs.setdefault('name', self.get_unique_name(op.__name__))
-        # Figure out the layer inputs.
-        if len(self.terminals) == 0:
-            raise RuntimeError('No input variables found for layer %s.' % name)
-        elif len(self.terminals) == 1:
-            layer_input = self.terminals[0]
-        else:
-            layer_input = list(self.terminals)
-        # Perform the operation and get the output.
-        layer_output = op(self, layer_input, *args, **kwargs)
-        # Add to layer LUT.
-        self.layers[name] = layer_output
-        # This output is now the input for the next layer.
-        self.feed(layer_output)
-        # Return self for chained calls.
-        return self
-
-    return layer_decorated
-
-
-class Smoother(object):
+class Smoother:
 
     DATA = 'data'
+    SMOOTHER_OP_NAME = 'smoother_op'
+    SMOOTHER_VAR_NAME = 'smoother_kernel'
 
-    def __init__(self, inputs, filter_size, sigma, heat_map_size=0):
+    def __init__(self, inputs, filter_size, sigma, heat_map_size=0, preload_kernel=None, dtype=np.float32):
         self.inputs = inputs
-        self.terminals = []
-        self.layers = dict(inputs)
         self.filter_size = filter_size
         self.sigma = sigma
         self.heat_map_size = heat_map_size
-        self.setup()
 
-    def setup(self):
-        self.feed('data').conv(name='smoothing')
+        self._smoother_kernel = None
+        self._smoother_op = None
+        self.setup_kernel(
+            filter_size=filter_size, sigma=sigma,
+            heat_map_size=heat_map_size, preload_kernel=preload_kernel, dtype=dtype
+        )
+        self.create_graph()
 
-    def get_unique_name(self, prefix):
-        ident = sum(t.startswith(prefix) for t, _ in self.layers.items()) + 1
-        return '%s_%d' % (prefix, ident)
+    def create_graph(self):
+        self._smoother_op = tf.nn.depthwise_conv2d(
+            self.inputs, self._smoother_kernel,
+            [1, 1, 1, 1],
+            padding='SAME', name=Smoother.SMOOTHER_OP_NAME
+        )
 
-    def feed(self, *args):
-        assert len(args) != 0
-        self.terminals = []
-        for fed_layer in args:
-            if isinstance(fed_layer, str):
-                try:
-                    fed_layer = self.layers[fed_layer]
-                except KeyError:
-                    raise KeyError('Unknown layer name fed: %s' % fed_layer)
-            self.terminals.append(fed_layer)
-        return self
+    def setup_kernel(self, filter_size, sigma, heat_map_size, preload_kernel, dtype):
+        if preload_kernel is None:
+            kernel = self.gauss_kernel(filter_size, sigma, heat_map_size)
+        else:
+            print('Use preload kernel for smoother')
+            kernel = preload_kernel
+
+        self._smoother_kernel = tf.constant(
+            kernel.astype(dtype),
+            name=Smoother.SMOOTHER_VAR_NAME,
+            dtype=tf.dtypes.as_dtype(dtype)
+        )
 
     def gauss_kernel(self, kernlen=21, nsig=3, channels=1):
         interval = (2*nsig+1.)/(kernlen)
@@ -89,32 +71,13 @@ class Smoother(object):
         out_filter = np.repeat(out_filter, channels, axis = 2)
         return out_filter
 
-    def make_gauss_var(self, name, size, sigma, c_i):
-        kernel = self.gauss_kernel(size, sigma, c_i)
-        var = tf.constant(kernel.astype(np.float32), name=name, dtype=tf.float32)
-        return var
-
     def get_output(self):
-        '''Returns the smoother output.'''
-        return self.terminals[-1]
+        """
+        Returns the smoother output tf.Tensor
 
-    @layer
-    def conv(self,
-             input,
-             name,
-             padding='SAME'):
-        # Get the number of channels in the input
-        if self.heat_map_size != 0:
-            c_i = self.heat_map_size
-        else:
-            c_i = input.get_shape().as_list()[3]
-        # Convolution for a given input and kernel
-        convolve = lambda i, k: tf.nn.depthwise_conv2d(i, k, [1, 1, 1, 1], padding=padding)
-        with tf.variable_scope(name) as scope:
-            self.kernel = self.make_gauss_var('gauss_weight', self.filter_size, self.sigma, c_i)
-            output = convolve(input, self.kernel)
-        return output
+        """
+        return self._smoother_op
 
     def get_variables(self):
-        return [self.kernel]
+        return [self._smoother_kernel]
 

@@ -39,10 +39,11 @@ class PEModel(PoseEstimatorInterface):
     @staticmethod
     def from_json(
             path_to_model: str, input_tensor: MakiTensor = None,
-            smoother_kernel_size=25, fast_mode=False,
-            prediction_down_scale=1, ignore_last_dim_inference=True,
+            smoother_kernel_size=25, smoother_kernel=None, fast_mode=False,
+            prediction_down_scale=1, upsample_heatmap_after_down_scale=False, ignore_last_dim_inference=True,
             threash_hold_peaks=0.1, use_blur=True,
-            heatmap_resize_method=tf.image.resize_nearest_neighbor):
+            heatmap_resize_method=tf.image.resize_nearest_neighbor,
+            second_heatmap_resize_method=tf.image.resize_bilinear):
         """
         Creates and returns PEModel from json file contains its architecture
 
@@ -60,13 +61,20 @@ class PEModel(PoseEstimatorInterface):
         prediction_down_scale : int
             At which scale build skeletons,
             If more than 1, final keypoint will be scaled to size of the input image
+        upsample_heatmap_after_down_scale : bool
+            TODO: ADD docs
         smoother_kernel_size : int
             Size of a kernel in the smoother (aka gaussian filter)
+        smoother_kernel : np.ndarray
+            TODO: Add docs
         ignore_last_dim_inference : bool
             In most models, last dimension is background heatmap and its does not used in inference
         threash_hold_peaks : float
             pass
-
+        heatmap_resize_method : tf.image
+            TODO: add docs
+        second_heatmap_resize_method : tf.image
+            TODO: add docs
         """
         # Read architecture from file
         json_file = open(path_to_model)
@@ -104,12 +112,15 @@ class PEModel(PoseEstimatorInterface):
             output_heatmap_list=output_heatmap_list,
             output_paf_list=output_paf_list,
             smoother_kernel_size=smoother_kernel_size,
+            smoother_kernel=smoother_kernel,
             fast_mode=fast_mode,
             prediction_down_scale=prediction_down_scale,
+            upsample_heatmap_after_down_scale=upsample_heatmap_after_down_scale,
             ignore_last_dim_inference=ignore_last_dim_inference,
             threash_hold_peaks=threash_hold_peaks,
             use_blur=use_blur,
             heatmap_resize_method=heatmap_resize_method,
+            second_heatmap_resize_method=second_heatmap_resize_method,
             name=model_name
         )
 
@@ -119,12 +130,15 @@ class PEModel(PoseEstimatorInterface):
         output_paf_list: list,
         output_heatmap_list: list,
         smoother_kernel_size=25,
+        smoother_kernel=None,
         ignore_last_dim_inference=True,
         prediction_down_scale=1,
+        upsample_heatmap_after_down_scale=False,
         fast_mode=False,
         threash_hold_peaks=0.1,
         use_blur=True,
         heatmap_resize_method=tf.image.resize_nearest_neighbor,
+        second_heatmap_resize_method=tf.image.resize_bilinear,
         name="Pose_estimation"
     ):
         """
@@ -142,11 +156,15 @@ class PEModel(PoseEstimatorInterface):
             Assume that last tensor in the list, will be the main one
         smoother_kernel_size : int
             Size of a kernel in the smoother (aka gaussian filter)
+        smoother_kernel : np.ndarray
+            TODO: Add docs
         ignore_last_dim_inference : bool
             In most models, last dimension is background heatmap and its does not used in inference
         prediction_down_scale : int
             At which scale build skeletons,
             If more than 1, final keypoint will be scaled to size of the input image
+        upsample_heatmap_after_down_scale : bool
+            TODOl add docs
         threash_hold_peaks : float
             pass
         fast_mode : bool
@@ -163,22 +181,28 @@ class PEModel(PoseEstimatorInterface):
         super().__init__(outputs=output_paf_list + output_heatmap_list, inputs=[input_x])
         self._init_tensors_for_prediction(
             smoother_kernel_size=smoother_kernel_size,
+            smoother_kernel=smoother_kernel,
             ignore_last_dim_inference=ignore_last_dim_inference,
             prediction_down_scale=prediction_down_scale,
+            upsample_heatmap_after_down_scale=upsample_heatmap_after_down_scale,
             fast_mode=fast_mode,
             threash_hold_peaks=threash_hold_peaks,
             heatmap_resize_method=heatmap_resize_method,
+            second_heatmap_resize_method=second_heatmap_resize_method,
             use_blur=use_blur
         )
 
     def _init_tensors_for_prediction(
             self,
             smoother_kernel_size,
+            smoother_kernel,
             ignore_last_dim_inference,
             prediction_down_scale,
+            upsample_heatmap_after_down_scale,
             fast_mode,
             threash_hold_peaks,
             heatmap_resize_method,
+            second_heatmap_resize_method,
             use_blur):
         """
         Initialize tensors for prediction
@@ -241,17 +265,28 @@ class PEModel(PoseEstimatorInterface):
 
         if use_blur:
             self._smoother = Smoother(
-                {Smoother.DATA: self._resized_heatmap},
+                self._resized_heatmap,
                 smoother_kernel_size,
                 3.0,
-                num_keypoints
+                num_keypoints,
+                preload_kernel=smoother_kernel
             )
-            self._blured_heatmap= self._smoother.get_output()
+            self._blured_heatmap = self._smoother.get_output()
         else:
             self._blured_heatmap = self._resized_heatmap
 
+        if upsample_heatmap_after_down_scale:
+            self._up_heatmap = second_heatmap_resize_method(
+                self._blured_heatmap,
+                self.upsample_size,
+                align_corners=False,
+                name='second_upsample_heatmap'
+            )
+        else:
+            self._up_heatmap = self._blured_heatmap
+
         if fast_mode:
-            heatmap_tf = self._blured_heatmap[0]
+            heatmap_tf = self._up_heatmap[0]
             heatmap_tf = tf.where(
                 tf.less(heatmap_tf, threash_hold_peaks),
                 tf.zeros_like(heatmap_tf), heatmap_tf
@@ -288,7 +323,7 @@ class PEModel(PoseEstimatorInterface):
             # Apply NMS (Non maximum suppression)
             # Apply max pool operation to heatmap
             max_pooled_heatmap = tf.nn.max_pool(
-                self._blured_heatmap,
+                self._up_heatmap,
                 PEModel._DEFAULT_KERNEL_MAX_POOL,
                 strides=[1, 1, 1, 1],
                 padding='SAME'
@@ -297,22 +332,19 @@ class PEModel(PoseEstimatorInterface):
             # i.e. biggest numbers of heatmaps
             self._peaks = tf.where(
                 tf.equal(
-                    self._blured_heatmap,
+                    self._up_heatmap,
                     max_pooled_heatmap
                 ),
-                self._blured_heatmap,
-                tf.zeros_like(self._blured_heatmap)
+                self._up_heatmap,
+                tf.zeros_like(self._up_heatmap)
             )[0]
 
         self.__indices, self.__peaks_score = self.__get_peak_indices_tf(self._peaks, thresh=threash_hold_peaks)
 
-        if prediction_down_scale > 1:
+        if prediction_down_scale > 1 and not upsample_heatmap_after_down_scale:
             # indices - [num_indx, 3], first two dimensions - xy,
             # last dims - keypoint class (in order to save keypoint class scale to 1)
             self.__indices = self.__indices * np.array([prediction_down_scale]*2 +[1], dtype=np.int32)
-
-    def set_session(self, session: tf.Session):
-        super().set_session(session)
 
     def predict(self, x: list, resize_to=None, using_estimate_alg=True):
         """
@@ -372,7 +404,7 @@ class PEModel(PoseEstimatorInterface):
 
         else:
             batched_paf, batched_heatmap, batched_peaks = self._session.run(
-                [self._resized_paf, self._blured_heatmap, self._peaks],
+                [self._resized_paf, self._up_heatmap, self._peaks],
                 feed_dict={
                     self._input_data_tensors[0]: x,
                     self.upsample_size: resize_to
@@ -454,6 +486,9 @@ class PEModel(PoseEstimatorInterface):
 
     def get_peaks_tensor(self) -> tf.Tensor:
         return self._peaks
+
+    def get_up_heatmap_tensor(self) -> tf.Tensor:
+        return self._up_heatmap
 
     def get_resized_heatmap_tensor(self) -> tf.Tensor:
         return self._resized_heatmap
