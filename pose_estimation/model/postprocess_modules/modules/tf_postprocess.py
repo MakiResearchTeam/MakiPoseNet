@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from pose_estimation.model.postprocess_modules.core.postprocess import InterfacePostProcessModule
+from pose_estimation.model.utils.algorithm_connect_skelet import merge_similar_skelets, estimate_paf
 from pose_estimation.model.utils.smoother import Smoother
 
 
@@ -57,17 +58,21 @@ class TFPostProcessModule(InterfacePostProcessModule):
 
         self._heatmap_tensor = None
         self._paf_tensor = None
-        self._sess = None
+        self._session = None
         self._is_graph_build = False
+        self._is_using_estimate_alg = True
 
     def set_session(self, session):
-        self._sess = session
+        self._session = session
+
+    def set_is_using_estimate_alg(self, is_use: bool):
+        self._is_using_estimate_alg = is_use
 
     def set_paf_heatmap(self, paf, heatmap):
         self._paf_tensor = paf
         self._heatmap_tensor = heatmap
 
-    def __call__(self, feed_dict):
+    def __call__(self, input_batch, feed_dict):
         """
 
         Parameters
@@ -82,8 +87,37 @@ class TFPostProcessModule(InterfacePostProcessModule):
         """
         if not self._is_graph_build:
             self._build_postporcess_graph()
+        resize_to = input_batch[0].shape[:2]
+        feed_dict.update({self.upsample_size: resize_to})
 
-        # TODO: summon session and return params
+        if self._is_using_estimate_alg:
+            batched_paf, indices, peaks = self._session.run(
+                [self._resized_paf, self.__indices, self.__peaks_score],
+                feed_dict=feed_dict
+            )
+            return self._process_not_tf_part(batched_paf, indices, peaks)
+
+        batched_paf, batched_heatmap, batched_peaks = self._session.run(
+            [self._resized_paf, self._up_heatmap, self._peaks],
+            feed_dict=feed_dict
+        )
+
+        # For paf
+        # [N, NEW_W, NEW_H, NUM_PAFS * 2]
+        shape_paf = batched_paf.shape
+        N = shape_paf[0]
+        num_pafs = shape_paf[-1] // 2
+        # [N, NEW_W, NEW_H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS, 2]
+        return batched_peaks, batched_heatmap, batched_paf.reshape(N, *resize_to, num_pafs, 2)
+
+    def _process_not_tf_part(self, batched_paf, indices, peaks):
+        return [
+                merge_similar_skelets(estimate_paf(
+                    peaks=peaks.astype(np.float32, copy=False),
+                    indices=indices.astype(np.int32, copy=False),
+                    paf_mat=batched_paf[0]
+                ))
+        ]
 
     def _build_postporcess_graph(self):
         """
@@ -118,7 +152,7 @@ class TFPostProcessModule(InterfacePostProcessModule):
         # [N, W, H, NUM_PAFS, 2]
         shape_paf = tf.shape(main_paf)
 
-        # [N, W, H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS * 2]
+        # [N, W, H, NUM_PAFS, 2] --> [N, NEW_W, NEW_H, NUM_PAFS * 2]
         main_paf = tf.reshape(
             main_paf,
             shape=tf.stack([shape_paf[0], shape_paf[1], shape_paf[2], -1], axis=0)

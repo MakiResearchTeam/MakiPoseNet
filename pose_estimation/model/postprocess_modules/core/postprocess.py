@@ -12,6 +12,14 @@ class InterfacePostProcessModule(ABC):
         pass
 
     @abstractmethod
-    def __call__(self, feed_dict):
+    def __call__(self, input_batch, feed_dict, using):
+        pass
+
+    @abstractmethod
+    def _build_postporcess_graph(self):
+        pass
+
+    @abstractmethod
+    def _process_not_tf_part(self, **kwargs):
         pass
 
