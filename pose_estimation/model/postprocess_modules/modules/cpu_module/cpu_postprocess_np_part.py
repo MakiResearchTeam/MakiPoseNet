@@ -44,7 +44,9 @@ class CPUOptimizedPostProcessNPPart:
                 interpolation=cv2.INTER_LINEAR
             )
         indices, peaks = self._apply_nms_and_get_indices(heatmap)
-
+        if self._kp_scale_end is not None:
+            indices *= self._kp_scale_end
+        
         return indices, peaks
 
     def _process_paf(self, paf):
