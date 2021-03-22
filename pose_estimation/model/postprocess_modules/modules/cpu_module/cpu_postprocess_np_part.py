@@ -21,10 +21,11 @@ import numpy as np
 
 class CPUOptimizedPostProcessNPPart:
 
-    def __init__(self, resize_to, upsample_heatmap=False):
+    def __init__(self, resize_to, upsample_heatmap=False, kp_scale_end=None):
         self.__resize_to = resize_to
         self.__upsample_heatmap = upsample_heatmap
         self._saved_mesh_grid = None
+        self._kp_scale_end = kp_scale_end
 
     def set_resize_to(self, new_resize_to):
         self.__resize_to = new_resize_to

@@ -24,6 +24,8 @@ from pose_estimation.model.utils.smoother import Smoother
 
 class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
 
+    DEFAULT_SCALE = 8
+
     UPSAMPLE_SIZE = 'upsample_size'
 
     _DEFAULT_KERNEL_MAX_POOL = [1, 3, 3, 1]
@@ -123,9 +125,16 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
 
         self.upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=CPUOptimizedPostProcessModule.UPSAMPLE_SIZE)
         self._build_heatmap_graph()
+
+        kp_scale = None
+        if not self._upsample_heatmap_after_down_scale:
+            scale = int(round(float(CPUOptimizedPostProcessModule.DEFAULT_SCALE) / self._prediction_up_scale))
+            kp_scale = np.array([scale] * 2 + [1], dtype=np.int32)
+
         self._postprocess_np_tools = CPUOptimizedPostProcessNPPart(
             super().get_resize_to(),
-            self._upsample_heatmap_after_down_scale
+            self._upsample_heatmap_after_down_scale,
+            kp_scale_end=kp_scale
         )
 
     def _build_heatmap_graph(self):
