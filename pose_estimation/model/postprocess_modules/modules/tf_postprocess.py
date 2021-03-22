@@ -1,7 +1,23 @@
+# Copyright (C) 2020  Igor Kilbas, Danil Gribanov
+#
+# This file is part of MakiPoseNet.
+#
+# MakiPoseNet is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# MakiPoseNet is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+
 import tensorflow as tf
 import numpy as np
-from pose_estimation.model.postprocess_modules.core.postprocess import InterfacePostProcessModule
-from pose_estimation.model.utils.algorithm_connect_skelet import merge_similar_skelets, estimate_paf
+from pose_estimation.model.postprocess_modules.core import InterfacePostProcessModule
 from pose_estimation.model.utils.smoother import Smoother
 
 
@@ -12,7 +28,7 @@ class TFPostProcessModule(InterfacePostProcessModule):
     _DEFAULT_KERNEL_MAX_POOL = [1, 3, 3, 1]
 
     def __init__(self, smoother_kernel_size=25, smoother_kernel=None, fast_mode=False,
-            prediction_down_scale=1, upsample_heatmap_after_down_scale=False, ignore_last_dim_inference=True,
+            prediction_up_scale=8, upsample_heatmap_after_down_scale=False, ignore_last_dim_inference=True,
             threash_hold_peaks=0.1, use_blur=True, heatmap_resize_method=tf.image.resize_nearest_neighbor,
             second_heatmap_resize_method=tf.image.resize_bilinear):
         """
@@ -26,9 +42,8 @@ class TFPostProcessModule(InterfacePostProcessModule):
         fast_mode : bool
             If equal to True, max_pool operation will be change to a binary operations,
             which are faster, but can give lower accuracy
-        prediction_down_scale : int
-            At which scale build skeletons,
-            If more than 1, final keypoint will be scaled to size of the input image
+        prediction_up_scale : int
+            TODO: ADD docs
         upsample_heatmap_after_down_scale : bool
             TODO: ADD docs
         ignore_last_dim_inference : bool
@@ -44,31 +59,19 @@ class TFPostProcessModule(InterfacePostProcessModule):
         super().__init__()
         self._smoother_kernel_size = smoother_kernel_size
         self._smoother_kernel = smoother_kernel
-
         self._fast_mode = fast_mode
-        self._prediction_down_scale = prediction_down_scale
+        self._prediction_up_scale = prediction_up_scale
 
         self._upsample_heatmap_after_down_scale = upsample_heatmap_after_down_scale
         self._ignore_last_dim_inference = ignore_last_dim_inference
-
         self._threash_hold_peaks = threash_hold_peaks
         self._use_blur = use_blur
 
         self._heatmap_resize_method = heatmap_resize_method
         self._second_heatmap_resize_method = second_heatmap_resize_method
 
-        self._heatmap_tensor = None
-        self._paf_tensor = None
         self.upsample_size = None
         self._is_graph_build = False
-        self._is_using_estimate_alg = True
-
-    def set_is_using_estimate_alg(self, is_use: bool):
-        self._is_using_estimate_alg = is_use
-
-    def set_paf_heatmap(self, paf, heatmap):
-        self._paf_tensor = paf
-        self._heatmap_tensor = heatmap
 
     def __call__(self, feed_dict):
         """
@@ -88,12 +91,12 @@ class TFPostProcessModule(InterfacePostProcessModule):
         resize_to = super().get_resize_to()
         feed_dict.update({self.upsample_size: resize_to})
 
-        if self._is_using_estimate_alg:
+        if super().get_is_using_estimate_alg():
             batched_paf, indices, peaks = self._session.run(
                 [self._resized_paf, self.__indices, self.__peaks_score],
                 feed_dict=feed_dict
             )
-            return self._process_not_tf_part(batched_paf, indices, peaks)
+            return batched_paf, indices, peaks
 
         batched_paf, batched_heatmap, batched_peaks = self._session.run(
             [self._resized_paf, self._up_heatmap, self._peaks],
@@ -108,24 +111,19 @@ class TFPostProcessModule(InterfacePostProcessModule):
         # [N, NEW_W, NEW_H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS, 2]
         return batched_peaks, batched_heatmap, batched_paf.reshape(N, *resize_to, num_pafs, 2)
 
-    def _process_not_tf_part(self, batched_paf, indices, peaks):
-        return [
-                merge_similar_skelets(estimate_paf(
-                    peaks=peaks.astype(np.float32, copy=False),
-                    indices=indices.astype(np.int32, copy=False),
-                    paf_mat=batched_paf[0]
-                ))
-        ]
-
     def _build_postporcess_graph(self):
         """
         Initialize tensors for prediction
 
         """
-        if not isinstance(self._prediction_down_scale, int):
-            raise TypeError(f"Parameter: `prediction_down_scale` should have type int, "
-                            f"but type:`{type(self._prediction_down_scale)}` "
-                            f"were given with value: {self._prediction_down_scale}.")
+        if not isinstance(self._prediction_up_scale, int):
+            raise TypeError(f"Parameter: `_prediction_up_scale` should have type int, "
+                            f"but type:`{type(self._prediction_up_scale)}` "
+                            f"were given with value: {self._prediction_up_scale}.")
+
+        if self._prediction_up_scale <= 0 or self._prediction_up_scale > 8:
+            raise ValueError(f"Parameter: `_prediction_up_scale` must be in range (0, 8], "
+                             f"but its value is:`{self._prediction_up_scale}`")
 
         if not isinstance(self._smoother_kernel_size, int) or \
                 self._smoother_kernel_size <= 0 or self._smoother_kernel_size >= 50:
@@ -138,12 +136,13 @@ class TFPostProcessModule(InterfacePostProcessModule):
             raise TypeError(f"Parameter: `threash_hold_peaks` should be in range (0.0, 1.0), "
                             f"but value: {self._threash_hold_peaks} were given.")
 
+        self.upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=TFPostProcessModule.UPSAMPLE_SIZE)
         self._build_paf_graph()
         self._build_heatmap_graph()
         self._build_peaks_graph()
 
     def _build_paf_graph(self):
-        main_paf = self._paf_tensor
+        main_paf = super().get_paf_tensor()
         # [N, W, H, NUM_PAFS, 2]
         shape_paf = tf.shape(main_paf)
 
@@ -160,14 +159,15 @@ class TFPostProcessModule(InterfacePostProcessModule):
         )
 
     def _build_heatmap_graph(self):
-        main_heatmap = self._heatmap_tensor
+        main_heatmap = super().get_heatmap_tensor()
         if self._ignore_last_dim_inference:
             main_heatmap = main_heatmap[..., :-1]
 
         # For more faster inference,
         # We can take peaks on low res heatmap
-        if self._prediction_down_scale > 1:
-            final_heatmap_size = self.upsample_size // self._prediction_down_scale
+        if self._prediction_up_scale != TFPostProcessModule.DEFAULT_SCALE:
+            heatmap_shape = tf.shape(main_heatmap)[1:3] # H, W
+            final_heatmap_size = heatmap_shape * self._prediction_up_scale
         else:
             final_heatmap_size = self.upsample_size
 
@@ -258,10 +258,12 @@ class TFPostProcessModule(InterfacePostProcessModule):
 
         self.__indices, self.__peaks_score = self.__get_peak_indices_tf(self._peaks, thresh=self._threash_hold_peaks)
 
-        if self._prediction_down_scale > 1 and not self._upsample_heatmap_after_down_scale:
+        if self._prediction_up_scale != TFPostProcessModule.DEFAULT_SCALE and not self._upsample_heatmap_after_down_scale:
             # indices - [num_indx, 3], first two dimensions - xy,
             # last dims - keypoint class (in order to save keypoint class scale to 1)
-            self.__indices = self.__indices * np.array([self._prediction_down_scale]*2 +[1], dtype=np.int32)
+            scale = int(round(float(TFPostProcessModule.DEFAULT_SCALE) / self._prediction_up_scale))
+            scale_kp = np.array([scale] * 2 + [1], dtype=np.int32)
+            self.__indices = self.__indices * scale_kp
 
     def __get_peak_indices_tf(self, array: tf.Tensor, thresh=0.1):
         """
@@ -291,4 +293,25 @@ class TFPostProcessModule(InterfacePostProcessModule):
 
         indices = tf.transpose(tf.unravel_index(peaks_coords, dims=tf.shape(array)), [1, 0])
         return indices, peaks
+
+    def get_indices_tensor(self) -> tf.Tensor:
+        return self.__indices
+
+    def get_peaks_score_tensor(self) -> tf.Tensor:
+        return self.__peaks_score
+
+    def get_peaks_tensor(self) -> tf.Tensor:
+        return self._peaks
+
+    def get_up_heatmap_tensor(self) -> tf.Tensor:
+        return self._up_heatmap
+
+    def get_resized_heatmap_tensor(self) -> tf.Tensor:
+        return self._resized_heatmap
+
+    def get_resized_paf_tensor(self) -> tf.Tensor:
+        return self._resized_paf
+
+    def get_smoother_output_heatmap_tensor(self) -> tf.Tensor:
+        return self._blured_heatmap
 
