@@ -174,13 +174,13 @@ class PEModel(PoseEstimatorInterface):
         self._postprocess_class.set_is_using_estimate_alg(using_estimate_alg)
 
         if using_estimate_alg:
-            batched_paf, indices, peaks = self._postprocess_class(feed_dict)
+            paf, indices, peaks = self._postprocess_class(feed_dict)
 
             return [
                 merge_similar_skelets(estimate_paf(
                     peaks=peaks.astype(np.float32, copy=False),
                     indices=indices.astype(np.int32, copy=False),
-                    paf_mat=batched_paf[0]
+                    paf_mat=paf
                 ))
             ]
 

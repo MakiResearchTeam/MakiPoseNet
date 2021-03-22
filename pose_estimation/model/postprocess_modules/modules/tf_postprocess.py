@@ -96,7 +96,7 @@ class TFPostProcessModule(InterfacePostProcessModule):
                 [self._resized_paf, self.__indices, self.__peaks_score],
                 feed_dict=feed_dict
             )
-            return batched_paf, indices, peaks
+            return batched_paf[0], indices, peaks
 
         batched_paf, batched_heatmap, batched_peaks = self._session.run(
             [self._resized_paf, self._up_heatmap, self._peaks],
