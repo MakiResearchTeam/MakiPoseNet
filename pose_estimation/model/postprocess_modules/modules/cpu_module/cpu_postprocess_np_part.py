@@ -35,9 +35,10 @@ class CPUOptimizedPostProcessNPPart:
         return upsample_paf, indices, peaks
 
     def _process_heatmap(self, heatmap):
+        heatmap = heatmap[0]
         if self.__upsample_heatmap:
             heatmap = cv2.resize(
-                heatmap[0],
+                heatmap,
                 (self.__resize_to[1], self.__resize_to[0]),
                 interpolation=cv2.INTER_LINEAR
             )
