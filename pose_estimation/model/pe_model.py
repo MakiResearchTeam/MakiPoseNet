@@ -21,8 +21,7 @@ import tensorflow as tf
 
 from .core import PoseEstimatorInterface
 from .postprocess_modules.core.postprocess import InterfacePostProcessModule
-from .utils.algorithm_connect_skelet import estimate_paf, merge_similar_skelets
-from .utils.smoother import Smoother
+from .utils.skelet_builder import SkeletBuilder
 from makiflow.core import MakiTensor, MakiModel
 from makiflow.core.inference.maki_builder import MakiBuilder
 
@@ -176,11 +175,11 @@ class PEModel(PoseEstimatorInterface):
         if using_estimate_alg:
             paf, indices, peaks = self._postprocess_class(feed_dict)
 
-            return merge_similar_skelets(estimate_paf(
+            return SkeletBuilder.get_humans_by_PIF(
                     peaks=peaks.astype(np.float32, copy=False),
                     indices=indices.astype(np.int32, copy=False),
                     paf_mat=paf
-                ))
+            )
 
         return self._postprocess_class(feed_dict)
 

@@ -79,7 +79,6 @@ class CocoTester(Tester):
     # This is need to better prediction
     _SCALE_VALUE = 8
 
-
     def _init(self):
         # Test images
         self.__init_test_images()

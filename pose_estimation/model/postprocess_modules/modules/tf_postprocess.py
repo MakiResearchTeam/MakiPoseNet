@@ -27,7 +27,7 @@ class TFPostProcessModule(InterfacePostProcessModule):
 
     _DEFAULT_KERNEL_MAX_POOL = [1, 3, 3, 1]
 
-    def __init__(self, smoother_kernel_size=25, smoother_kernel=None, fast_mode=False,
+    def __init__(self, smoother_kernel_size=20, smoother_kernel=None, fast_mode=False,
             prediction_up_scale=8, upsample_heatmap_after_down_scale=False, ignore_last_dim_inference=True,
             threash_hold_peaks=0.1, use_blur=True, heatmap_resize_method=tf.image.resize_nearest_neighbor,
             second_heatmap_resize_method=tf.image.resize_bilinear):
@@ -38,22 +38,33 @@ class TFPostProcessModule(InterfacePostProcessModule):
         smoother_kernel_size : int
             Size of a kernel in the smoother (aka gaussian filter)
         smoother_kernel : np.ndarray
-            TODO: Add docs
+            Size of the kernel window for smoother
+            Smoother always use square of size [`smoother_kernel`, `smoother_kernel`] as kernel
         fast_mode : bool
             If equal to True, max_pool operation will be change to a binary operations,
             which are faster, but can give lower accuracy
         prediction_up_scale : int
-            TODO: ADD docs
+            In most scenarios PEModel gives heatmap with size lower by factor 8 compare to input image size,
+            So heatmap will be scaled (of resized) to original size by default,
+            i.e. `prediction_up_scale` = 8,
+            But heatmap can be resized by factor 4, and on this size peaks/indices can be taken,
+            This method will be much faster, but can gives lower accuracy
         upsample_heatmap_after_down_scale : bool
-            TODO: ADD docs
+            As mentioned in `prediction_up_scale`, heatmap can have size not equal to original input image,
+            In order to speed up inference, smoother used at size mentioned in `prediction_up_scale` parameter
+            And after that (smoothed) heatmap will be resized to original image size.
+            This method can gives more accurate results, compare to previous method mentioned in `prediction_up_scale`
         ignore_last_dim_inference : bool
             In most models, last dimension is background heatmap and its does not used in inference
         threash_hold_peaks : float
-            pass
+            Threshold if keypoint have bigger probability, it will be used, otherwise it will as not detected keypoint
         heatmap_resize_method : tf.image
-            TODO: add docs
+            Method of first resize for heatmap (to size mentioned in `prediction_up_scale`) in tf, f
+            For more details, see tf.image docs
         second_heatmap_resize_method : tf.image
-            TODO: add docs
+            Method of first resize for heatmap in tf
+            (to size mentioned in `upsample_heatmap_after_down_scale`, i.e. smoothed heatmap sill be resized),
+            For more details, see tf.image docs
 
         """
         super().__init__()
@@ -75,6 +86,7 @@ class TFPostProcessModule(InterfacePostProcessModule):
 
     def __call__(self, feed_dict):
         """
+        Gives paf, indices and peaks according to input `feed_dict`
 
         Parameters
         ----------
