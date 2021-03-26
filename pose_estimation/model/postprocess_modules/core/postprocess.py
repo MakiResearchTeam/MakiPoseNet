@@ -27,7 +27,6 @@ class InterfacePostProcessModule(ABC):
         self._session = None
         self._heatmap_tensor = None
         self._paf_tensor = None
-        self._is_using_estimate_alg = True
     
     def get_paf_tensor(self):
         """
@@ -85,12 +84,6 @@ class InterfacePostProcessModule(ABC):
         """
         self._resize_to = resize_to
 
-    def set_is_using_estimate_alg(self, is_use: bool):
-        self._is_using_estimate_alg = is_use
-
-    def get_is_using_estimate_alg(self):
-        return self._is_using_estimate_alg
-
     def set_session(self, session):
         """
         Set session to postprocess class
@@ -107,4 +100,6 @@ class InterfacePostProcessModule(ABC):
     def __call__(self, feed_dict):
         pass
 
+    def get_data_for_debug(self, feed_dict):
+        raise NotImplemented("This method must not be called from the current class")
 

@@ -173,7 +173,6 @@ class PEModel(PoseEstimatorInterface):
             resize_to = x[0].shape[:2]
         self._postprocess_class.set_resize_to(resize_to)
         feed_dict = {self._input_data_tensors[0]: x}
-        self._postprocess_class.set_is_using_estimate_alg(using_estimate_alg)
 
         if using_estimate_alg:
             paf, indices, peaks = self._postprocess_class(feed_dict)
@@ -184,7 +183,7 @@ class PEModel(PoseEstimatorInterface):
                     paf_mat=paf
             )
 
-        return self._postprocess_class(feed_dict)
+        return self._postprocess_class.get_data_for_debug(feed_dict)
 
     def get_main_paf_tensor(self):
         return self._output_data_tensors[self._index_of_main_paf]

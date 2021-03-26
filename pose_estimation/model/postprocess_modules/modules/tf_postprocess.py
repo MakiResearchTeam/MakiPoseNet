@@ -100,15 +100,55 @@ class TFPostProcessModule(InterfacePostProcessModule):
         """
         if not self._is_graph_build:
             self._build_postporcess_graph()
-        resize_to = super().get_resize_to()
-        feed_dict.update({self.upsample_size: resize_to})
+        feed_dict.update({self.upsample_size: super().get_resize_to()})
+        batched_paf, indices, peaks = self._session.run(
+            [self._resized_paf, self.__indices, self.__peaks_score],
+            feed_dict=feed_dict
+        )
+        return batched_paf[0], indices, peaks
 
-        if super().get_is_using_estimate_alg():
-            batched_paf, indices, peaks = self._session.run(
-                [self._resized_paf, self.__indices, self.__peaks_score],
-                feed_dict=feed_dict
-            )
-            return batched_paf[0], indices, peaks
+    def get_indices_tensor(self) -> tf.Tensor:
+        return self.__indices
+
+    def get_peaks_score_tensor(self) -> tf.Tensor:
+        return self.__peaks_score
+
+    def get_peaks_tensor(self) -> tf.Tensor:
+        return self._peaks
+
+    def get_up_heatmap_tensor(self) -> tf.Tensor:
+        return self._up_heatmap
+
+    def get_resized_heatmap_tensor(self) -> tf.Tensor:
+        return self._resized_heatmap
+
+    def get_resized_paf_tensor(self) -> tf.Tensor:
+        return self._resized_paf
+
+    def get_smoother_output_heatmap_tensor(self) -> tf.Tensor:
+        return self._blured_heatmap
+
+    def get_data_for_debug(self, feed_dict):
+        """
+        Gives peaks, heatmap and paf batched tensors according to input `feed_dict`
+        Usually this method are used for debug purposes and not recommended for other stuff
+
+        Parameters
+        ----------
+        feed_dict : dict
+            Example: { placholder: np.ndarray }, which futher calls with session
+
+        Returns
+        -------
+        peaks : np.ndarray
+        heatmap : np.ndarray
+        paf : np.ndarray
+
+        """
+        if not self._is_graph_build:
+            self._build_postporcess_graph()
+        resize_to = super().get_resize_to()
+        feed_dict.update({self.upsample_size: super().get_resize_to()})
 
         batched_paf, batched_heatmap, batched_peaks = self._session.run(
             [self._resized_paf, self._up_heatmap, self._peaks],
@@ -305,25 +345,4 @@ class TFPostProcessModule(InterfacePostProcessModule):
 
         indices = tf.transpose(tf.unravel_index(peaks_coords, dims=tf.shape(array)), [1, 0])
         return indices, peaks
-
-    def get_indices_tensor(self) -> tf.Tensor:
-        return self.__indices
-
-    def get_peaks_score_tensor(self) -> tf.Tensor:
-        return self.__peaks_score
-
-    def get_peaks_tensor(self) -> tf.Tensor:
-        return self._peaks
-
-    def get_up_heatmap_tensor(self) -> tf.Tensor:
-        return self._up_heatmap
-
-    def get_resized_heatmap_tensor(self) -> tf.Tensor:
-        return self._resized_heatmap
-
-    def get_resized_paf_tensor(self) -> tf.Tensor:
-        return self._resized_paf
-
-    def get_smoother_output_heatmap_tensor(self) -> tf.Tensor:
-        return self._blured_heatmap
 
