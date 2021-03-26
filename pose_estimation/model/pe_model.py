@@ -137,7 +137,9 @@ class PEModel(PoseEstimatorInterface):
         Parameters
         ----------
         x : list or np.ndarray
-            Input list/np.ndarray of the images
+            Input list/np.ndarray of the images, i.e. list if images as batch
+            NOTICE! Only batch size equal to 1 will be processed,
+            If model batch size more than 1, then only first image will be process properly, by careful with that
         resize_to : tuple
             Tuple of two int [H, W], which are size of the output. H - Height, W - Width.
             Resize prediction from neural network to certain size.
@@ -152,9 +154,10 @@ class PEModel(PoseEstimatorInterface):
         -------
         if using_estimate_alg is True:
             list
-                List of predictions to each input image.
-                NOTICE! Only first batch size (i.e. with batch_size = 1) will be processed.
-                Single element of this list is a List of classes Human which were detected.
+                List of classes Human which were detected on input image.
+                NOTICE! Only batch size equal to 1 will be processed,
+                i. e. If model batch size more than 1, then only first image will be process properly,
+                And final predictions will be ONLY for first image
 
         Otherwise:
             np.ndarray

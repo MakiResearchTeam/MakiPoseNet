@@ -269,7 +269,10 @@ def get_batched_result(
         model_size_input_list.append(source_size_and_model_size_and_norm_img_list[i][1])   # model size
         norm_image_list.append(source_size_and_model_size_and_norm_img_list[i][2])         # image
 
-    humans_predicted_list = model.predict(norm_image_list)
+    humans_predicted_list = [
+        model.predict([single_norm_image_list])
+        for single_norm_image_list in norm_image_list
+    ]
 
     for (source_size_single, model_size_input_single, single_humans_predicted_list, single_image_ids) in zip(
             source_size_list,
