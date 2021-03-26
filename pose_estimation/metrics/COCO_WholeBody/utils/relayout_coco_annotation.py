@@ -79,11 +79,11 @@ def relayout_keypoints(
         if image_annot is None:
             raise ModuleNotFoundError(f'Image id: {single_anns[IMAGE_ID]} was not found.')
 
-        new_segmentation = single_anns[SEGMENTATION]
+        new_segmentation = single_anns.get(SEGMENTATION)
         # There is some garbage that stored in segmentation dict
         # Just skip it
         # TODO: Do something with this images
-        if type(new_segmentation) == dict:
+        if new_segmentation is not None and type(new_segmentation) == dict:
             continue
 
         # Fill our annotation with new information
