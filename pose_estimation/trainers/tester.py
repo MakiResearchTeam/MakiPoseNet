@@ -80,7 +80,6 @@ class Tester(ABC):
 
         if annot_gt is not None:
             relayout_keypoints(
-                min_size_h=self.min_size_h,
                 ann_file_path=self._config[self.ANNOT_GT_JSON],
                 path_to_save=self._path_to_relayout_annot,
                 limit_number=self._limit_annots,
