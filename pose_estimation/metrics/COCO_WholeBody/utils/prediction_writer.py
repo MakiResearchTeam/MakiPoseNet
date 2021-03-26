@@ -1,3 +1,20 @@
+# Copyright (C) 2020  Igor Kilbas, Danil Gribanov
+#
+# This file is part of MakiPoseNet.
+#
+# MakiPoseNet is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# MakiPoseNet is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+
 from pose_estimation.model.pe_model import PEModel
 from pose_estimation.utils.nns_tools.preprocess import preprocess_input, TF
 from pose_estimation.utils.nns_tools.keypoint_tools import scale_predicted_kp
@@ -261,7 +278,7 @@ def get_batched_result(
             image_ids_list
     ):
         # Scale prediction for single image
-        _ = scale_predicted_kp(
+        scale_predicted_kp(
             predictions=[single_humans_predicted_list],
             model_size=model_size_input_single,
             source_size=source_size_single
