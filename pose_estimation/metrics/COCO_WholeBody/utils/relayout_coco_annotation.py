@@ -1,11 +1,26 @@
+# Copyright (C) 2020  Igor Kilbas, Danil Gribanov
+#
+# This file is part of MakiPoseNet.
+#
+# MakiPoseNet is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# MakiPoseNet is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+
 import numpy as np
 from tqdm import tqdm
 import copy
 import json
-from pycocotools.coco import COCO
 
 from pose_estimation.data_preparation.coco_preparator_api import CocoPreparator
-from pose_estimation.utils.video_tools.different_resizes import scales_image_single_dim_keep_dims
 
 # Annotations in JSON
 ANNOTATIONS = 'annotations'
@@ -28,19 +43,15 @@ EPS = 1e-3
 
 
 def relayout_keypoints(
-        min_size_h: int,
         ann_file_path: str,
         path_to_save: str,
-        limit_number=None,
-        mode_area_calculation=SEGMENTATION
+        limit_number=None
     ):
     """
     Relayout original annotation to suitable one for further purposes
 
     Parameters
     ----------
-    min_size_h : int
-        Min size of Height, which was used in preparation of data
     ann_file_path : str
         Path to the origin annotation file
         Example: /home/user_1/annot.json
@@ -49,22 +60,10 @@ def relayout_keypoints(
     limit_number : int
         Limit number of loaded annotation,
         If equal to None then all annotations will be loaded
-    mode_area_calculation : str
-        Different type of area calculation, by default (and recommenede) is segmentation mode
-    min_w_size : int
-        Minimum size of the Width, if equal to None then W will be used
-    min_h_size : int
-        Minumum size of the Height, if equal to None then H will be used
-    use_force_resize : bool
-        If equal to True then all images will be resized to (H, W), i.e. this values must be not None values!
-        Otherwise, if were privaded `min_w_size` and `min_h_size`, lowest dimension will be resized to certain size,
-        i.e. the image zoom will be saved
 
     """
-
     with open(ann_file_path, 'r') as fp:
         cocoGt_json = json.load(fp)
-    cocoGt = COCO(ann_file_path)
 
     # Store: (image_id, image_info)
     dict_id_by_image_info = dict([(elem[ID], elem) for elem in cocoGt_json[IMAGES]])
@@ -72,7 +71,7 @@ def relayout_keypoints(
     used_ids = dict([(elem[ID], False) for elem in cocoGt_json[IMAGES]])
 
     Maki_cocoGt_json = copy.deepcopy(cocoGt_json)
-    # Clear information ablut annotations and images
+    # Clear information about annotations and images
     # In next for loop, we write new information
     Maki_cocoGt_json[ANNOTATIONS] = []
     Maki_cocoGt_json[IMAGES] = []
@@ -89,16 +88,18 @@ def relayout_keypoints(
 
     for i in iterator:
         single_anns = cocoGt_json[ANNOTATIONS][i]
-        new_keypoints = CocoPreparator.take_default_skelet(single_anns)
+        new_keypoints = np.array(single_anns[KEYPOINTS]).reshape(-1, 3)
+        if new_keypoints.shape[0] != CocoPreparator.KEYPOINTS_NUM:
+            new_keypoints = CocoPreparator.take_default_skelet(single_anns)
         image_annot = find_image_annot(cocoGt_json, single_anns[IMAGE_ID])
         if image_annot is None:
             raise ModuleNotFoundError(f'Image id: {single_anns[IMAGE_ID]} was not found.')
 
-        new_segmentation = single_anns[SEGMENTATION]
+        new_segmentation = single_anns.get(SEGMENTATION)
         # There is some garbage that stored in segmentation dict
         # Just skip it
         # TODO: Do something with this images
-        if type(new_segmentation) == dict:
+        if new_segmentation is not None and type(new_segmentation) == dict:
             continue
 
         # Fill our annotation with new information

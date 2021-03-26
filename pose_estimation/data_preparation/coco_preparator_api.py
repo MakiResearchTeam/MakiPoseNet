@@ -19,6 +19,7 @@ from pycocotools.coco import COCO
 import numpy as np
 from tqdm import tqdm
 import skimage.io as io
+from sklearn.utils import shuffle
 from scipy.spatial.distance import cdist
 import matplotlib.pyplot as plt
 import os
@@ -31,6 +32,7 @@ from pose_estimation.utils import CONNECT_INDEXES, scales_image_single_dim_keep_
 class CocoPreparator:
 
     EPSILON = 1e-3
+    KEYPOINTS_NUM = 24
 
     def __init__(self, 
             coco_annotations, 
@@ -118,7 +120,7 @@ class CocoPreparator:
         plt.imshow(I)
         plt.show()
     
-    def save_records(self, prefix, images_pr, stop_after_part=None):
+    def save_records(self, prefix, images_pr, stop_after_part=None, shuffle_data=True):
         """
         Parameters
         ----------
@@ -132,15 +134,20 @@ class CocoPreparator:
             Generation of the tfrecords will be stopped after certain part,
             This parameters is usually used for creation a smaller tfrecord dataset
             (for example, for testing)
+        shuffle_data : bool
+            Shuffle data before start, if true
+
         """
 
         if self.__is_use_strong_filter:
-            self.__create_records_with_strong_filter(prefix, images_pr, stop_after_part)
+            self.__create_records_with_strong_filter(prefix, images_pr, stop_after_part, shuffle_data)
         else:
-            self.__create_records_wo_strong_filter(prefix, images_pr, stop_after_part)
+            self.__create_records_wo_strong_filter(prefix, images_pr, stop_after_part, shuffle_data)
 
-    def __create_records_wo_strong_filter(self, prefix, images_pr, stop_after_part=None):
+    def __create_records_wo_strong_filter(self, prefix, images_pr, stop_after_part=None, shuffle_data=True):
         ids_img = self._coco.getImgIds()
+        if shuffle_data:
+            ids_img = shuffle(ids_img)
         count_images = len(ids_img)
         part = count_images // images_pr
         iterator = tqdm(range(count_images))
@@ -247,8 +254,10 @@ class CocoPreparator:
 
         iterator.close()
 
-    def __create_records_with_strong_filter(self, prefix, images_pr, stop_after_part=None):
+    def __create_records_with_strong_filter(self, prefix, images_pr, stop_after_part=None, shuffle_data=True):
         ids_img = self._coco.getImgIds()
+        if shuffle_data:
+            ids_img = shuffle(ids_img)
         count_images = len(ids_img)
         part = count_images // images_pr
         iterator = tqdm(range(count_images))
