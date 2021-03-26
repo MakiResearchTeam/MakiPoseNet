@@ -57,11 +57,8 @@ class InterfacePostProcessModule(ABC):
         If any value is None, set will be skipped
 
         """
-        if paf is not None:
-            self._paf_tensor = paf
-
-        if heatmap is not None:
-            self._heatmap_tensor = heatmap
+        self._paf_tensor = paf
+        self._heatmap_tensor = heatmap
 
     def get_resize_to(self):
         """
