@@ -32,6 +32,7 @@ from pose_estimation.utils import CONNECT_INDEXES, scales_image_single_dim_keep_
 class CocoPreparator:
 
     EPSILON = 1e-3
+    KEYPOINTS_NUM = 24
 
     def __init__(self, 
             coco_annotations, 
