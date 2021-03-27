@@ -447,7 +447,7 @@ class CocoPreparator:
 
         new_w, new_h = (round(w * xy_scales[0]), round(h * xy_scales[1]))
         image = cv2.resize(image, (new_w, new_h))
-        alpha_mask = cv2.resize(alpha_mask, (new_w, new_h))
+        alpha_mask = np.expand_dims(cv2.resize(alpha_mask, (new_w, new_h)), axis=-1)
 
         # In mask, cv2 drop last dimension because it equal 1
         image_mask = np.expand_dims(cv2.resize(image_mask, (new_w, new_h)), axis=-1)
