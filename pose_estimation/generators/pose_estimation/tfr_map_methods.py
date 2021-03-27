@@ -97,7 +97,7 @@ class LoadDataMethod(TFRMapMethod):
         keypoints_mask_tensor = tf.io.parse_tensor(example[KEYPOINTS_MASK_FNAME], out_type=self.keypoints_mask_dtype)
         image_properties_tensor = tf.io.parse_tensor(example[IMAGE_PROPERTIES_FNAME],
                                                      out_type=self.image_properties_dtype)
-        alpha_mask_tensor = tf.io.parse_tensor(example[ALPHA_MASK_FNAME], out_type=tf.int32)
+        alpha_mask_tensor = tf.io.parse_tensor(example[ALPHA_MASK_FNAME], out_type=tf.uint8)
         # Give the data its shape because it doesn't have it right after being extracted
         keypoints_tensor.set_shape(self.shape_keypoints)
         keypoints_mask_tensor.set_shape(self.shape_keypoints_mask)
@@ -1068,7 +1068,9 @@ class BackgroundAugmentMethod(TFRPostMapMethod):
         element = self._parent_method.read_record(serialized_example)
         image = tf.cast(element[RIterator.IMAGE], dtype=tf.int32)
         # Smash image into binary (0 and 1) values!
-        alpha_image = element[RIterator.ALPHA_MASK] // BackgroundAugmentMethod.MAX_VALUE_IMAGE
+        alpha_image = tf.cast(element[RIterator.ALPHA_MASK], dtype=tf.int32)
+        # Smash image into binary (0 and 1) values!
+        alpha_image = alpha_image // BackgroundAugmentMethod.MAX_VALUE_IMAGE
 
         background = tf.cast(self.pick_background(), dtype=tf.int32)
         new_image = image * alpha_image + background * (1 - alpha_image)
