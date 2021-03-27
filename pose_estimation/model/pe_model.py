@@ -127,19 +127,15 @@ class PEModel(PoseEstimatorInterface):
         self._postprocess_class = postprocess_class
         super().__init__(outputs=output_paf_list + output_heatmap_list, inputs=[input_x])
 
-    def predict(self, x: list, resize_to=None, using_estimate_alg=True):
+    def predict(self, image: np.ndarray, resize_to=None, using_estimate_alg=True):
         """
-        Do pose estimation on certain input images
-        NOTICE! Predict method does not properly work with batch_size > 1
-        i.e. this method only work with single (first) frame in batch, other frame (in x) will be skipped
-        Its done for faster inference graph (some sort of supa-dupa optimization!)
+        Do pose estimation on certain input image
 
         Parameters
         ----------
-        x : list or np.ndarray
-            Input list/np.ndarray of the images, i.e. list if images as batch
-            NOTICE! Only batch size equal to 1 will be processed,
-            If model batch size more than 1, then only first image will be process properly, by careful with that
+        image : np.ndarray
+            Input image as np.ndarray for model
+            NOTICE! Input image must have dims equal to 3, otherwise the exception will be dropped
         resize_to : tuple
             Tuple of two int [H, W], which are size of the output. H - Height, W - Width.
             Resize prediction from neural network to certain size.
@@ -148,7 +144,8 @@ class PEModel(PoseEstimatorInterface):
             If equal True, when algorithm to build skeletons will be used
             And method will return list of the class Human (See Return for more detail)
             NOTICE! If equal True, then only first batch size (i.e. with batch_size = 1) will be processed.
-            Otherwise, method will return peaks, heatmap and paf
+            Otherwise, method will return peaks, heatmap and paf.
+            This API usually are used for debug purposes
 
         Returns
         -------
@@ -166,13 +163,15 @@ class PEModel(PoseEstimatorInterface):
                 Heatmap
             np.ndarray
                 Paf
+
         """
+        img_into_model = self._check_image(image)
         # Take predictions
         if resize_to is None:
             # Take `H`, `W` from input image
-            resize_to = x[0].shape[:2]
+            resize_to = img_into_model[0].shape[:2]
         self._postprocess_class.set_resize_to(resize_to)
-        feed_dict = {self._input_data_tensors[0]: x}
+        feed_dict = {self._input_data_tensors[0]: img_into_model}
 
         if using_estimate_alg:
             paf, indices, peaks = self._postprocess_class(feed_dict)
@@ -228,4 +227,18 @@ class PEModel(PoseEstimatorInterface):
             PEModel.OUTPUT_PAF_MT: output_paf_mt_names,
             PEModel.NAME: self.name
         }
+
+    def _check_image(self, some_image) -> np.ndarray:
+        """
+        This method check input image into model and prepare it for further purposes
+
+        """
+        if len(some_image.shape) != 3:
+            raise ValueError("Input image into model have wrong number of dims.\n" +\
+                             f"Dims in input image equal to : {len(some_image.shape)}\n" +\
+                             "But must be equal to 3"
+            )
+
+        proper_image = np.stack([some_image] * self.get_batch_size(), axis=0)
+        return proper_image
 

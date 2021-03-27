@@ -31,11 +31,25 @@ class CPUOptimizedPostProcessNPPart:
         self.__resize_to = new_resize_to
 
     def process(self, heatmap, paf):
+        """
+        Execute operation on heatmap and paf
+
+        Returns
+        -------
+        paf : np.ndarray
+        indices : np.ndarray
+        peaks : np.ndarray
+
+        """
         upsample_paf = self._process_paf(paf)
         indices, peaks = self._process_heatmap(heatmap)
         return upsample_paf, indices, peaks
 
     def _process_heatmap(self, heatmap):
+        """
+        Do some operations with heatmap, in order to process it through skeleton builder further
+
+        """
         heatmap = heatmap[0]
         if self.__upsample_heatmap:
             heatmap = cv2.resize(
@@ -50,6 +64,10 @@ class CPUOptimizedPostProcessNPPart:
         return indices, peaks
 
     def _process_paf(self, paf):
+        """
+        Do some operations with paf, in order to process it through skeleton builder further
+
+        """
         h_f, w_f = paf[0].shape[:2]
         paf_pr = cv2.resize(
             paf[0].reshape(h_f, w_f, -1),
@@ -60,6 +78,11 @@ class CPUOptimizedPostProcessNPPart:
         return paf_pr
 
     def _apply_nms_and_get_indices(self, heatmap_pr):
+        """
+        This is some sort of lazy NMS implementation, but its much faster on cpu
+        Compare to implementation through max-pool operation
+
+        """
         heatmap_pr[heatmap_pr < 0.1] = 0
         heatmap_with_borders = np.pad(heatmap_pr, [(2, 2), (2, 2), (0, 0)], mode='constant')
         heatmap_center = heatmap_with_borders[1:heatmap_with_borders.shape[0] - 1, 1:heatmap_with_borders.shape[1] - 1]

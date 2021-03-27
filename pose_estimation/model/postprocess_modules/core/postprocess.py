@@ -27,6 +27,7 @@ class InterfacePostProcessModule(ABC):
         self._session = None
         self._heatmap_tensor = None
         self._paf_tensor = None
+        self._is_graph_build = False
     
     def get_paf_tensor(self):
         """
@@ -96,10 +97,49 @@ class InterfacePostProcessModule(ABC):
         """
         self._session = session
 
-    @abstractmethod
     def __call__(self, feed_dict):
+        """
+        Gives paf, indices and peaks according to input `feed_dict`
+
+        Parameters
+        ----------
+        feed_dict : dict
+            Example: { placholder: np.ndarray }, which further calls with session
+
+        Returns
+        -------
+        paf : np.ndarray
+        indices : np.ndarray
+        peaks : np.ndarray
+
+        """
+        self._check_graph()
+        return self._execute_postprocess(feed_dict=feed_dict)
+
+    @abstractmethod
+    def _build_postporcess_graph(self):
+        """
+        Method build necessary tf graph for further execution in _execute_postprocess method
+
+        """
+        pass
+
+    @abstractmethod
+    def _execute_postprocess(self, feed_dict):
+        """
+        Execute postprocess operations
+
+        """
         pass
 
     def get_data_for_debug(self, feed_dict):
-        raise NotImplemented("This method must not be called from the current class")
+        raise NotImplemented("This method should not be called from this class.")
 
+    def _check_graph(self):
+        """
+        Build post-graph if its not will be build
+
+        """
+        if not self._is_graph_build:
+            self._build_postporcess_graph()
+            self._is_graph_build = True

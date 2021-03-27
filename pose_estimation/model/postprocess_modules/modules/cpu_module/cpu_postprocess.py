@@ -66,7 +66,6 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
         self._heatmap_resize_method = heatmap_resize_method
 
         self.upsample_size = None
-        self._is_graph_build = False
         self._postprocess_np_tools = None
 
     def set_resize_to(self, resize_to: tuple):
@@ -74,21 +73,22 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
             self._postprocess_np_tools.set_resize_to(resize_to)
         super().set_resize_to(resize_to)
 
-    def __call__(self, feed_dict):
+    def _execute_postprocess(self, feed_dict):
         """
+        Execute tf graph of postprocess and model itself according to input feed_dict
 
         Parameters
         ----------
         feed_dict : dict
-            Example: { placholder: np.ndarray }, which futher calls with session
+            Example: { placholder: np.ndarray }, which further calls with session
 
         Returns
         -------
-        paf, indices, peaks
+        paf : np.ndarray
+        indices : np.ndarray
+        peaks : np.ndarray
 
         """
-        if not self._is_graph_build:
-            self._build_postporcess_graph()
         resize_to = super().get_resize_to()
         feed_dict.update({self.upsample_size: resize_to})
 
@@ -96,6 +96,8 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
             [super().get_paf_tensor(), self._blured_heatmap],
             feed_dict=feed_dict
         )
+        # Other part of execution graph are written in numpy/cv style
+        # Because they are much faster on CPU, than operation through TF on CPU
         return self._postprocess_np_tools.process(smoothed_heatmap_pr, paf_pr)
 
     def _build_postporcess_graph(self):
@@ -125,7 +127,6 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
 
         self.upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=CPUOptimizedPostProcessModule.UPSAMPLE_SIZE)
         self._build_heatmap_graph()
-        self._is_graph_build = True
 
         kp_scale = None
         if not self._upsample_heatmap_after_down_scale:

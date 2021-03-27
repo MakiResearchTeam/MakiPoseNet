@@ -80,32 +80,7 @@ class TFPostProcessModule(InterfacePostProcessModule):
 
         self._heatmap_resize_method = heatmap_resize_method
         self._second_heatmap_resize_method = second_heatmap_resize_method
-
         self.upsample_size = None
-        self._is_graph_build = False
-
-    def __call__(self, feed_dict):
-        """
-        Gives paf, indices and peaks according to input `feed_dict`
-
-        Parameters
-        ----------
-        feed_dict : dict
-            Example: { placholder: np.ndarray }, which futher calls with session
-
-        Returns
-        -------
-        paf, indices, peaks
-
-        """
-        if not self._is_graph_build:
-            self._build_postporcess_graph()
-        feed_dict.update({self.upsample_size: super().get_resize_to()})
-        batched_paf, indices, peaks = self._session.run(
-            [self._resized_paf, self.__indices, self.__peaks_score],
-            feed_dict=feed_dict
-        )
-        return batched_paf[0], indices, peaks
 
     def get_indices_tensor(self) -> tf.Tensor:
         return self.__indices
@@ -128,40 +103,28 @@ class TFPostProcessModule(InterfacePostProcessModule):
     def get_smoother_output_heatmap_tensor(self) -> tf.Tensor:
         return self._blured_heatmap
 
-    def get_data_for_debug(self, feed_dict):
+    def _execute_postprocess(self, feed_dict):
         """
-        Gives peaks, heatmap and paf batched tensors according to input `feed_dict`
-        Usually this method are used for debug purposes and not recommended for other stuff
+        Execute tf graph of postprocess and model itself according to input feed_dict
 
         Parameters
         ----------
         feed_dict : dict
-            Example: { placholder: np.ndarray }, which futher calls with session
+            Example: { placholder: np.ndarray }, which further calls with session
 
         Returns
         -------
-        peaks : np.ndarray
-        heatmap : np.ndarray
         paf : np.ndarray
+        indices : np.ndarray
+        peaks : np.ndarray
 
         """
-        if not self._is_graph_build:
-            self._build_postporcess_graph()
-        resize_to = super().get_resize_to()
         feed_dict.update({self.upsample_size: super().get_resize_to()})
-
-        batched_paf, batched_heatmap, batched_peaks = self._session.run(
-            [self._resized_paf, self._up_heatmap, self._peaks],
+        batched_paf, indices, peaks = self._session.run(
+            [self._resized_paf, self.__indices, self.__peaks_score],
             feed_dict=feed_dict
         )
-
-        # For paf
-        # [N, NEW_W, NEW_H, NUM_PAFS * 2]
-        shape_paf = batched_paf.shape
-        N = shape_paf[0]
-        num_pafs = shape_paf[-1] // 2
-        # [N, NEW_W, NEW_H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS, 2]
-        return batched_peaks, batched_heatmap, batched_paf.reshape(N, *resize_to, num_pafs, 2)
+        return batched_paf[0], indices, peaks
 
     def _build_postporcess_graph(self):
         """
@@ -192,7 +155,6 @@ class TFPostProcessModule(InterfacePostProcessModule):
         self._build_paf_graph()
         self._build_heatmap_graph()
         self._build_peaks_graph()
-        self._is_graph_build = True
 
     def _build_paf_graph(self):
         main_paf = super().get_paf_tensor()
@@ -347,3 +309,36 @@ class TFPostProcessModule(InterfacePostProcessModule):
         indices = tf.transpose(tf.unravel_index(peaks_coords, dims=tf.shape(array)), [1, 0])
         return indices, peaks
 
+    def get_data_for_debug(self, feed_dict):
+        """
+        Gives peaks, heatmap and paf batched tensors according to input `feed_dict`
+        Usually this method are used for debug purposes and not recommended for other stuff
+
+        Parameters
+        ----------
+        feed_dict : dict
+            Example: { placholder: np.ndarray }, which futher calls with session
+
+        Returns
+        -------
+        peaks : np.ndarray
+        heatmap : np.ndarray
+        paf : np.ndarray
+
+        """
+        super()._check_graph()
+        resize_to = super().get_resize_to()
+        feed_dict.update({self.upsample_size: resize_to})
+
+        batched_paf, batched_heatmap, batched_peaks = self._session.run(
+            [self._resized_paf, self._up_heatmap, self._peaks],
+            feed_dict=feed_dict
+        )
+
+        # For paf
+        # [N, NEW_W, NEW_H, NUM_PAFS * 2]
+        shape_paf = batched_paf.shape
+        N = shape_paf[0]
+        num_pafs = shape_paf[-1] // 2
+        # [N, NEW_W, NEW_H, NUM_PAFS * 2] --> [N, NEW_W, NEW_H, NUM_PAFS, 2]
+        return batched_peaks, batched_heatmap, batched_paf.reshape(N, *resize_to, num_pafs, 2)
