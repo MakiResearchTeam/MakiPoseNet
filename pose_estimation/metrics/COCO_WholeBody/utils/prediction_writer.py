@@ -270,7 +270,7 @@ def get_batched_result(
         norm_image_list.append(source_size_and_model_size_and_norm_img_list[i][2])         # image
 
     humans_predicted_list = [
-        model.predict([single_norm_image_list])
+        model.predict(np.stack([single_norm_image_list] * model.get_batch_size(), axis=0))
         for single_norm_image_list in norm_image_list
     ]
 
