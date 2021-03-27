@@ -455,7 +455,10 @@ class CocoPreparator:
 
         # Ignore dimension of visibility of the keypoints
         keypoints[..., :-1] *= np.array(xy_scales).astype(np.float32, copy=False)
-
+        if (image.shape[0] != alpha_mask.shape[0] or image.shape[1] != alpha_mask.shape[1]):
+            print('1111111111111111111111111WHAAAAAAAAAAAAAAAAAAAAAAAAAAAAT')
+            print('image: ', image)
+            print('mask: ', alpha_mask.shape)
         # Check bounds on Width dimension
         if new_w < self._min_image_size:
             # padding zeros to image and padding ones for image_mask
