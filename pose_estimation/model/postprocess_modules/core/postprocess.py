@@ -57,6 +57,9 @@ class InterfacePostProcessModule(ABC):
         If any value is None, set will be skipped
 
         """
+        assert paf is not None, "Input paf is None, but must be of type tf.Tensor/tf.Variable"
+        assert heatmap is not None, "Input heatmap is None, but must be of type tf.Tensor/tf.Variable"
+
         self._paf_tensor = paf
         self._heatmap_tensor = heatmap
 

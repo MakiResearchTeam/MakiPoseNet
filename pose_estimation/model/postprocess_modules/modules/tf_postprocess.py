@@ -22,6 +22,18 @@ from pose_estimation.model.utils.smoother import Smoother
 
 
 class TFPostProcessModule(InterfacePostProcessModule):
+    """
+    Post process module for PEModel.
+    PEModel itself gives paf and heatmap from model written in tf
+    But there is also some magic process of this heatmap and paf in order to get GOOD skeletons
+
+    Some main points of postprocess:
+    First - Upscale and blur heatmap
+    Second - get peaks and indices for skeleton builder from new heatmap (from previous step)
+    Third - Upscale paf
+    Four - return paf, indices, peaks for skeleton builder
+
+    """
 
     UPSAMPLE_SIZE = 'upsample_size'
 
@@ -157,6 +169,11 @@ class TFPostProcessModule(InterfacePostProcessModule):
         self._build_peaks_graph()
 
     def _build_paf_graph(self):
+        """
+        Build tf graph in order to process paf tensor.
+        Main purpose here - resize paf tensor to size of input image into model
+
+        """
         main_paf = super().get_paf_tensor()
         # [N, W, H, NUM_PAFS, 2]
         shape_paf = tf.shape(main_paf)
@@ -174,6 +191,13 @@ class TFPostProcessModule(InterfacePostProcessModule):
         )
 
     def _build_heatmap_graph(self):
+        """
+        Build tf graph in order to process heatmap tensor.
+        First: resize heatmap to certain size;
+        Second: apply blur kernel.
+        Main purpose - get suitable heatmap in order to takes from it peaks and indices of keypoints
+
+        """
         main_heatmap = super().get_heatmap_tensor()
         if self._ignore_last_dim_inference:
             main_heatmap = main_heatmap[..., :-1]
@@ -217,6 +241,11 @@ class TFPostProcessModule(InterfacePostProcessModule):
             self._up_heatmap = self._blured_heatmap
 
     def _build_peaks_graph(self):
+        """
+        Get peaks and indices from blurred heatmap (if parameter `use_blur` was true in init)
+        In order to further process them into skeleton builder and takes GOOD (perfect) keypoints
+
+        """
         if self._fast_mode:
             heatmap_tf = self._up_heatmap[0]
             heatmap_tf = tf.where(

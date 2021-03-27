@@ -20,6 +20,14 @@ import numpy as np
 
 
 class CPUOptimizedPostProcessNPPart:
+    """
+    Some operations are much faster in numpy/cv library on CPU devices, rather than tf operations
+    This class process some operation using this libraries
+
+    The main purpose - process paf and heatmap arrays from other postprocess modules
+    and return numpy arrays that needed to skeleton builder
+
+    """
 
     def __init__(self, resize_to, upsample_heatmap=False, kp_scale_end=None):
         self.__resize_to = resize_to
@@ -27,12 +35,28 @@ class CPUOptimizedPostProcessNPPart:
         self._saved_mesh_grid = None
         self._kp_scale_end = kp_scale_end
 
-    def set_resize_to(self, new_resize_to):
+    def set_resize_to(self, new_resize_to: tuple):
+        """
+        Set new value for resize_to parameter
+
+        Parameters
+        ----------
+        resize_to : tuple
+            (H, W) tuple of Height and Width
+
+        """
         self.__resize_to = new_resize_to
 
     def process(self, heatmap, paf):
         """
         Execute operation on heatmap and paf
+
+        Parameters
+        ----------
+        heatmap : np.ndarray
+            Heatmap array which must be processed
+        paf : np.ndarray
+            Paf array which must be processed
 
         Returns
         -------
@@ -48,6 +72,8 @@ class CPUOptimizedPostProcessNPPart:
     def _process_heatmap(self, heatmap):
         """
         Do some operations with heatmap, in order to process it through skeleton builder further
+        First: resize heatmap with cv2
+        Second: apply NMS (in order to get indices and peaks - which are needed to skeleton builder)
 
         """
         heatmap = heatmap[0]
@@ -103,16 +129,19 @@ class CPUOptimizedPostProcessNPPart:
     def _get_peak_indices(self, array):
         """
         Returns array indices of the values larger than threshold.
+
         Parameters
         ----------
         array : ndarray of any shape
             Tensor which values' indices to gather.
+
         Returns
         -------
         ndarray of shape [n_peaks, dim(array)]
             Array of indices of the values larger than threshold.
         ndarray of shape [n_peaks]
             Array of the values at corresponding indices.
+
         """
         flat_peaks = np.reshape(array, -1)
         if self._saved_mesh_grid is None or len(flat_peaks) != self._saved_mesh_grid.shape[0]:

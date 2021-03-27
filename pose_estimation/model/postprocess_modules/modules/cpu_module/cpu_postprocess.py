@@ -23,6 +23,20 @@ from pose_estimation.model.utils.smoother import Smoother
 
 
 class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
+    """
+    Post process module for PEModel.
+    PEModel itself gives paf and heatmap from model written in tf
+    But there is also some magic process of this heatmap and paf in order to get GOOD skeletons.
+    Also this class is written special for CPU devices, because some tf operations are VERY SLOW on CPU,
+    But if we combine tf graph and numpy/cv stuff - we can get big jump in speed
+
+    Some main points of postprocess:
+    First - Upscale and blur heatmap
+    Second - get peaks and indices for skeleton builder from new heatmap (from previous step)
+    Third - Upscale paf
+    Four - return paf, indices, peaks for skeleton builder
+
+    """
 
     DEFAULT_SCALE = 8
 
@@ -96,8 +110,8 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
             [super().get_paf_tensor(), self._blured_heatmap],
             feed_dict=feed_dict
         )
-        # Other part of execution graph are written in numpy/cv style
-        # Because they are much faster on CPU, than operation through TF on CPU
+        # Process heatmap and paf numpy arrays using cv/numpy library
+        # Which are much faster on CPU devices
         return self._postprocess_np_tools.process(smoothed_heatmap_pr, paf_pr)
 
     def _build_postporcess_graph(self):
@@ -133,6 +147,9 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
             scale = int(round(float(CPUOptimizedPostProcessModule.DEFAULT_SCALE) / self._prediction_up_scale))
             kp_scale = np.array([scale] * 2 + [1], dtype=np.int32)
 
+        # Other part of execution graph are written using numpy/cv library
+        # Because some operation much faster in this library on CPU devices, rather than tf implementation
+        # So, init this class for further process heatmap/paf using numpy/cv library
         self._postprocess_np_tools = CPUOptimizedPostProcessNPPart(
             super().get_resize_to(),
             self._upsample_heatmap_after_down_scale,
@@ -140,7 +157,17 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
         )
 
     def _build_heatmap_graph(self):
+        """
+        Build tf graph for heatmap.
+        First: resize heatmap to certain size;
+        Second: apply blur kernel.
+
+        """
         main_heatmap = super().get_heatmap_tensor()
+        # For most NNs, heatmap have special last dimension
+        # which is responsible for "human heatmap" (0 - where is human, 1 - there is no human)
+        # i.e. this heatmap is not needed in further calculation
+        # So, just drop it
         if self._ignore_last_dim_inference:
             main_heatmap = main_heatmap[..., :-1]
 
@@ -152,6 +179,7 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
         else:
             final_heatmap_size = self.upsample_size
 
+        # Apply resize
         self._resized_heatmap = self._heatmap_resize_method(
             main_heatmap,
             final_heatmap_size,
@@ -160,6 +188,7 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
         )
         num_keypoints = main_heatmap.get_shape().as_list()[-1]
 
+        # Blur heatmap, in order to get better peaks
         if self._use_blur:
             self._smoother = Smoother(
                 self._resized_heatmap,
