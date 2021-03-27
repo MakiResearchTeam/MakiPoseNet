@@ -382,6 +382,7 @@ class CocoPreparator:
                 image_mask = np.ones((*image.shape[:2], 1)).astype(np.float32, copy=False)
 
             image, all_kp, image_mask, alpha_mask = self.__rescale_image(image, all_kp, image_mask, alpha_mask)
+            print('i: ', image.shape, ' a: ', alpha_mask.shape)
             keypoints_tensors.append(all_kp[..., :2].astype(np.float32, copy=False))
             keypoints_mask_tensors.append(all_kp[..., -1:].astype(np.float32, copy=False))
 
