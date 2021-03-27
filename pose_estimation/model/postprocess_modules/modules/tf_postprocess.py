@@ -192,6 +192,7 @@ class TFPostProcessModule(InterfacePostProcessModule):
         self._build_paf_graph()
         self._build_heatmap_graph()
         self._build_peaks_graph()
+        self._is_graph_build = True
 
     def _build_paf_graph(self):
         main_paf = super().get_paf_tensor()

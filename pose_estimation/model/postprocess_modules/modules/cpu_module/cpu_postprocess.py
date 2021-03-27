@@ -125,6 +125,7 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
 
         self.upsample_size = tf.placeholder(dtype=tf.int32, shape=(2), name=CPUOptimizedPostProcessModule.UPSAMPLE_SIZE)
         self._build_heatmap_graph()
+        self._is_graph_build = True
 
         kp_scale = None
         if not self._upsample_heatmap_after_down_scale:
