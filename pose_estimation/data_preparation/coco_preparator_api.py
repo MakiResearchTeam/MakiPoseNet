@@ -288,9 +288,10 @@ class CocoPreparator:
             image = io.imread(os.path.join(self._image_folder_path, img_obj['file_name']))
             if img_obj.get('alpha_mask') is not None:
                 alpha_mask = io.imread(os.path.join(self._image_folder_path, img_obj['alpha_mask']))
+                print('WHAT')
             else:
                 # For this image - everything are HUMAN like, i.e. nothing will be changed
-                alpha_mask = (np.ones_like(image, dtype=np.uint8) * 255)[..., 0:1]
+                alpha_mask = np.ones((image.shape[0], image.shape[1], 1), dtype=np.uint8) * 255
             annIds = self._coco.getAnnIds(imgIds=img_obj['id'], iscrowd=None)
             anns = self._coco.loadAnns(annIds)
 
@@ -467,6 +468,10 @@ class CocoPreparator:
             padding_alpha_mask = np.ones((new_h, self._min_image_size, 1)).astype(np.uint8, copy=False)
             padding_alpha_mask *= np.min(alpha_mask)
             padding_alpha_mask[:, :new_w] = alpha_mask
+            if (padding_alpha_mask.shape[0] != padding_image.shape[0] or padding_alpha_mask.shape[1] != padding_image.shape[1]):
+                print('WHAAAAAAAAAAAAAAAAAAAAAAAAAAAAT')
+                print('image: ', padding_image)
+                print('mask: ', padding_alpha_mask.shape)
             return padding_image, keypoints, padding_mask, padding_alpha_mask
         
         return image, keypoints, image_mask, alpha_mask
