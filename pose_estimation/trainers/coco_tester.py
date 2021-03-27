@@ -79,7 +79,6 @@ class CocoTester(Tester):
     # This is need to better prediction
     _SCALE_VALUE = 8
 
-
     def _init(self):
         # Test images
         self.__init_test_images()
@@ -232,7 +231,7 @@ class CocoTester(Tester):
             if is_network_good_right_now:
                 # Draw prediction
                 # Take single prediction for one image and take it
-                prediction = model.predict(np.stack([single_norm_train] * model.get_batch_size(), axis=0))[0]
+                prediction = model.predict(single_norm_train)
 
                 # Feed list of predictions
                 # Scale predicted keypoint into original image size and paint them
@@ -249,7 +248,7 @@ class CocoTester(Tester):
         for i, (single_norm, single_test) in enumerate(zip(self._norm_images, self._test_images)):
             single_batch = [self.__put_text_on_image(single_test, self._names[i])]
             peaks, heatmap, paf = model.predict(
-                np.stack([single_norm] * model.get_batch_size(), axis=0),
+                single_norm,
                 using_estimate_alg=False
             )
 
@@ -272,9 +271,7 @@ class CocoTester(Tester):
 
             # Draw skeletons
             if is_network_good_right_now:
-                predictions = model.predict(
-                    np.stack([single_norm] * model.get_batch_size(), axis=0)
-                )[0]
+                predictions = model.predict(single_norm)
                 drawed_image = draw_skeleton(single_test.copy(), predictions, CONNECT_INDEXES)
                 single_batch.append(self.__put_text_on_image(drawed_image, self.SKELETON))
 
@@ -339,7 +336,10 @@ class CocoTester(Tester):
                 use_bgr2rgb=self._use_bgr2rgb,
                 func_preprocess=self.__preprocess
             )
-            predictions = model.predict(transformed_image_batch)
+            predictions = [
+                model.predict(single_transformed_image_batch)
+                for single_transformed_image_batch in transformed_image_batch
+            ]
 
             # scale predictions into original size
             scale_predicted_kp(predictions, transformed_image_batch[0].shape[:-1], batch_image[0].shape[:2])
