@@ -157,13 +157,13 @@ class RandomCropMethod(TFRPostMapMethod):
 
         cropped_image = tf.slice(image, offset, self._image_crop_size_tf)
         cropped_image_mask = tf.slice(image_mask, offset, self._image_mask_crop_size_tf)
-        cropped_alpha_mask = tf.slice(alpha_mask, offset, self._image_mask_crop_size_tf)
+        #cropped_alpha_mask = tf.slice(alpha_mask, offset, self._image_mask_crop_size_tf)
         cropped_keypoints = keypoints - tf.cast(tf.stack([offset[1], offset[0]]), dtype=tf.float32)
         # After slicing the tensors doesn't have proper shape. They get instead [None, None, None].
         # We can't use tf.Tensors for setting shape because they are note iterable what causes errors.
         cropped_image.set_shape(self._image_crop_size)
         cropped_image_mask.set_shape(self._image_mask_crop_size)
-        cropped_alpha_mask.set_shape(self._image_mask_crop_size)
+        #cropped_alpha_mask.set_shape(self._image_mask_crop_size)
         # Check which keypoints are beyond the image
         correct_keypoints_mask = keypoints_mask * check_bounds(cropped_keypoints, self._image_crop_size_tf)
 
@@ -171,7 +171,7 @@ class RandomCropMethod(TFRPostMapMethod):
         element[RIterator.KEYPOINTS] = cropped_keypoints
         element[RIterator.ABSENT_HUMAN_MASK] = cropped_image_mask
         element[RIterator.KEYPOINTS_MASK] = correct_keypoints_mask
-        element[RIterator.ALPHA_MASK] = cropped_alpha_mask
+        #element[RIterator.ALPHA_MASK] = cropped_alpha_mask
         return element
 
 
