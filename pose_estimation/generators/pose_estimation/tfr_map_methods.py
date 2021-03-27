@@ -1015,7 +1015,7 @@ class BackgroundAugmentMethod(TFRPostMapMethod):
 
     MAX_VALUE_IMAGE = 255
 
-    def __init__(self, backpool_path: str, crop_size: int):
+    def __init__(self, backpool_path: str, crop_h: int, crop_w: int):
         """
         TODO: add docs
 
@@ -1023,8 +1023,10 @@ class BackgroundAugmentMethod(TFRPostMapMethod):
         ----------
         backpool_path : str
             Path for pool of backgrounds
-        crop_size : int
-            Size of crop
+        crop_h : int
+            Height of the crop.
+        crop_w : int
+            Width of the crop.
 
         """
         super().__init__()
@@ -1033,7 +1035,8 @@ class BackgroundAugmentMethod(TFRPostMapMethod):
             self._image_path_pool,
             dtype=tf.string
         )
-        self._crop_size = crop_size
+        self._image_crop_size = [crop_h, crop_w, 3]
+        self._image_crop_size_tf = tf.constant(np.array([crop_h, crop_w, 3], dtype=np.int32))
 
     def pick_background(self) -> tf.Tensor:
         random_index = tf.random_uniform(
@@ -1046,7 +1049,7 @@ class BackgroundAugmentMethod(TFRPostMapMethod):
         background = tf.image.decode_image(background_decoded)
         # crop and return
         # This is an adapted code from the original TensorFlow's `random_crop` method
-        limit = tf.shape(background) - self._crop_size + 1
+        limit = tf.shape(background) - self._image_crop_size_tf + 1
         offset = tf.random_uniform(
             shape=[3],
             dtype=tf.int32,
@@ -1054,19 +1057,18 @@ class BackgroundAugmentMethod(TFRPostMapMethod):
             maxval=10000
         ) % limit
 
-        cropped_background = tf.slice(background, offset, self._crop_size)
+        cropped_background = tf.slice(background, offset, self._image_crop_size_tf)
 
         # After slicing the tensors doesn't have proper shape. They get instead [None, None, None].
         # We can't use tf.Tensors for setting shape because they are note iterable what causes errors.
-        cropped_background.set_shape(self._crop_size)
-        # Smash image into binary (0 and 1) values!
-        cropped_background = cropped_background // BackgroundAugmentMethod.MAX_VALUE_IMAGE
+        cropped_background.set_shape(self._image_crop_size)
         return cropped_background
 
     def read_record(self, serialized_example) -> dict:
         element = self._parent_method.read_record(serialized_example)
         image = tf.cast(element[RIterator.IMAGE], dtype=tf.int32)
-        alpha_image = element[RIterator.ALPHA_MASK]
+        # Smash image into binary (0 and 1) values!
+        alpha_image = element[RIterator.ALPHA_MASK] // BackgroundAugmentMethod.MAX_VALUE_IMAGE
 
         background = tf.cast(self.pick_background(), dtype=tf.int32)
         new_image = image * alpha_image + background * (1 - alpha_image)
