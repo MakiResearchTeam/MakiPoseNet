@@ -97,7 +97,7 @@ class LoadDataMethod(TFRMapMethod):
         keypoints_mask_tensor = tf.io.parse_tensor(example[KEYPOINTS_MASK_FNAME], out_type=self.keypoints_mask_dtype)
         image_properties_tensor = tf.io.parse_tensor(example[IMAGE_PROPERTIES_FNAME],
                                                      out_type=self.image_properties_dtype)
-        alpha_mask_tensor = tf.io.parse_tensor(example[ALPHA_MASK_FNAME], out_type=tf.uint8)
+        alpha_mask_tensor = tf.io.parse_tensor(example[ALPHA_MASK_FNAME], out_type=tf.int32)
         # Give the data its shape because it doesn't have it right after being extracted
         keypoints_tensor.set_shape(self.shape_keypoints)
         keypoints_mask_tensor.set_shape(self.shape_keypoints_mask)
