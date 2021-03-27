@@ -339,7 +339,7 @@ class CocoTester(Tester):
                 func_preprocess=self.__preprocess
             )
             predictions = [
-                model.predict(single_transformed_image_batch)
+                model.predict(np.stack([single_transformed_image_batch] * model.get_batch_size(), axis=0))
                 for single_transformed_image_batch in transformed_image_batch
             ]
 
