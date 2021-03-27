@@ -177,8 +177,8 @@ class PEModel(PoseEstimatorInterface):
             paf, indices, peaks = self._postprocess_class(feed_dict)
 
             return SkeletBuilder.get_humans_by_PIF(
-                    peaks=peaks.astype(np.float32, copy=False),
-                    indices=indices.astype(np.int32, copy=False),
+                    peaks=peaks,
+                    indices=indices,
                     paf_mat=paf
             )
 
@@ -235,8 +235,8 @@ class PEModel(PoseEstimatorInterface):
         """
         if len(some_image.shape) != 3:
             raise ValueError("Input image into model have wrong number of dims.\n" +\
-                             f"Dims in input image equal to : {len(some_image.shape)}\n" +\
-                             "But must be equal to 3"
+                             f"Dims in input image equal to: {len(some_image.shape)}\n" +\
+                             "But must be equal to 3."
             )
 
         proper_image = np.stack([some_image] * self.get_batch_size(), axis=0)
