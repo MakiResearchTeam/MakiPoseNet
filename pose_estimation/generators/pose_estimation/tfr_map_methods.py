@@ -290,7 +290,6 @@ class AugmentationPostMethod(TFRPostMapMethod):
         image_mask = element[RIterator.ABSENT_HUMAN_MASK]
         keypoints = element[RIterator.KEYPOINTS]
         keypoints_mask = element[RIterator.KEYPOINTS_MASK]
-        alpha_mask = tf.cast(element[RIterator.ALPHA_MASK], dtype=tf.float32)
 
         image_shape = image.get_shape().as_list()
         angle = None
@@ -309,8 +308,8 @@ class AugmentationPostMethod(TFRPostMapMethod):
             if self.use_zoom:
                 zoom = tf.random.uniform([], minval=self.zoom_min, maxval=self.zoom_max, dtype='float32')
 
-            transformed_list, transformed_keypoints = apply_transformation(
-                [image, image_mask, alpha_mask],
+            transformed_image_and_mask, transformed_keypoints = apply_transformation(
+                [image, image_mask],
                 keypoints,
                 use_rotation=self.use_rotation,
                 angle=angle,
@@ -320,9 +319,8 @@ class AugmentationPostMethod(TFRPostMapMethod):
                 use_zoom=self.use_zoom,
                 zoom_scale=zoom
             )
-            transformed_image = transformed_list[0]
-            transformed_image_mask = transformed_list[1]
-            transformed_alpha_mask = transformed_list[2]
+            transformed_image = transformed_image_and_mask[0]
+            transformed_image_mask = transformed_image_and_mask[1]
             # Check which keypoints are beyond the image
             correct_keypoints_mask = keypoints_mask * check_bounds(transformed_keypoints, image_shape)
         else:
@@ -338,8 +336,8 @@ class AugmentationPostMethod(TFRPostMapMethod):
             if self.use_zoom:
                 zoom = tf.random.uniform([N], minval=self.zoom_min, maxval=self.zoom_max, dtype='float32')
 
-            transformed_list, transformed_keypoints = apply_transformation_batched(
-                [image, image_mask, alpha_mask],
+            transformed_image_and_mask, transformed_keypoints = apply_transformation_batched(
+                [image, image_mask],
                 keypoints,
                 use_rotation=self.use_rotation,
                 angle_batched=angle,
@@ -349,9 +347,8 @@ class AugmentationPostMethod(TFRPostMapMethod):
                 use_zoom=self.use_zoom,
                 zoom_scale_batched=zoom
             )
-            transformed_image = transformed_list[0]
-            transformed_image_mask = transformed_list[1]
-            transformed_alpha_mask = transformed_list[2]
+            transformed_image = transformed_image_and_mask[0]
+            transformed_image_mask = transformed_image_and_mask[1]
             # Check which keypoints are beyond the image
             correct_keypoints_mask = keypoints_mask * check_bounds(transformed_keypoints, image_shape[1:])
 
@@ -359,7 +356,6 @@ class AugmentationPostMethod(TFRPostMapMethod):
         element[RIterator.ABSENT_HUMAN_MASK] = transformed_image_mask
         element[RIterator.KEYPOINTS] = transformed_keypoints
         element[RIterator.KEYPOINTS_MASK] = correct_keypoints_mask
-        element[RIterator.ALPHA_MASK] = tf.cast(tf.round(transformed_alpha_mask), dtype=tf.uint8)
         return element
 
 
@@ -604,7 +600,7 @@ class FlipPostMethod(TFRPostMapMethod):
         keypoints_map = [x[1] for x in keypoints_map]
         self._keypoints_map = keypoints_map
 
-    def flip(self, image, absent_human_mask, alpha_mask, keypoints, masks):
+    def flip(self, image, absent_human_mask, keypoints, masks):
         """
         Parameters
         ----------
@@ -614,7 +610,6 @@ class FlipPostMethod(TFRPostMapMethod):
         # Flip the image and its corresponding absent human mask
         flipped_im = tf.image.flip_left_right(image)
         flipped_ah_mask = tf.image.flip_left_right(absent_human_mask)
-        flipped_alpha_mask = tf.image.flip_left_right(alpha_mask)
         # Flip keypoints
         _, height, width, _ = image.get_shape().as_list()
         move = np.array([[[width, 0]]], dtype='float32')
@@ -626,7 +621,7 @@ class FlipPostMethod(TFRPostMapMethod):
         # Reorder points and their masks
         keypoints = tf.gather(keypoints, self._keypoints_map, axis=1)
         masks = tf.gather(masks, self._keypoints_map, axis=1)
-        return flipped_im, flipped_ah_mask[..., :1], flipped_alpha_mask, keypoints, masks
+        return flipped_im, flipped_ah_mask[..., :1], keypoints, masks
 
     def read_record(self, serialized_example) -> dict:
         if self._parent_method is not None:
@@ -637,18 +632,16 @@ class FlipPostMethod(TFRPostMapMethod):
         absent_human_mask = element[RIterator.ABSENT_HUMAN_MASK]
         keypoints = element[RIterator.KEYPOINTS]
         masks = element[RIterator.KEYPOINTS_MASK]
-        alpha_mask = element[RIterator.ALPHA_MASK]
 
         p = tf.random_uniform(minval=0, maxval=1.0, shape=[])
-        true_fn = lambda: self.flip(image, absent_human_mask, alpha_mask, keypoints, masks)
-        false_fn = lambda: (image, absent_human_mask, alpha_mask, keypoints, masks)
-        image, absent_human_mask, alpha_mask, keypoints, masks = tf.cond(p < self._rate, true_fn, false_fn)
+        true_fn = lambda: self.flip(image, absent_human_mask, keypoints, masks)
+        false_fn = lambda: (image, absent_human_mask, keypoints, masks)
+        image, absent_human_mask, keypoints, masks = tf.cond(p < self._rate, true_fn, false_fn)
 
         element[RIterator.ABSENT_HUMAN_MASK] = absent_human_mask
         element[RIterator.IMAGE] = image
         element[RIterator.KEYPOINTS] = keypoints
         element[RIterator.KEYPOINTS_MASK] = masks
-        element[RIterator.ALPHA_MASK] = alpha_mask
         return element
 
 
