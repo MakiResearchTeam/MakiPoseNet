@@ -172,7 +172,7 @@ class CocoPreparator:
                 alpha_mask = io.imread(os.path.join(self._image_folder_path, img_obj['alpha_mask']))
             else:
                 # For this image - everything are HUMAN like, i.e. nothing will be changed
-                alpha_mask = (np.ones_like(image, dtype=np.uint8) * 255)[..., 0:1]
+                alpha_mask = np.ones((image.shape[0], image.shape[1], 3), dtype=np.uint8) * 255
             annIds = self._coco.getAnnIds(imgIds=img_obj['id'], iscrowd=None)
             anns = self._coco.loadAnns(annIds)
 
@@ -291,7 +291,7 @@ class CocoPreparator:
                 alpha_mask = io.imread(os.path.join(self._image_folder_path, img_obj['alpha_mask']))
             else:
                 # For this image - everything are HUMAN like, i.e. nothing will be changed
-                alpha_mask = np.ones((image.shape[0], image.shape[1], 1), dtype=np.uint8) * 255
+                alpha_mask = np.ones((image.shape[0], image.shape[1], 3), dtype=np.uint8) * 255
             annIds = self._coco.getAnnIds(imgIds=img_obj['id'], iscrowd=None)
             anns = self._coco.loadAnns(annIds)
 
@@ -449,7 +449,7 @@ class CocoPreparator:
 
         new_w, new_h = (round(w * xy_scales[0]), round(h * xy_scales[1]))
         image = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
-        alpha_mask = np.expand_dims(cv2.resize(alpha_mask, (new_w, new_h), interpolation=cv2.INTER_CUBIC), axis=-1)
+        alpha_mask = cv2.resize(alpha_mask, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
 
         # In mask, cv2 drop last dimension because it equal 1
         image_mask = np.expand_dims(cv2.resize(image_mask, (new_w, new_h), interpolation=cv2.INTER_CUBIC), axis=-1)
@@ -465,7 +465,7 @@ class CocoPreparator:
             padding_mask = np.ones((new_h, self._min_image_size, 1)).astype(np.float32, copy=False)
             padding_mask[:, :new_w] = image_mask
 
-            padding_alpha_mask = np.ones((new_h, self._min_image_size, 1)).astype(np.uint8, copy=False)
+            padding_alpha_mask = np.ones((new_h, self._min_image_size, 3)).astype(np.uint8, copy=False)
             padding_alpha_mask *= np.min(alpha_mask)
             padding_alpha_mask[:, :new_w] = alpha_mask
             return padding_image, keypoints, padding_mask, padding_alpha_mask

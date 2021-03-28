@@ -157,13 +157,13 @@ class RandomCropMethod(TFRPostMapMethod):
 
         cropped_image = tf.slice(image, offset, self._image_crop_size_tf)
         cropped_image_mask = tf.slice(image_mask, offset, self._image_mask_crop_size_tf)
-        cropped_alpha_mask = tf.slice(alpha_mask, offset, self._image_mask_crop_size_tf)
+        cropped_alpha_mask = tf.slice(alpha_mask, offset, self._image_crop_size_tf)
         cropped_keypoints = keypoints - tf.cast(tf.stack([offset[1], offset[0]]), dtype=tf.float32)
         # After slicing the tensors doesn't have proper shape. They get instead [None, None, None].
         # We can't use tf.Tensors for setting shape because they are note iterable what causes errors.
         cropped_image.set_shape(self._image_crop_size)
         cropped_image_mask.set_shape(self._image_mask_crop_size)
-        cropped_alpha_mask.set_shape(self._image_mask_crop_size)
+        cropped_alpha_mask.set_shape(self._image_crop_size)
         # Check which keypoints are beyond the image
         correct_keypoints_mask = keypoints_mask * check_bounds(cropped_keypoints, self._image_crop_size_tf)
 
@@ -1011,6 +1011,8 @@ class BackgroundAugmentMethod(TFRPostMapMethod):
     def __init__(self, backpool_path: str, crop_h: int, crop_w: int):
         """
         TODO: add docs
+        NOTICE! This method must be before ALL aug methods
+        Also its recommended to use it after random crop method
 
         Parameters
         ----------
