@@ -290,7 +290,7 @@ class AugmentationPostMethod(TFRPostMapMethod):
         image_mask = element[RIterator.ABSENT_HUMAN_MASK]
         keypoints = element[RIterator.KEYPOINTS]
         keypoints_mask = element[RIterator.KEYPOINTS_MASK]
-        alpha_mask = element[RIterator.ALPHA_MASK]
+        alpha_mask = tf.cast(element[RIterator.ALPHA_MASK], dtype=tf.float32)
 
         image_shape = image.get_shape().as_list()
         angle = None
@@ -359,7 +359,7 @@ class AugmentationPostMethod(TFRPostMapMethod):
         element[RIterator.ABSENT_HUMAN_MASK] = transformed_image_mask
         element[RIterator.KEYPOINTS] = transformed_keypoints
         element[RIterator.KEYPOINTS_MASK] = correct_keypoints_mask
-        element[RIterator.ALPHA_MASK] = transformed_alpha_mask
+        element[RIterator.ALPHA_MASK] = tf.cast(tf.round(transformed_alpha_mask), dtype=tf.uint8)
         return element
 
 
