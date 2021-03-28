@@ -173,6 +173,7 @@ class CocoPreparator:
             else:
                 # For this image - everything are HUMAN like, i.e. nothing will be changed
                 alpha_mask = np.ones((image.shape[0], image.shape[1], 3), dtype=np.uint8) * 255
+            print(img_obj)
             annIds = self._coco.getAnnIds(imgIds=img_obj['id'], iscrowd=None)
             anns = self._coco.loadAnns(annIds)
 
@@ -292,7 +293,6 @@ class CocoPreparator:
             else:
                 # For this image - everything are HUMAN like, i.e. nothing will be changed
                 alpha_mask = np.ones((image.shape[0], image.shape[1], 3), dtype=np.uint8) * 255
-            print(img_obj)
             annIds = self._coco.getAnnIds(imgIds=img_obj['id'], iscrowd=None)
             anns = self._coco.loadAnns(annIds)
 
