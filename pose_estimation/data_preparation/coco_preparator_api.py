@@ -448,11 +448,11 @@ class CocoPreparator:
         h, w = image.shape[:2]
 
         new_w, new_h = (round(w * xy_scales[0]), round(h * xy_scales[1]))
-        image = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
-        alpha_mask = np.expand_dims(cv2.resize(alpha_mask, (new_w, new_h), interpolation=cv2.INTER_AREA), axis=-1)
+        image = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
+        alpha_mask = np.expand_dims(cv2.resize(alpha_mask, (new_w, new_h), interpolation=cv2.INTER_CUBIC), axis=-1)
 
         # In mask, cv2 drop last dimension because it equal 1
-        image_mask = np.expand_dims(cv2.resize(image_mask, (new_w, new_h), interpolation=cv2.INTER_AREA), axis=-1)
+        image_mask = np.expand_dims(cv2.resize(image_mask, (new_w, new_h), interpolation=cv2.INTER_CUBIC), axis=-1)
 
         # Ignore dimension of visibility of the keypoints
         keypoints[..., :-1] *= np.array(xy_scales).astype(np.float32, copy=False)
