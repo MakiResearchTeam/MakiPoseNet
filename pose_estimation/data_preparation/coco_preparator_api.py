@@ -289,7 +289,6 @@ class CocoPreparator:
             image = io.imread(os.path.join(self._image_folder_path, img_obj['file_name']))
             if img_obj.get('alpha_mask') is not None:
                 alpha_mask = io.imread(os.path.join(self._image_folder_path, img_obj['alpha_mask']))
-                print('WHAT')
             else:
                 # For this image - everything are HUMAN like, i.e. nothing will be changed
                 alpha_mask = np.ones((image.shape[0], image.shape[1], 1), dtype=np.uint8) * 255
@@ -383,7 +382,6 @@ class CocoPreparator:
                 image_mask = np.ones((*image.shape[:2], 1)).astype(np.float32, copy=False)
 
             image, all_kp, image_mask, alpha_mask = self.__rescale_image(image, all_kp, image_mask, alpha_mask)
-            print('i: ', image.shape, ' a: ', alpha_mask.shape)
             keypoints_tensors.append(all_kp[..., :2].astype(np.float32, copy=False))
             keypoints_mask_tensors.append(all_kp[..., -1:].astype(np.float32, copy=False))
 
@@ -458,10 +456,6 @@ class CocoPreparator:
 
         # Ignore dimension of visibility of the keypoints
         keypoints[..., :-1] *= np.array(xy_scales).astype(np.float32, copy=False)
-        if (image.shape[0] != alpha_mask.shape[0] or image.shape[1] != alpha_mask.shape[1]):
-            print('1111111111111111111111111WHAAAAAAAAAAAAAAAAAAAAAAAAAAAAT')
-            print('image: ', image)
-            print('mask: ', alpha_mask.shape)
         # Check bounds on Width dimension
         if new_w < self._min_image_size:
             # padding zeros to image and padding ones for image_mask
@@ -474,10 +468,6 @@ class CocoPreparator:
             padding_alpha_mask = np.ones((new_h, self._min_image_size, 1)).astype(np.uint8, copy=False)
             padding_alpha_mask *= np.min(alpha_mask)
             padding_alpha_mask[:, :new_w] = alpha_mask
-            if (padding_alpha_mask.shape[0] != padding_image.shape[0] or padding_alpha_mask.shape[1] != padding_image.shape[1]):
-                print('WHAAAAAAAAAAAAAAAAAAAAAAAAAAAAT')
-                print('image: ', padding_image)
-                print('mask: ', padding_alpha_mask.shape)
             return padding_image, keypoints, padding_mask, padding_alpha_mask
         
         return image, keypoints, image_mask, alpha_mask
