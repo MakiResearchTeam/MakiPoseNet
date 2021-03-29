@@ -42,7 +42,7 @@ class BinaryHeatmapLayer(MakiLayer):
             delta=params[BinaryHeatmapLayer.DELTA],
             map_dtype=map_dtype,
             vectorize=params[BinaryHeatmapLayer.VECTORIZE],
-            resize_to=params[PAFLayer.RESIZE_TO]
+            resize_to=params[BinaryHeatmapLayer.RESIZE_TO]
         )
 
     def to_dict(self):
