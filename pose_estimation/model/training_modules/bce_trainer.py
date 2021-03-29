@@ -110,9 +110,10 @@ class BCETrainer(PETrainer):
             # heatmap_loss - [BS, H, W, C]
 
             if self._is_nullify_absent_labels:
-                # [bs, H, W, 1]
-                label_sum = tf.reduce_sum(train_heatmap * train_mask, axis=[-1], keepdims=True)
-                heatmap_loss = heatmap_loss * label_sum / (label_sum + 1e-5)
+                # [bs, 1, 1, C]
+                label_sum = tf.reduce_sum(train_heatmap * train_mask, axis=[1, 2], keepdims=True)
+                scale_factor = label_sum / (label_sum + 1e-5)
+                heatmap_loss = heatmap_loss * scale_factor
 
             if self._heatmap_weight is not None:
                 # Create mask for scaling loss
