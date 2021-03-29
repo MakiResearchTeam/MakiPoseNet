@@ -21,6 +21,7 @@ import tensorflow as tf
 
 from .core import PoseEstimatorInterface
 from .postprocess_modules.core.postprocess import InterfacePostProcessModule
+from .postprocess_modules import TFPostProcessModule
 from .utils.skelet_builder import SkeletBuilder
 from makiflow.core import MakiTensor, MakiModel
 from makiflow.core.inference.maki_builder import MakiBuilder
@@ -38,7 +39,7 @@ class PEModel(PoseEstimatorInterface):
 
     @staticmethod
     def from_json(
-            path_to_model: str, postprocess_class: InterfacePostProcessModule, input_tensor: MakiTensor = None):
+            path_to_model: str, postprocess_module: InterfacePostProcessModule = None, input_tensor: MakiTensor = None):
         """
         Creates and returns PEModel from json file contains its architecture
 
@@ -47,7 +48,7 @@ class PEModel(PoseEstimatorInterface):
         path_to_model : str
             Path to model which are saved as json file.
             Example: /home/user/model.json
-        postprocess_class : InterfacePostProcessModule
+        postprocess_module : InterfacePostProcessModule
             # TODO: add docs
         input_tensor : MakiTensor
             Custom input tensor for model, in most cases its just placeholder.
@@ -89,7 +90,7 @@ class PEModel(PoseEstimatorInterface):
             input_x=input_x,
             output_heatmap_list=output_heatmap_list,
             output_paf_list=output_paf_list,
-            postprocess_class=postprocess_class,
+            postprocess_module=postprocess_module,
             name=model_name
         )
 
@@ -98,7 +99,7 @@ class PEModel(PoseEstimatorInterface):
         input_x: MakiTensor,
         output_paf_list: list,
         output_heatmap_list: list,
-        postprocess_class: InterfacePostProcessModule,
+        postprocess_module: InterfacePostProcessModule = None,
         name="Pose_estimation"
     ):
         """
@@ -114,7 +115,7 @@ class PEModel(PoseEstimatorInterface):
         output_heatmap_list : list
             List of MakiTensors which are output heatmaps.
             Assume that last tensor in the list, will be the main one
-        postprocess_class : InterfacePostProcessModule
+        postprocess_module : InterfacePostProcessModule
             # TODO: add docs
         name : str
             Name of this model
@@ -124,8 +125,20 @@ class PEModel(PoseEstimatorInterface):
         self._paf_list = output_paf_list
         self._heatmap_list = output_heatmap_list
         self._index_of_main_paf = len(output_paf_list) - 1
-        self._postprocess_class = postprocess_class
         super().__init__(outputs=output_paf_list + output_heatmap_list, inputs=[input_x])
+
+        if postprocess_module is None:
+            postprocess_module = TFPostProcessModule()
+
+        postprocess_module.set_paf_heatmap(
+            paf=self.get_main_paf_tensor(),
+            heatmap=self.get_main_heatmap_tensor()
+        )
+        self._postprocess_module = postprocess_module
+
+    def set_session(self, session: tf.Session):
+        super(PEModel, self).set_session(session)
+        self._postprocess_module.set_session(session)
 
     def predict(self, image: np.ndarray, resize_to=None, using_estimate_alg=True):
         """
@@ -170,11 +183,11 @@ class PEModel(PoseEstimatorInterface):
         if resize_to is None:
             # Take `H`, `W` from input image
             resize_to = img_into_model[0].shape[:2]
-        self._postprocess_class.set_resize_to(resize_to)
+        self._postprocess_module.set_resize_to(resize_to)
         feed_dict = {self._input_data_tensors[0]: img_into_model}
 
         if using_estimate_alg:
-            paf, indices, peaks = self._postprocess_class(feed_dict)
+            paf, indices, peaks = self._postprocess_module(feed_dict)
 
             return SkeletBuilder.get_humans_by_PIF(
                     peaks=peaks,
@@ -182,7 +195,7 @@ class PEModel(PoseEstimatorInterface):
                     paf_mat=paf
             )
 
-        return self._postprocess_class.get_data_for_debug(feed_dict)
+        return self._postprocess_module.get_data_for_debug(feed_dict)
 
     def get_main_paf_tensor(self):
         return self._output_data_tensors[self._index_of_main_paf]

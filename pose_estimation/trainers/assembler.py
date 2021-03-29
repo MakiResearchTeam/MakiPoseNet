@@ -18,7 +18,6 @@
 from ..model import PEModel, PETrainer
 from ..generators.pose_estimation import RIterator
 from pose_estimation.model import BinaryHeatmapLayer, GaussHeatmapLayer, V2PAFLayer
-from pose_estimation.model.postprocess_modules import TFPostProcessModule
 from makiflow.core import MakiRestorable, TrainerBuilder, MakiTensor
 from makiflow.layers import InputLayer
 from makiflow.distillation.core import DistillatorBuilder
@@ -98,15 +97,11 @@ class ModelAssembler:
         name = gen_layer.get_name()
 
         input_layer = InputLayer(input_shape=shape, name=name)
-        tf_post_process = TFPostProcessModule()
         model = PEModel.from_json(
             model_config[ModelAssembler.ARCH_PATH],
-            postprocess_class=tf_post_process,
             input_tensor=input_layer
         )
         model.set_session(sess)
-        tf_post_process.set_session(sess)
-        tf_post_process.set_paf_heatmap(model.get_main_paf_tensor(), model.get_main_heatmap_tensor())
 
         # Load pretrained weights
         weights_path = model_config[ModelAssembler.WEIGHTS_PATH]
