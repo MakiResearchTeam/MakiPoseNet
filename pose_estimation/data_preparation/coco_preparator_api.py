@@ -157,6 +157,7 @@ class CocoPreparator:
         keypoints_tensors = []
         keypoints_mask_tensors = []
         image_properties_tensors = []
+        alpha_mask_tensors = []
 
         # Counter for saving parties
         counter = 0
@@ -167,6 +168,11 @@ class CocoPreparator:
 
             img_obj = self._coco.loadImgs(ids_img[i])[0]
             image = io.imread(os.path.join(self._image_folder_path, img_obj['file_name']))
+            if img_obj.get('alpha_mask') is not None:
+                alpha_mask = io.imread(os.path.join(self._image_folder_path, img_obj['alpha_mask']))
+            else:
+                # For this image - everything are HUMAN like, i.e. nothing will be changed
+                alpha_mask = np.ones((image.shape[0], image.shape[1], 1), dtype=np.uint8) * 255
             annIds = self._coco.getAnnIds(imgIds=img_obj['id'], iscrowd=None)
             anns = self._coco.loadAnns(annIds)
 
@@ -204,7 +210,7 @@ class CocoPreparator:
 
             image_mask = np.ones((*image.shape[:2], 1)).astype(np.float32, copy=False)
 
-            image, all_kp, image_mask = self.__rescale_image(image, all_kp, image_mask)
+            image, all_kp, image_mask, alpha_mask = self.__rescale_image(image, all_kp, image_mask, alpha_mask)
 
             keypoints_tensors.append(all_kp[..., :2].astype(np.float32, copy=False))
             keypoints_mask_tensors.append(all_kp[..., -1:].astype(np.float32, copy=False))
@@ -212,7 +218,7 @@ class CocoPreparator:
             image_tensors.append(image.astype(np.float32, copy=False))
             image_masks.append(image_mask)
             image_properties_tensors.append(np.array(image.shape).astype(np.float32, copy=False))
-
+            alpha_mask_tensors.append(alpha_mask.astype(np.uint8, copy=False))
             counter += 1
 
             # For large datasets, it's better to save them by parties
@@ -224,6 +230,7 @@ class CocoPreparator:
                     keypoints_tensors=keypoints_tensors,
                     keypoints_mask_tensors=keypoints_mask_tensors,
                     image_properties_tensors=image_properties_tensors,
+                    alpha_mask_tensors=alpha_mask_tensors,
                     prefix=prefix + f'_{counter_saved}',
                     dp_per_record=images_pr
                 )
@@ -233,6 +240,7 @@ class CocoPreparator:
                 keypoints_tensors = []
                 keypoints_mask_tensors = []
                 image_properties_tensors = []
+                alpha_mask_tensors = []
                 counter = 0
                 counter_saved += 1
 
@@ -248,6 +256,7 @@ class CocoPreparator:
                 keypoints_tensors=keypoints_tensors,
                 keypoints_mask_tensors=keypoints_mask_tensors,
                 image_properties_tensors=image_properties_tensors,
+                alpha_mask_tensors=alpha_mask_tensors,
                 prefix=prefix + f'_{counter_saved}',
                 dp_per_record=images_pr
             )
@@ -267,6 +276,7 @@ class CocoPreparator:
         keypoints_tensors = []
         keypoints_mask_tensors = []
         image_properties_tensors = []
+        alpha_mask_tensors = []
 
         # Counter for saving parties
         counter = 0
@@ -277,6 +287,11 @@ class CocoPreparator:
 
             img_obj = self._coco.loadImgs(ids_img[i])[0]
             image = io.imread(os.path.join(self._image_folder_path, img_obj['file_name']))
+            if img_obj.get('alpha_mask') is not None:
+                alpha_mask = io.imread(os.path.join(self._image_folder_path, img_obj['alpha_mask']))
+            else:
+                # For this image - everything are HUMAN like, i.e. nothing will be changed
+                alpha_mask = np.ones((image.shape[0], image.shape[1], 1), dtype=np.uint8) * 255
             annIds = self._coco.getAnnIds(imgIds=img_obj['id'], iscrowd=None)
             anns = self._coco.loadAnns(annIds)
 
@@ -366,14 +381,14 @@ class CocoPreparator:
             else:
                 image_mask = np.ones((*image.shape[:2], 1)).astype(np.float32, copy=False)
 
-            image, all_kp, image_mask = self.__rescale_image(image, all_kp, image_mask)
-
+            image, all_kp, image_mask, alpha_mask = self.__rescale_image(image, all_kp, image_mask, alpha_mask)
             keypoints_tensors.append(all_kp[..., :2].astype(np.float32, copy=False))
             keypoints_mask_tensors.append(all_kp[..., -1:].astype(np.float32, copy=False))
 
             image_tensors.append(image.astype(np.float32, copy=False))
             image_masks.append(image_mask)
             image_properties_tensors.append(np.array(image.shape).astype(np.float32, copy=False))
+            alpha_mask_tensors.append(alpha_mask.astype(np.uint8, copy=False))
 
             counter += 1
 
@@ -386,6 +401,7 @@ class CocoPreparator:
                     keypoints_tensors=keypoints_tensors,
                     keypoints_mask_tensors=keypoints_mask_tensors,
                     image_properties_tensors=image_properties_tensors,
+                    alpha_mask_tensors=alpha_mask_tensors,
                     prefix=prefix + f'_{counter_saved}',
                     dp_per_record=images_pr
                 )
@@ -395,6 +411,7 @@ class CocoPreparator:
                 keypoints_tensors = []
                 keypoints_mask_tensors = []
                 image_properties_tensors = []
+                alpha_mask_tensors = []
                 counter = 0
                 counter_saved += 1
 
@@ -410,13 +427,14 @@ class CocoPreparator:
                 keypoints_tensors=keypoints_tensors,
                 keypoints_mask_tensors=keypoints_mask_tensors,
                 image_properties_tensors=image_properties_tensors,
+                alpha_mask_tensors=alpha_mask_tensors,
                 prefix=prefix + f'_{counter_saved}',
                 dp_per_record=images_pr
             )
 
         iterator.close()
 
-    def __rescale_image(self, image, keypoints, image_mask):
+    def __rescale_image(self, image, keypoints, image_mask, alpha_mask):
         """
         Rescale image to minimum size, 
         if one of the dimension of the image (height and width) is smaller than `self._min_image_size`
@@ -430,14 +448,14 @@ class CocoPreparator:
         h, w = image.shape[:2]
 
         new_w, new_h = (round(w * xy_scales[0]), round(h * xy_scales[1]))
-        image = cv2.resize(image, (new_w, new_h))
+        image = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
+        alpha_mask = np.expand_dims(cv2.resize(alpha_mask, (new_w, new_h), interpolation=cv2.INTER_CUBIC), axis=-1)
 
         # In mask, cv2 drop last dimension because it equal 1
-        image_mask = np.expand_dims(cv2.resize(image_mask, (new_w, new_h)), axis=-1)
+        image_mask = np.expand_dims(cv2.resize(image_mask, (new_w, new_h), interpolation=cv2.INTER_CUBIC), axis=-1)
 
         # Ignore dimension of visibility of the keypoints
         keypoints[..., :-1] *= np.array(xy_scales).astype(np.float32, copy=False)
-
         # Check bounds on Width dimension
         if new_w < self._min_image_size:
             # padding zeros to image and padding ones for image_mask
@@ -447,9 +465,12 @@ class CocoPreparator:
             padding_mask = np.ones((new_h, self._min_image_size, 1)).astype(np.float32, copy=False)
             padding_mask[:, :new_w] = image_mask
 
-            return padding_image, keypoints, padding_mask
+            padding_alpha_mask = np.ones((new_h, self._min_image_size, 1)).astype(np.uint8, copy=False)
+            padding_alpha_mask *= np.min(alpha_mask)
+            padding_alpha_mask[:, :new_w] = alpha_mask
+            return padding_image, keypoints, padding_mask, padding_alpha_mask
         
-        return image, keypoints, image_mask
+        return image, keypoints, image_mask, alpha_mask
 
     @staticmethod
     def take_default_skelet(single_human_anns):

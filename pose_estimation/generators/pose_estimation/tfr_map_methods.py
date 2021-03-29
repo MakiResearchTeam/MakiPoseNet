@@ -14,16 +14,18 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+import os
 
 from makiflow.generators.pipeline.tfr.tfr_map_method import TFRMapMethod, TFRPostMapMethod
 from .data_preparation import (IMAGE_FNAME, KEYPOINTS_FNAME,
                                KEYPOINTS_MASK_FNAME, IMAGE_PROPERTIES_FNAME,
-                               ABSENT_HUMAN_MASK_FNAME)
+                               ABSENT_HUMAN_MASK_FNAME, ALPHA_MASK_FNAME)
 from .utils import check_bounds, apply_transformation, apply_transformation_batched, cutout_kp_in_box
 from pose_estimation.utils.nns_tools.preprocess import preprocess_input
 
 import tensorflow as tf
 import numpy as np
+import glob
 
 
 class RIterator:
@@ -33,6 +35,7 @@ class RIterator:
     KEYPOINTS_MASK = 'KEYPOINTS_MASK'
     IMAGE_PROPERTIES = 'IMAGE_PROPERTIES'
     HEATMAP = 'HEATMAP'
+    ALPHA_MASK = 'ALPHA_MASK'
 
 
 class LoadDataMethod(TFRMapMethod):
@@ -80,7 +83,8 @@ class LoadDataMethod(TFRMapMethod):
             ABSENT_HUMAN_MASK_FNAME: tf.io.FixedLenFeature((), tf.string),
             KEYPOINTS_FNAME: tf.io.FixedLenFeature((), tf.string),
             KEYPOINTS_MASK_FNAME: tf.io.FixedLenFeature((), tf.string),
-            IMAGE_PROPERTIES_FNAME: tf.io.FixedLenFeature((), tf.string)
+            IMAGE_PROPERTIES_FNAME: tf.io.FixedLenFeature((), tf.string),
+            ALPHA_MASK_FNAME: tf.io.FixedLenFeature((), tf.string)
         }
 
         example = tf.io.parse_single_example(serialized_example, r_feature_description)
@@ -93,7 +97,7 @@ class LoadDataMethod(TFRMapMethod):
         keypoints_mask_tensor = tf.io.parse_tensor(example[KEYPOINTS_MASK_FNAME], out_type=self.keypoints_mask_dtype)
         image_properties_tensor = tf.io.parse_tensor(example[IMAGE_PROPERTIES_FNAME],
                                                      out_type=self.image_properties_dtype)
-
+        alpha_mask_tensor = tf.io.parse_tensor(example[ALPHA_MASK_FNAME], out_type=tf.uint8)
         # Give the data its shape because it doesn't have it right after being extracted
         keypoints_tensor.set_shape(self.shape_keypoints)
         keypoints_mask_tensor.set_shape(self.shape_keypoints_mask)
@@ -104,7 +108,8 @@ class LoadDataMethod(TFRMapMethod):
             RIterator.ABSENT_HUMAN_MASK: image_mask,
             RIterator.KEYPOINTS: keypoints_tensor,
             RIterator.KEYPOINTS_MASK: keypoints_mask_tensor,
-            RIterator.IMAGE_PROPERTIES: image_properties_tensor
+            RIterator.IMAGE_PROPERTIES: image_properties_tensor,
+            RIterator.ALPHA_MASK: alpha_mask_tensor
         }
 
         return output_dict
@@ -123,6 +128,7 @@ class RandomCropMethod(TFRPostMapMethod):
             Width of the crop.
         image_last_dimension : int
             Number of channels of images, by default equal to 3
+
         """
         super().__init__()
         self._crop_w = crop_w
@@ -139,7 +145,7 @@ class RandomCropMethod(TFRPostMapMethod):
         image_mask = element[RIterator.ABSENT_HUMAN_MASK]
         keypoints = element[RIterator.KEYPOINTS]
         keypoints_mask = element[RIterator.KEYPOINTS_MASK]
-
+        alpha_mask = element[RIterator.ALPHA_MASK]
         # This is an adapted code from the original TensorFlow's `random_crop` method
         limit = tf.shape(image) - self._image_crop_size_tf + 1
         offset = tf.random_uniform(
@@ -151,12 +157,13 @@ class RandomCropMethod(TFRPostMapMethod):
 
         cropped_image = tf.slice(image, offset, self._image_crop_size_tf)
         cropped_image_mask = tf.slice(image_mask, offset, self._image_mask_crop_size_tf)
+        cropped_alpha_mask = tf.slice(alpha_mask, offset, self._image_mask_crop_size_tf)
         cropped_keypoints = keypoints - tf.cast(tf.stack([offset[1], offset[0]]), dtype=tf.float32)
         # After slicing the tensors doesn't have proper shape. They get instead [None, None, None].
         # We can't use tf.Tensors for setting shape because they are note iterable what causes errors.
         cropped_image.set_shape(self._image_crop_size)
         cropped_image_mask.set_shape(self._image_mask_crop_size)
-
+        cropped_alpha_mask.set_shape(self._image_mask_crop_size)
         # Check which keypoints are beyond the image
         correct_keypoints_mask = keypoints_mask * check_bounds(cropped_keypoints, self._image_crop_size_tf)
 
@@ -164,6 +171,7 @@ class RandomCropMethod(TFRPostMapMethod):
         element[RIterator.KEYPOINTS] = cropped_keypoints
         element[RIterator.ABSENT_HUMAN_MASK] = cropped_image_mask
         element[RIterator.KEYPOINTS_MASK] = correct_keypoints_mask
+        element[RIterator.ALPHA_MASK] = cropped_alpha_mask
         return element
 
 
@@ -996,3 +1004,69 @@ class NoisePostMethod(TFRPostMapMethod):
         return element
 
 
+class BackgroundAugmentMethod(TFRPostMapMethod):
+
+    MAX_VALUE_IMAGE = 255
+
+    def __init__(self, backpool_path: str, crop_h: int, crop_w: int):
+        """
+        TODO: add docs
+
+        Parameters
+        ----------
+        backpool_path : str
+            Path for pool of backgrounds
+        crop_h : int
+            Height of the crop.
+        crop_w : int
+            Width of the crop.
+
+        """
+        super().__init__()
+        self._image_path_pool = glob.glob(os.path.join(backpool_path, '*'))
+        self._image_path_tf_constants_pool = tf.constant(
+            self._image_path_pool,
+            dtype=tf.string
+        )
+        self._image_crop_size = [crop_h, crop_w, 3]
+        self._image_crop_size_tf = tf.constant(np.array([crop_h, crop_w, 3], dtype=np.int32))
+
+    def pick_background(self) -> tf.Tensor:
+        random_index = tf.random_uniform(
+            shape=[],
+            dtype=tf.int32,
+            # it is unlikely that a tensor with shape more than 10000 will appear
+            maxval=10000
+        ) % len(self._image_path_pool)
+        background_decoded = tf.io.read_file(self._image_path_tf_constants_pool[random_index])
+        background = tf.image.decode_image(background_decoded)
+        # crop and return
+        # This is an adapted code from the original TensorFlow's `random_crop` method
+        limit = tf.shape(background) - self._image_crop_size_tf + 1
+        offset = tf.random_uniform(
+            shape=[3],
+            dtype=tf.int32,
+            # it is unlikely that a tensor with shape more than 10000 will appear
+            maxval=10000
+        ) % limit
+
+        cropped_background = tf.slice(background, offset, self._image_crop_size_tf)
+
+        # After slicing the tensors doesn't have proper shape. They get instead [None, None, None].
+        # We can't use tf.Tensors for setting shape because they are note iterable what causes errors.
+        cropped_background.set_shape(self._image_crop_size)
+        return cropped_background
+
+    def read_record(self, serialized_example) -> dict:
+        element = self._parent_method.read_record(serialized_example)
+        image = tf.cast(element[RIterator.IMAGE], dtype=tf.int32)
+        # Smash image into binary (0 and 1) values!
+        alpha_image = tf.cast(element[RIterator.ALPHA_MASK], dtype=tf.int32)
+        # Smash image into binary (0 and 1) values!
+        alpha_image = alpha_image // BackgroundAugmentMethod.MAX_VALUE_IMAGE
+
+        background = tf.cast(self.pick_background(), dtype=tf.int32)
+        new_image = image * alpha_image + background * (1 - alpha_image)
+
+        element[RIterator.IMAGE] = tf.cast(new_image, dtype=tf.float32)
+        return element
