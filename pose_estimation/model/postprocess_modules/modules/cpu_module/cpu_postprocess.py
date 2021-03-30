@@ -145,7 +145,7 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
         kp_scale = None
         if not self._upsample_heatmap_after_down_scale:
             scale = int(round(float(CPUOptimizedPostProcessModule.DEFAULT_SCALE) / self._prediction_up_scale))
-            kp_scale = np.array([scale] * 2 + [1], dtype=np.int32)
+            kp_scale = np.array([scale] * 2, dtype=np.int32)
 
         # Other part of execution graph are written using numpy/cv library
         # Because some operation much faster in this library on CPU devices, rather than tf implementation
@@ -153,6 +153,7 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
         self._postprocess_np_tools = CPUOptimizedPostProcessNPPart(
             super().get_resize_to(),
             self._upsample_heatmap_after_down_scale,
+            # We must scale kp on value
             kp_scale_end=kp_scale
         )
 
