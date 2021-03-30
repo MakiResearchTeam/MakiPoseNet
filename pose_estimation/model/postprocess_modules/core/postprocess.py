@@ -116,7 +116,7 @@ class InterfacePostProcessModule(ABC):
         peaks : np.ndarray
 
         """
-        self._check_graph()
+        self.compile()
         return self._execute_postprocess(feed_dict=feed_dict)
 
     @abstractmethod
@@ -138,7 +138,7 @@ class InterfacePostProcessModule(ABC):
     def get_data_for_debug(self, feed_dict):
         raise NotImplemented("This method should not be called from this class.")
 
-    def _check_graph(self):
+    def compile(self):
         """
         Build post-graph if its not will be build
 

@@ -355,7 +355,7 @@ class TFPostProcessModule(InterfacePostProcessModule):
         paf : np.ndarray
 
         """
-        super()._check_graph()
+        super().compile()
         resize_to = super().get_resize_to()
         feed_dict.update({self.upsample_size: resize_to})
 

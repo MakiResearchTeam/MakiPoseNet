@@ -206,4 +206,3 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
 
     def get_smoother_output_heatmap_tensor(self) -> tf.Tensor:
         return self._blured_heatmap
-
