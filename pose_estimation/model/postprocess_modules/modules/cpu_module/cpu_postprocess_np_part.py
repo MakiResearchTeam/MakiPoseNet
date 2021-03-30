@@ -122,11 +122,11 @@ class CPUOptimizedPostProcessNPPart:
                         (heatmap_center > heatmap_up) & \
                         (heatmap_center > heatmap_down)
 
-        indices, peaks = self._get_peak_indices(heatmap_peaks)
+        indices, peaks = self._get_peak_indices(heatmap_peaks, heatmap_center)
 
         return indices, peaks
 
-    def _get_peak_indices(self, array):
+    def _get_peak_indices(self, array, orig_values):
         """
         Returns array indices of the values larger than threshold.
 
@@ -148,8 +148,62 @@ class CPUOptimizedPostProcessNPPart:
             self._saved_mesh_grid = np.arange(len(flat_peaks))
 
         peaks_coords = self._saved_mesh_grid[flat_peaks]
-        peaks = np.ones(len(peaks_coords), dtype=np.float32)
         indices = np.unravel_index(peaks_coords, shape=array.shape)
+        peaks = orig_values[indices]
         indices = np.stack(indices, axis=-1).astype(np.int32, copy=False)
         return indices, peaks
 
+
+if __name__ == "__main__":
+    heatmap_test = np.random.randn(200, 200, 24).astype(np.float32)
+
+    def get_peak_indices(array, orig_values):
+        """
+        Returns array indices of the values larger than threshold.
+
+        Parameters
+        ----------
+        array : ndarray of any shape
+            Tensor which values' indices to gather.
+
+        Returns
+        -------
+        ndarray of shape [n_peaks, dim(array)]
+            Array of indices of the values larger than threshold.
+        ndarray of shape [n_peaks]
+            Array of the values at corresponding indices.
+
+        """
+        flat_peaks = np.reshape(array, -1)
+        saved_mesh_grid = np.arange(len(flat_peaks))
+
+        peaks_coords = saved_mesh_grid[flat_peaks]
+        indices = np.unravel_index(peaks_coords, shape=array.shape)
+        peaks = orig_values[indices]
+        indices = np.stack(indices, axis=-1).astype(np.int32, copy=False)
+        return indices, peaks
+
+    def apply_nms_and_get_indices(heatmap_pr):
+        """
+        This is some sort of lazy NMS implementation, but its much faster on cpu
+        Compare to implementation through max-pool operation
+
+        """
+        heatmap_pr[heatmap_pr < 0.1] = 0
+        heatmap_with_borders = np.pad(heatmap_pr, [(2, 2), (2, 2), (0, 0)], mode='constant')
+        heatmap_center = heatmap_with_borders[1:heatmap_with_borders.shape[0] - 1, 1:heatmap_with_borders.shape[1] - 1]
+        heatmap_left = heatmap_with_borders[1:heatmap_with_borders.shape[0] - 1, 2:heatmap_with_borders.shape[1]]
+        heatmap_right = heatmap_with_borders[1:heatmap_with_borders.shape[0] - 1, 0:heatmap_with_borders.shape[1] - 2]
+        heatmap_up = heatmap_with_borders[2:heatmap_with_borders.shape[0], 1:heatmap_with_borders.shape[1] - 1]
+        heatmap_down = heatmap_with_borders[0:heatmap_with_borders.shape[0] - 2, 1:heatmap_with_borders.shape[1] - 1]
+
+        heatmap_peaks = (heatmap_center > heatmap_left) & \
+                        (heatmap_center > heatmap_right) & \
+                        (heatmap_center > heatmap_up) & \
+                        (heatmap_center > heatmap_down)
+
+        indices, peaks = get_peak_indices(heatmap_peaks, heatmap_center)
+
+        return indices, peaks
+
+    print(apply_nms_and_get_indices(heatmap_test)[-1])
