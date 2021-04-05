@@ -16,6 +16,7 @@
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
 from .constants import NUMBER_OF_KEYPOINTS
+import numpy as np
 
 
 class Human:
@@ -32,10 +33,6 @@ class Human:
         """
         self.body_parts = {}
         self.score = 0.0
-
-    @staticmethod
-    def _get_uidx(part_idx, idx):
-        return '%d-%d' % (part_idx, idx)
 
     def part_count(self):
         return len(self.body_parts.keys())
@@ -112,6 +109,66 @@ class Human:
                 })
 
         return dict_data
+
+    def to_np(self, th_hold=0.2):
+        """
+        Transform keypoints stored in this class to numpy array with shape (N, 3),
+        Where N - number of points
+
+        Parameters
+        ----------
+        th_hold : float
+            Threshold to store keypoints, by default equal to 0.2
+
+        Returns
+        -------
+        np.ndarray
+            Array of keypoints with shape (N, 3),
+            Where N - number of points
+
+        """
+        list_points = self.to_list(th_hold=th_hold)
+        # (N, 3)
+        return np.array(list_points, dtype=np.float32).reshape(-1, 3)
+
+    @staticmethod
+    def from_array(skeleton_array, th_hold=0.2):
+        """
+        Take points from `skeleton_np` and create Human class with this points
+
+        Parameters
+        ----------
+        skeleton_array : np.ndarray or list
+            Array of input points
+            NOTICE! Input array must be with shape (N, 3) (N - number of points)
+        th_hold : float
+            Threshold, if probs bigger that this value - it will be counted as visible
+            Used in order to proper calculate avg probs of human detection itself
+
+        Returns
+        -------
+        Human
+            Created Human class with certain input points in `skeleton_np`
+
+        """
+        human_class = Human()
+        human_id = 0
+
+        sum_probs = 0.0
+        count_vis = 0
+
+        for part_idx in range(len(skeleton_array)):
+            human_class.body_parts[part_idx] = BodyPart(
+                '%d-%d' % (human_id, part_idx), part_idx,
+                float(skeleton_array[part_idx][0]),
+                float(skeleton_array[part_idx][1]),
+                float(skeleton_array[part_idx][-1])
+            )
+            if float(skeleton_array[part_idx][-1]) > th_hold:
+                sum_probs += float(skeleton_array[part_idx][-1])
+                count_vis += 1
+        human_class.score = sum_probs / count_vis
+        return human_class
 
     def __str__(self):
         return ' '.join([str(x) for x in self.body_parts.values()])

@@ -22,6 +22,7 @@ import tensorflow as tf
 from .core import PoseEstimatorInterface
 from .postprocess_modules.core.postprocess import InterfacePostProcessModule
 from .postprocess_modules import TFPostProcessModule
+from .skelet_correction_modules import InterfaceSkeletCorrectionModule, SkeletCorrectionNoneModule
 from .utils.skelet_builder import SkeletBuilder
 from makiflow.core import MakiTensor, MakiModel
 from makiflow.core.inference.maki_builder import MakiBuilder
@@ -39,7 +40,10 @@ class PEModel(PoseEstimatorInterface):
 
     @staticmethod
     def from_json(
-            path_to_model: str, postprocess_module: InterfacePostProcessModule = None, input_tensor: MakiTensor = None):
+            path_to_model: str,
+            postprocess_module: InterfacePostProcessModule = None,
+            correction_module: InterfaceSkeletCorrectionModule = None,
+            input_tensor: MakiTensor = None):
         """
         Creates and returns PEModel from json file contains its architecture
 
@@ -91,6 +95,7 @@ class PEModel(PoseEstimatorInterface):
             output_heatmap_list=output_heatmap_list,
             output_paf_list=output_paf_list,
             postprocess_module=postprocess_module,
+            correction_module=correction_module,
             name=model_name
         )
 
@@ -100,6 +105,7 @@ class PEModel(PoseEstimatorInterface):
         output_paf_list: list,
         output_heatmap_list: list,
         postprocess_module: InterfacePostProcessModule = None,
+        correction_module: InterfaceSkeletCorrectionModule = None,
         name="Pose_estimation"
     ):
         """
@@ -135,6 +141,11 @@ class PEModel(PoseEstimatorInterface):
             heatmap=self.get_main_heatmap_tensor()
         )
         self._postprocess_module = postprocess_module
+
+        if correction_module is None:
+            correction_module = SkeletCorrectionNoneModule()
+
+        self._correction_module = correction_module
 
     def set_session(self, session: tf.Session):
         super(PEModel, self).set_session(session)
@@ -189,11 +200,13 @@ class PEModel(PoseEstimatorInterface):
         if using_estimate_alg:
             paf, indices, peaks = self._postprocess_module(feed_dict)
 
-            return SkeletBuilder.get_humans_by_PIF(
+            skeletons = SkeletBuilder.get_humans_by_PIF(
                     peaks=peaks,
                     indices=indices,
                     paf_mat=paf
             )
+
+            return self._correction_module(skeletons)
 
         return self._postprocess_module.get_data_for_debug(feed_dict)
 
