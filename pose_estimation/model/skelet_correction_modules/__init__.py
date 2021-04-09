@@ -1,4 +1,2 @@
-
-from .core import InterfaceSkeletCorrectionModule
-from .modules import SkeletCorrectionOneEuroModule, SkeletCorrectionNoneModule
-
+from .none_skelet_correction import SkeletCorrectionNoneModule
+from .skelet_correction import SkeletCorrectionOneEuroModule

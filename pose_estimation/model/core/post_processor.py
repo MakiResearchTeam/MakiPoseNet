@@ -18,7 +18,7 @@
 from abc import abstractmethod, ABC
 
 
-class InterfacePostProcessModule(ABC):
+class PostProcessor(ABC):
 
     DEFAULT_SCALE = 8
 
