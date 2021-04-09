@@ -1,2 +1,3 @@
 from .none_skelet_correction import SkeletCorrectionNoneModule
 from .skelet_correction import SkeletCorrectionOneEuroModule
+from .compose import CorrectorCompose
