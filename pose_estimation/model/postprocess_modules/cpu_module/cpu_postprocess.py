@@ -144,8 +144,6 @@ class CPUOptimizedPostProcessModule(PostProcessor):
 
         kp_scale_end = None
         if not self._upsample_heatmap_after_down_scale:
-            scale = int(round(float(CPUOptimizedPostProcessModule.DEFAULT_SCALE) / self._prediction_up_scale))
-            kp_scale = np.array([scale] * 2, dtype=np.int32)
             kp_scale_end = self._prediction_up_scale
 
         # Other part of execution graph are written using numpy/cv library
