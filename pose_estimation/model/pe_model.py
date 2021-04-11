@@ -19,10 +19,10 @@ import json
 import numpy as np
 import tensorflow as tf
 
-from .core import PoseEstimatorInterface
-from .postprocess_modules.core.postprocess import InterfacePostProcessModule
+from .core import PoseEstimatorInterface, SkeletonCorrector
+from pose_estimation.model.core.post_processor import PostProcessor
 from .postprocess_modules import TFPostProcessModule
-from .skelet_correction_modules import InterfaceSkeletCorrectionModule, SkeletCorrectionNoneModule
+from .skelet_correction_modules import SkeletCorrectionNoneModule
 from .utils.skelet_builder import SkeletBuilder
 from makiflow.core import MakiTensor, MakiModel
 from makiflow.core.inference.maki_builder import MakiBuilder
@@ -41,8 +41,8 @@ class PEModel(PoseEstimatorInterface):
     @staticmethod
     def from_json(
             path_to_model: str,
-            postprocess_module: InterfacePostProcessModule = None,
-            correction_module: InterfaceSkeletCorrectionModule = None,
+            postprocess_module: PostProcessor = None,
+            correction_module: SkeletonCorrector = None,
             input_tensor: MakiTensor = None):
         """
         Creates and returns PEModel from json file contains its architecture
@@ -52,7 +52,7 @@ class PEModel(PoseEstimatorInterface):
         path_to_model : str
             Path to model which are saved as json file.
             Example: /home/user/model.json
-        postprocess_module : InterfacePostProcessModule
+        postprocess_module : PostProcessor
             # TODO: add docs
         input_tensor : MakiTensor
             Custom input tensor for model, in most cases its just placeholder.
@@ -104,8 +104,8 @@ class PEModel(PoseEstimatorInterface):
         input_x: MakiTensor,
         output_paf_list: list,
         output_heatmap_list: list,
-        postprocess_module: InterfacePostProcessModule = None,
-        correction_module: InterfaceSkeletCorrectionModule = None,
+        postprocess_module: PostProcessor = None,
+        correction_module: SkeletonCorrector = None,
         name="Pose_estimation"
     ):
         """
@@ -121,7 +121,7 @@ class PEModel(PoseEstimatorInterface):
         output_heatmap_list : list
             List of MakiTensors which are output heatmaps.
             Assume that last tensor in the list, will be the main one
-        postprocess_module : InterfacePostProcessModule
+        postprocess_module : PostProcessor
             # TODO: add docs
         name : str
             Name of this model

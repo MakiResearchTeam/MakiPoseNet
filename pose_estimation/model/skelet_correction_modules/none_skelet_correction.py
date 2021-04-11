@@ -1,12 +1,10 @@
-from pose_estimation.model.skelet_correction_modules.core import InterfaceSkeletCorrectionModule
+from ..core import SkeletonCorrector
 
 
-class SkeletCorrectionNoneModule(InterfaceSkeletCorrectionModule):
+class SkeletCorrectionNoneModule(SkeletonCorrector):
     """
     This class itself, does nothing
-
     """
-
     def __call__(self, skeletons: list) -> list:
         """
         Return input `skeletons` as it is

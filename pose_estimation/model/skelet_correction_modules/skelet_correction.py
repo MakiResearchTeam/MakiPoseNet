@@ -1,12 +1,10 @@
+from ..core import SkeletonCorrector
 
-from pose_estimation.model.skelet_correction_modules.core import InterfaceSkeletCorrectionModule
 
-
-class SkeletCorrectionOneEuroModule(InterfaceSkeletCorrectionModule):
+class SkeletCorrectionOneEuroModule(SkeletonCorrector):
     """
     This correction module is based in 1 euro algorithm
     For mode details refer to: https://hal.inria.fr/hal-00670496/document
-
     """
 
     def __init__(self, alpha=0.9):

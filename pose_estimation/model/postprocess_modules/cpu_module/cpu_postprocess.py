@@ -17,12 +17,12 @@
 
 import tensorflow as tf
 import numpy as np
-from pose_estimation.model.postprocess_modules.core import InterfacePostProcessModule
+from ...core import PostProcessor
 from .cpu_postprocess_np_part import CPUOptimizedPostProcessNPPart
 from pose_estimation.model.utils.smoother import Smoother
 
 
-class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
+class CPUOptimizedPostProcessModule(PostProcessor):
     """
     Post process module for PEModel.
     PEModel itself gives paf and heatmap from model written in tf

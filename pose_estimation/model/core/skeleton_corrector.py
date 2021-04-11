@@ -1,7 +1,7 @@
 from abc import abstractmethod, ABC
 
 
-class InterfaceSkeletCorrectionModule(ABC):
+class SkeletonCorrector(ABC):
 
     @abstractmethod
     def __call__(self, skeletons: list) -> list:

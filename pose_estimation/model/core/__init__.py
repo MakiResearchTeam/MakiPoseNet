@@ -16,4 +16,7 @@
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
 from .pe_trainer import PETrainer
-from .interface import PoseEstimatorInterface
+from .pose_estimator import PoseEstimatorInterface
+from .skeleton_corrector import SkeletonCorrector
+from .post_processor import PostProcessor
+
