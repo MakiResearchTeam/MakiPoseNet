@@ -132,7 +132,7 @@ class Human:
         return np.array(list_points, dtype=np.float32).reshape(-1, 3)
 
     @staticmethod
-    def from_array(skeleton_array, th_hold=0.2):
+    def from_array(skeleton_array):
         """
         Take points from `skeleton_np` and create Human class with this points
 
@@ -141,19 +141,15 @@ class Human:
         skeleton_array : np.ndarray or list
             Array of input points
             NOTICE! Input array must be with shape (N, 3) (N - number of points)
-        th_hold : float
-            Threshold, if probs bigger that this value - it will be counted as visible
-            Used in order to proper calculate avg probs of human detection itself
 
         Returns
         -------
         Human
-            Created Human class with certain input points in `skeleton_np`
+            Created Human class with points in `skeleton_np`
 
         """
         human_class = Human()
         human_id = 0
-
         sum_probs = 0.0
 
         for part_idx in range(len(skeleton_array)):
@@ -166,7 +162,6 @@ class Human:
             sum_probs += float(skeleton_array[part_idx][-1])
 
         human_class.score = sum_probs / len(skeleton_array)
-
         return human_class
 
     def __str__(self):
