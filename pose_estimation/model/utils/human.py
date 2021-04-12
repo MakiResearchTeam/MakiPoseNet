@@ -155,7 +155,6 @@ class Human:
         human_id = 0
 
         sum_probs = 0.0
-        count_vis = 0
 
         for part_idx in range(len(skeleton_array)):
             human_class.body_parts[part_idx] = BodyPart(
@@ -164,10 +163,10 @@ class Human:
                 float(skeleton_array[part_idx][1]),
                 float(skeleton_array[part_idx][-1])
             )
-            if float(skeleton_array[part_idx][-1]) > th_hold:
-                sum_probs += float(skeleton_array[part_idx][-1])
-                count_vis += 1
-        human_class.score = sum_probs / count_vis
+            sum_probs += float(skeleton_array[part_idx][-1])
+
+        human_class.score = sum_probs / len(skeleton_array)
+
         return human_class
 
     def __str__(self):
