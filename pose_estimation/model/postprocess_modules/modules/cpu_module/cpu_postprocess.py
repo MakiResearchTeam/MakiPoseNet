@@ -70,6 +70,8 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
         super().__init__()
         self._smoother_kernel_size = smoother_kernel_size
         self._smoother_kernel = smoother_kernel
+        if not isinstance(prediction_up_scale, int):
+            raise TypeError("`prediction_up_scale` must be integer with value in range (0, 8]!")
         self._prediction_up_scale = prediction_up_scale
 
         self._upsample_heatmap_after_down_scale = upsample_heatmap_after_down_scale
@@ -144,7 +146,7 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
 
         kp_scale_end = None
         if not self._upsample_heatmap_after_down_scale:
-            kp_scale_end = CPUOptimizedPostProcessModule.DEFAULT_SCALE / self._prediction_up_scale
+            kp_scale_end = CPUOptimizedPostProcessModule.DEFAULT_SCALE // self._prediction_up_scale
 
         # Other part of execution graph are written using numpy/cv library
         # Because some operation much faster in this library on CPU devices, rather than tf implementation
