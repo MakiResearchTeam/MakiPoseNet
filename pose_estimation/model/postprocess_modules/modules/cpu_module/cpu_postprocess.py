@@ -144,7 +144,7 @@ class CPUOptimizedPostProcessModule(InterfacePostProcessModule):
 
         kp_scale_end = None
         if not self._upsample_heatmap_after_down_scale:
-            kp_scale_end = self._prediction_up_scale
+            kp_scale_end = CPUOptimizedPostProcessModule.DEFAULT_SCALE / self._prediction_up_scale
 
         # Other part of execution graph are written using numpy/cv library
         # Because some operation much faster in this library on CPU devices, rather than tf implementation
