@@ -73,7 +73,7 @@ class Human:
 
         return list_data
 
-    def to_dict(self, th_hold=0.2) -> dict:
+    def to_dict(self, th_hold=0.2, skip_not_visible=False) -> dict:
         """
         Transform keypoints stored in this class to dict
 
@@ -81,7 +81,9 @@ class Human:
         ----------
         th_hold : float
             Threshold to store keypoints, by default equal to 0.2
-
+        skip_not_visible : bool
+            If equal to True, then values with low probability (or invisible)
+            Will be skipped from final dict
         Returns
         -------
         dict
@@ -103,7 +105,7 @@ class Human:
                 dict_data.update({
                     str(i): [take_single.x, take_single.y, take_single.score]
                 })
-            else:
+            elif not skip_not_visible:
                 dict_data.update({
                     str(i): [0.0, 0.0, 0.0]
                 })

@@ -17,7 +17,7 @@
 
 import cv2
 import numpy as np
-from pose_estimation.model.utils.human import Human
+from .constants import CONNECT_INDEXES
 
 
 def visualize_paf(
@@ -48,25 +48,46 @@ def visualize_paf(
     return img
 
 
-def draw_skeleton(image, humans: list, connect_indexes: list, color=(255, 0, 0), thickness=2):
+def draw_skeleton(
+        image: np.ndarray,
+        humans: list,
+        connect_indexes: list = CONNECT_INDEXES, color=(255, 0, 0), thickness=2,
+        thr_hold=0.2):
+    """
+    Draw skeletons from `humans` list on image `image`
+
+    Parameters
+    ----------
+    image : np.ndarray
+        Image at which must be drawn skeletons
+    humans : list
+        List of Human class elements, which represent single human skeleton
+    connect_indexes : list
+        Pattern how skeletons must be connected,
+        Default value is good enough for most cases
+    color : tuple
+        Color (R, G, B) - color of connected limbs
+    thickness : int
+        Thickness of drawn limb
+    thr_hold : float
+        Threshold for keypoints, by default equal to 0.2,
+        If probability of points will be lower - this keypoint will have zero values,
+        Work only if list of Human classes is input for this method
+    
+    Returns
+    -------
+    np.ndarray
+        Image with skeletons on it
+
+    """
     for indx in range(len(humans)):
-        human = humans[indx]
-
-        if isinstance(human, Human):
-            data = np.array(human.to_list()).reshape(-1, 3)
-        else:
-            data = np.array(human).reshape(-1, 3)
-
-        for j in range(len(connect_indexes)):
-            single = connect_indexes[j]
-            single_p1 = data[single[0]]
-            single_p2 = data[single[1]]
-
-            if single_p1[-1] > 1e-3 and single_p2[-1] > 1e-3:
-
+        human = humans[indx].to_dict(th_hold=thr_hold, skip_not_visible=True)
+        for indx_limb in range(len(connect_indexes)):
+            single_limb = connect_indexes[indx_limb]
+            single_p1 = human.get(str(single_limb[0]))
+            single_p2 = human.get(str(single_limb[1]))
+            if single_p1[-1] is not None or single_p2[-1] is not None:
                 p_1 = (int(single_p1[0]), int(single_p1[1]))
                 p_2 = (int(single_p2[0]), int(single_p2[1]))
-
                 cv2.line(image, p_1, p_2, color=color, thickness=thickness)
-
     return image
