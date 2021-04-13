@@ -73,7 +73,7 @@ def draw_skeleton(
         Threshold for keypoints, by default equal to 0.2,
         If probability of points will be lower - this keypoint will have zero values,
         Work only if list of Human classes is input for this method
-    
+
     Returns
     -------
     np.ndarray
@@ -86,7 +86,7 @@ def draw_skeleton(
             single_limb = connect_indexes[indx_limb]
             single_p1 = human.get(str(single_limb[0]))
             single_p2 = human.get(str(single_limb[1]))
-            if single_p1[-1] is not None or single_p2[-1] is not None:
+            if single_p1 is not None or single_p2 is not None:
                 p_1 = (int(single_p1[0]), int(single_p1[1]))
                 p_2 = (int(single_p2[0]), int(single_p2[1]))
                 cv2.line(image, p_1, p_2, color=color, thickness=thickness)
