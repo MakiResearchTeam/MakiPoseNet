@@ -194,7 +194,7 @@ class Human:
 
         for part_idx, v_arr in skeleton_dict.items():
             human_class.body_parts[part_idx] = BodyPart(
-                '%d-%d' % (human_id, part_idx), part_idx,
+                '%d-%s' % (human_id, part_idx), part_idx,
                 float(v_arr[0]),
                 float(v_arr[1]),
                 float(v_arr[-1])
