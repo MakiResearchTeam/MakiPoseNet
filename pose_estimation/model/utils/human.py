@@ -73,7 +73,7 @@ class Human:
 
         return list_data
 
-    def to_dict(self, th_hold=0.2, skip_not_visible=False) -> dict:
+    def to_dict(self, th_hold=0.2, skip_not_visible=False, key_as_int=False) -> dict:
         """
         Transform keypoints stored in this class to dict
 
@@ -84,6 +84,7 @@ class Human:
         skip_not_visible : bool
             If equal to True, then values with low probability (or invisible)
             Will be skipped from final dict
+
         Returns
         -------
         dict
@@ -99,15 +100,20 @@ class Human:
             If keypoint is not visible or below `th_hold`, this keypoint will be filled with zeros
         """
         dict_data = {}
+        if key_as_int:
+            key_tr = lambda x: int(x)
+        else:
+            key_tr = lambda x: str(x)
+
         for i in range(NUMBER_OF_KEYPOINTS):
             take_single = self.body_parts.get(i)
             if take_single is not None and take_single.score >= th_hold:
                 dict_data.update({
-                    str(i): [take_single.x, take_single.y, take_single.score]
+                    key_tr(i): [take_single.x, take_single.y, take_single.score]
                 })
             elif not skip_not_visible:
                 dict_data.update({
-                    str(i): [0.0, 0.0, 0.0]
+                    key_tr(i): [0.0, 0.0, 0.0]
                 })
 
         return dict_data
@@ -177,8 +183,8 @@ class Human:
             Dict of input points
             Example:
             {
-                '0': [22.0, 23.0, 1.0],
-                '10': [10, 20, 0.2],
+                0: [22.0, 23.0, 1.0],
+                1: [10, 20, 0.2],
                 ....
             }
 
@@ -195,7 +201,7 @@ class Human:
 
         for part_idx, v_arr in skeleton_dict.items():
             human_class.body_parts[part_idx] = BodyPart(
-                '%d-%s' % (human_id, part_idx), part_idx,
+                '%d-%d' % (human_id, part_idx), part_idx,
                 float(v_arr[0]),
                 float(v_arr[1]),
                 float(v_arr[-1])
