@@ -136,7 +136,7 @@ class Human:
     @staticmethod
     def from_array(skeleton_array):
         """
-        Take points from `skeleton_np` and create Human class with this points
+        Take points from `skeleton_array` and create Human class with this points
 
         Parameters
         ----------
@@ -164,6 +164,44 @@ class Human:
             sum_probs += float(skeleton_array[part_idx][-1])
 
         human_class.score = sum_probs / len(skeleton_array)
+        return human_class
+
+    @staticmethod
+    def from_dict(skeleton_dict):
+        """
+        Take points from `skeleton_dict` and create Human class with this points
+
+        Parameters
+        ----------
+        skeleton_dict : dict
+            Dict of input points
+            Example:
+            {
+                '0': [22.0, 23.0, 1.0],
+                '10': [10, 20, 0.2],
+                ....
+            }
+
+        Returns
+        -------
+        Human
+            Created Human class with points in `skeleton_dict`
+
+        """
+        human_class = Human()
+        human_id = 0
+        sum_probs = 0.0
+
+        for part_idx, v_arr in skeleton_dict.items():
+            human_class.body_parts[part_idx] = BodyPart(
+                '%d-%d' % (human_id, part_idx), part_idx,
+                float(v_arr[0]),
+                float(v_arr[1]),
+                float(v_arr[-1])
+            )
+            sum_probs += float(v_arr[-1])
+
+        human_class.score = sum_probs / len(skeleton_dict)
         return human_class
 
     def __str__(self):

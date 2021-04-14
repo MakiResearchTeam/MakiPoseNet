@@ -151,7 +151,7 @@ class PEModel(PoseEstimatorInterface):
         super(PEModel, self).set_session(session)
         self._postprocess_module.set_session(session)
 
-    def predict(self, image: np.ndarray, resize_to=None, using_estimate_alg=True):
+    def predict(self, image: np.ndarray, resize_to=None, using_estimate_alg=True, th_hold_x=0.5, th_hold_y=0.5):
         """
         Do pose estimation on certain input image
 
@@ -201,9 +201,11 @@ class PEModel(PoseEstimatorInterface):
             paf, indices, peaks = self._postprocess_module(feed_dict)
 
             skeletons = SkeletBuilder.get_humans_by_PIF(
-                    peaks=peaks,
-                    indices=indices,
-                    paf_mat=paf
+                peaks=peaks,
+                indices=indices,
+                paf_mat=paf,
+                th_hold_x=th_hold_x,
+                th_hold_y=th_hold_y
             )
 
             return self._correction_module(skeletons)
