@@ -191,6 +191,7 @@ class Human:
         human_class = Human()
         human_id = 0
         sum_probs = 0.0
+        human_class.score = 0.0
 
         for part_idx, v_arr in skeleton_dict.items():
             human_class.body_parts[part_idx] = BodyPart(
@@ -200,8 +201,8 @@ class Human:
                 float(v_arr[-1])
             )
             sum_probs += float(v_arr[-1])
-
-        human_class.score = sum_probs / len(skeleton_dict)
+        if len(skeleton_dict) >= 1:
+            human_class.score = sum_probs / len(skeleton_dict)
         return human_class
 
     def __str__(self):
