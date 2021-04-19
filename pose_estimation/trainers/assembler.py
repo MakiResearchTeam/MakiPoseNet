@@ -17,7 +17,7 @@
 
 from ..model import PEModel, PETrainer
 from ..generators.pose_estimation import RIterator
-from pose_estimation.model import BinaryHeatmapLayer, GaussHeatmapLayer, V2PAFLayer
+from pose_estimation.model import BinaryHeatmapLayer, GaussHeatmapLayer, V2PAFLayer, PHLabelCorrectionLayer
 from makiflow.core import MakiRestorable, TrainerBuilder, MakiTensor
 from makiflow.layers import InputLayer
 from makiflow.distillation.core import DistillatorBuilder
@@ -53,6 +53,10 @@ class ModelAssembler:
     # Distillation info
     TEACHER_WEIGHTS = 'weights'
     TEACHER_ARCH = 'arch'
+    # Label Correction
+    LB_CONFIG = 'label_correction_config'
+    LB_T_WEIGHTS = 'weights'
+    LB_T_ARCH = 'arch'
 
     # gen_layer config
     GENLAYER_CONFIG = 'genlayer_config'
@@ -135,6 +139,20 @@ class ModelAssembler:
         paf_layer = V2PAFLayer.build(paf_config[MakiRestorable.PARAMS])
         paf = paf_layer([keypoints, masks])
 
+        # TODO: Add label correction if state and some arg to json
+        lb_config = config.get(ModelAssembler.LB_CONFIG)
+        if lb_config is not None:
+            input_images = iterator[RIterator.IMAGE]
+            paf_heatmap_l = PHLabelCorrectionLayer(
+                lb_config[ModelAssembler.LB_T_ARCH],
+                lb_config[ModelAssembler.LB_T_WEIGHTS]
+            )
+
+            paf, heatmap = paf_heatmap_l.compile(
+               input_image=input_images,
+               paf_label_layer=paf,
+               heatmap_label_layer=heatmap
+            )
         return paf, heatmap
 
     @staticmethod

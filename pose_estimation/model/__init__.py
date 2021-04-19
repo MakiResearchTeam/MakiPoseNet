@@ -16,5 +16,5 @@
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
 from .pe_model import PEModel
-from .training_modules import MSETrainer, BinaryHeatmapLayer, V2PAFLayer, GaussHeatmapLayer
+from .training_modules import MSETrainer, BinaryHeatmapLayer, V2PAFLayer, GaussHeatmapLayer, PHLabelCorrectionLayer
 from .core import PETrainer
