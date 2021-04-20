@@ -19,9 +19,10 @@ import json
 import numpy as np
 import tensorflow as tf
 
-from .core import PoseEstimatorInterface
-from .postprocess_modules.core.postprocess import InterfacePostProcessModule
+from .core import PoseEstimatorInterface, SkeletonCorrector
+from pose_estimation.model.core.post_processor import PostProcessor
 from .postprocess_modules import TFPostProcessModule
+from .skelet_correction_modules import SkeletCorrectionNoneModule
 from .utils.skelet_builder import SkeletBuilder
 from makiflow.core import MakiTensor, MakiModel
 from makiflow.core.inference.maki_builder import MakiBuilder
@@ -39,7 +40,10 @@ class PEModel(PoseEstimatorInterface):
 
     @staticmethod
     def from_json(
-            path_to_model: str, postprocess_module: InterfacePostProcessModule = None, input_tensor: MakiTensor = None):
+            path_to_model: str,
+            postprocess_module: PostProcessor = None,
+            correction_module: SkeletonCorrector = None,
+            input_tensor: MakiTensor = None):
         """
         Creates and returns PEModel from json file contains its architecture
 
@@ -48,7 +52,7 @@ class PEModel(PoseEstimatorInterface):
         path_to_model : str
             Path to model which are saved as json file.
             Example: /home/user/model.json
-        postprocess_module : InterfacePostProcessModule
+        postprocess_module : PostProcessor
             # TODO: add docs
         input_tensor : MakiTensor
             Custom input tensor for model, in most cases its just placeholder.
@@ -91,6 +95,7 @@ class PEModel(PoseEstimatorInterface):
             output_heatmap_list=output_heatmap_list,
             output_paf_list=output_paf_list,
             postprocess_module=postprocess_module,
+            correction_module=correction_module,
             name=model_name
         )
 
@@ -99,7 +104,8 @@ class PEModel(PoseEstimatorInterface):
         input_x: MakiTensor,
         output_paf_list: list,
         output_heatmap_list: list,
-        postprocess_module: InterfacePostProcessModule = None,
+        postprocess_module: PostProcessor = None,
+        correction_module: SkeletonCorrector = None,
         name="Pose_estimation"
     ):
         """
@@ -115,7 +121,7 @@ class PEModel(PoseEstimatorInterface):
         output_heatmap_list : list
             List of MakiTensors which are output heatmaps.
             Assume that last tensor in the list, will be the main one
-        postprocess_module : InterfacePostProcessModule
+        postprocess_module : PostProcessor
             # TODO: add docs
         name : str
             Name of this model
@@ -136,11 +142,16 @@ class PEModel(PoseEstimatorInterface):
         )
         self._postprocess_module = postprocess_module
 
+        if correction_module is None:
+            correction_module = SkeletCorrectionNoneModule()
+
+        self._correction_module = correction_module
+
     def set_session(self, session: tf.Session):
         super(PEModel, self).set_session(session)
         self._postprocess_module.set_session(session)
 
-    def predict(self, image: np.ndarray, resize_to=None, using_estimate_alg=True):
+    def predict(self, image: np.ndarray, resize_to=None, using_estimate_alg=True, th_hold_x=0.5, th_hold_y=0.5):
         """
         Do pose estimation on certain input image
 
@@ -189,11 +200,15 @@ class PEModel(PoseEstimatorInterface):
         if using_estimate_alg:
             paf, indices, peaks = self._postprocess_module(feed_dict)
 
-            return SkeletBuilder.get_humans_by_PIF(
-                    peaks=peaks,
-                    indices=indices,
-                    paf_mat=paf
+            skeletons = SkeletBuilder.get_humans_by_PIF(
+                peaks=peaks,
+                indices=indices,
+                paf_mat=paf,
+                th_hold_x=th_hold_x,
+                th_hold_y=th_hold_y
             )
+
+            return self._correction_module(skeletons)
 
         return self._postprocess_module.get_data_for_debug(feed_dict)
 

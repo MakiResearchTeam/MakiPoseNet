@@ -31,7 +31,7 @@ except ModuleNotFoundError as e:
 class SkeletBuilder:
 
     @staticmethod
-    def get_humans_by_PIF(peaks, indices, paf_mat, th_hold_x=0.5, th_hold_y=0.5):
+    def get_humans_by_PIF(peaks, indices, paf_mat, th_hold_x=0.5, th_hold_y=0.5) -> list:
         """
         This method consistently calls estimate_paf and merge_similar_skelets methods
         PIF - (Peaks, Indices, Paf_mat)

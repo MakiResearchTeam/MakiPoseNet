@@ -16,6 +16,7 @@
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
 from .constants import NUMBER_OF_KEYPOINTS
+import numpy as np
 
 
 class Human:
@@ -32,10 +33,6 @@ class Human:
         """
         self.body_parts = {}
         self.score = 0.0
-
-    @staticmethod
-    def _get_uidx(part_idx, idx):
-        return '%d-%d' % (part_idx, idx)
 
     def part_count(self):
         return len(self.body_parts.keys())
@@ -76,7 +73,7 @@ class Human:
 
         return list_data
 
-    def to_dict(self, th_hold=0.2) -> dict:
+    def to_dict(self, th_hold=0.2, skip_not_visible=False, key_as_int=False) -> dict:
         """
         Transform keypoints stored in this class to dict
 
@@ -84,6 +81,9 @@ class Human:
         ----------
         th_hold : float
             Threshold to store keypoints, by default equal to 0.2
+        skip_not_visible : bool
+            If equal to True, then values with low probability (or invisible)
+            Will be skipped from final dict
 
         Returns
         -------
@@ -100,18 +100,116 @@ class Human:
             If keypoint is not visible or below `th_hold`, this keypoint will be filled with zeros
         """
         dict_data = {}
+        if key_as_int:
+            key_tr = lambda x: int(x)
+        else:
+            key_tr = lambda x: str(x)
+
         for i in range(NUMBER_OF_KEYPOINTS):
             take_single = self.body_parts.get(i)
             if take_single is not None and take_single.score >= th_hold:
                 dict_data.update({
-                    str(i): [take_single.x, take_single.y, take_single.score]
+                    key_tr(i): [take_single.x, take_single.y, take_single.score]
                 })
-            else:
+            elif not skip_not_visible:
                 dict_data.update({
-                    str(i): [0.0, 0.0, 0.0]
+                    key_tr(i): [0.0, 0.0, 0.0]
                 })
 
         return dict_data
+
+    def to_np(self, th_hold=0.2):
+        """
+        Transform keypoints stored in this class to numpy array with shape (N, 3),
+        Where N - number of points
+
+        Parameters
+        ----------
+        th_hold : float
+            Threshold to store keypoints, by default equal to 0.2
+
+        Returns
+        -------
+        np.ndarray
+            Array of keypoints with shape (N, 3),
+            Where N - number of points
+
+        """
+        list_points = self.to_list(th_hold=th_hold)
+        # (N, 3)
+        return np.array(list_points, dtype=np.float32).reshape(-1, 3)
+
+    @staticmethod
+    def from_array(skeleton_array):
+        """
+        Take points from `skeleton_array` and create Human class with this points
+
+        Parameters
+        ----------
+        skeleton_array : np.ndarray or list
+            Array of input points
+            NOTICE! Input array must be with shape (N, 3) (N - number of points)
+
+        Returns
+        -------
+        Human
+            Created Human class with points in `skeleton_np`
+
+        """
+        human_class = Human()
+        human_id = 0
+        sum_probs = 0.0
+
+        for part_idx in range(len(skeleton_array)):
+            human_class.body_parts[part_idx] = BodyPart(
+                '%d-%d' % (human_id, part_idx), part_idx,
+                float(skeleton_array[part_idx][0]),
+                float(skeleton_array[part_idx][1]),
+                float(skeleton_array[part_idx][-1])
+            )
+            sum_probs += float(skeleton_array[part_idx][-1])
+
+        human_class.score = sum_probs / len(skeleton_array)
+        return human_class
+
+    @staticmethod
+    def from_dict(skeleton_dict):
+        """
+        Take points from `skeleton_dict` and create Human class with this points
+
+        Parameters
+        ----------
+        skeleton_dict : dict
+            Dict of input points
+            Example:
+            {
+                0: [22.0, 23.0, 1.0],
+                1: [10, 20, 0.2],
+                ....
+            }
+
+        Returns
+        -------
+        Human
+            Created Human class with points in `skeleton_dict`
+
+        """
+        human_class = Human()
+        human_id = 0
+        sum_probs = 0.0
+        human_class.score = 0.0
+
+        for part_idx, v_arr in skeleton_dict.items():
+            human_class.body_parts[part_idx] = BodyPart(
+                '%d-%d' % (human_id, part_idx), part_idx,
+                float(v_arr[0]),
+                float(v_arr[1]),
+                float(v_arr[-1])
+            )
+            sum_probs += float(v_arr[-1])
+        if len(skeleton_dict) >= 1:
+            human_class.score = sum_probs / len(skeleton_dict)
+        return human_class
 
     def __str__(self):
         return ' '.join([str(x) for x in self.body_parts.values()])
