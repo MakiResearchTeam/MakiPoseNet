@@ -73,6 +73,8 @@ class PHLabelCorrectionLayer:
                 self._heatmap_layer_name
             ]
         )
+        teacher_paf_tensor = tf.convert_to_tensor(teacher_paf_tensor, dtype=tf.float32)
+        teacher_heatmap_tensor = tf.convert_to_tensor(teacher_heatmap_tensor, dtype=tf.float32)
 
         return teacher_paf_tensor, teacher_heatmap_tensor
 
