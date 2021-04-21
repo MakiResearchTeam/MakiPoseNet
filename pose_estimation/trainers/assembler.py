@@ -55,8 +55,10 @@ class ModelAssembler:
     TEACHER_ARCH = 'arch'
     # Label Correction
     LB_CONFIG = 'label_correction_config'
-    LB_T_WEIGHTS = 'weights'
-    LB_T_ARCH = 'arch'
+    LB_T_PB = 'model_pb'
+    LB_INPUT_LAYER_NAME = 'input_layer_name'
+    LB_PAF_LAYER_NAME = 'paf_layer_name'
+    LB_HEATMAP_LAYER_NAME = 'heatmap_layer_name'
 
     # gen_layer config
     GENLAYER_CONFIG = 'genlayer_config'
@@ -142,10 +144,13 @@ class ModelAssembler:
         # TODO: Add label correction if state and some arg to json
         lb_config = config.get(ModelAssembler.LB_CONFIG)
         if lb_config is not None:
+            print('LABEL CORRECTION IS ON   !!!')
             input_images = iterator[RIterator.IMAGE]
             paf_heatmap_l = PHLabelCorrectionLayer(
-                lb_config[ModelAssembler.LB_T_ARCH],
-                lb_config[ModelAssembler.LB_T_WEIGHTS]
+                model_pb_path=lb_config[ModelAssembler.LB_T_PB],
+                input_layer_name=lb_config[ModelAssembler.LB_INPUT_LAYER_NAME],
+                paf_layer_name=lb_config[ModelAssembler.LB_PAF_LAYER_NAME],
+                heatmap_layer_name=lb_config[ModelAssembler.LB_HEATMAP_LAYER_NAME]
             )
 
             paf, heatmap = paf_heatmap_l.compile(
