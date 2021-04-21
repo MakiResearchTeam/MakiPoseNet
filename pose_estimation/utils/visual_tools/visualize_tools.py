@@ -85,7 +85,7 @@ def draw_skeleton(
     """
     for indx in range(len(humans)):
         if isinstance(humans[indx], Human):
-            human = humans[indx].to_list(th_hold=thr_hold)
+            human = humans[indx].to_np(th_hold=thr_hold)
         else:
             human = np.asarray(humans[indx]).reshape(-1, 3)
 
