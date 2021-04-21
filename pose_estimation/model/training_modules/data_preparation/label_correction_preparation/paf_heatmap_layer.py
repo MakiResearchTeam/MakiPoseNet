@@ -18,11 +18,15 @@ class PHLabelCorrectionLayer:
             input_layer_name: str,
             paf_layer_name: str,
             heatmap_layer_name: str,
+            upsample_size_tensor_name: str,
+            upsample_size: list,
             **kwargs):
         self._model_pb_path = model_pb_path
         self._input_layer_name = input_layer_name
         self._paf_layer_name = paf_layer_name
         self._heatmap_layer_name = heatmap_layer_name
+        self._upsample_size_tensor_name = upsample_size_tensor_name
+        self._upsample_size = tf.constant(upsample_size, dtype=tf.int32)
 
     def compile(self, input_image: tf.Tensor, paf_label_layer: MakiTensor, heatmap_label_layer: MakiTensor):
         """
@@ -67,6 +71,7 @@ class PHLabelCorrectionLayer:
             self.__graph_def,
             input_map={
                 self._input_layer_name: input_tensor,
+                self._upsample_size_tensor_name: self._upsample_size
             },
             return_elements=[
                 self._paf_layer_name,
@@ -84,8 +89,8 @@ class PHLabelCorrectionLayer:
 
         corrected_paf = tf.where(
             tf.greater(l_norm, t_norm),
-            x=t_paf,     # true
-            y=l_paf      # false
+            x=l_paf,     # true
+            y=t_paf      # false
         )
 
         return corrected_paf

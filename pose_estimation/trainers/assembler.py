@@ -59,6 +59,8 @@ class ModelAssembler:
     LB_INPUT_LAYER_NAME = 'input_layer_name'
     LB_PAF_LAYER_NAME = 'paf_layer_name'
     LB_HEATMAP_LAYER_NAME = 'heatmap_layer_name'
+    LB_UPSAMPLE_SIZE_NAME = 'upsample_size_name'
+    LB_UPSAMPLE_SIZE = 'upsample_size'
 
     # gen_layer config
     GENLAYER_CONFIG = 'genlayer_config'
@@ -150,7 +152,9 @@ class ModelAssembler:
                 model_pb_path=lb_config[ModelAssembler.LB_T_PB],
                 input_layer_name=lb_config[ModelAssembler.LB_INPUT_LAYER_NAME],
                 paf_layer_name=lb_config[ModelAssembler.LB_PAF_LAYER_NAME],
-                heatmap_layer_name=lb_config[ModelAssembler.LB_HEATMAP_LAYER_NAME]
+                heatmap_layer_name=lb_config[ModelAssembler.LB_HEATMAP_LAYER_NAME],
+                upsample_size_tensor_name=lb_config[ModelAssembler.LB_UPSAMPLE_SIZE_NAME],
+                upsample_size=lb_config[ModelAssembler.LB_UPSAMPLE_SIZE],
             )
 
             paf, heatmap = paf_heatmap_l.compile(
