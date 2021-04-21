@@ -82,16 +82,10 @@ class PHLabelCorrectionLayer:
         t_norm = tf.nn.l2_normalize(t_paf)
         l_norm = tf.nn.l2_normalize(l_paf)
 
-        def get_label():
-            return l_norm
-
-        def get_teacher():
-            return t_norm
-
-        corrected_paf = tf.cond(
+        corrected_paf = tf.where(
             tf.greater(l_norm, t_norm),
-            true_fn=get_label,
-            false_fn=get_teacher
+            x=t_paf,     # true
+            y=l_paf      # false
         )
 
         return corrected_paf
