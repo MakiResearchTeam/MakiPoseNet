@@ -135,12 +135,15 @@ class PHLabelCorrectionLayer:
         assert len(t_paf.get_shape()) == 5 and len(l_paf.get_shape()) == 5, \
             f'Expected paf tensors to dimensionality of 5, but received dim(l_paf)={len(l_paf.get_shape())}, ' \
             f'dim(t_paf)={len(t_paf.get_shape())}.'
+
         l2_norm = lambda t: tf.reduce_sum(t*t, axis=-1)
         l_norm = l2_norm(l_paf)  # label
         t_norm = l2_norm(t_paf)  # teacher
         # Apply correction
+        # We need to stack the boolean tensor twice so that it has the same shape as the paf tensors
+        condition = tf.stack([tf.greater(l_norm, t_norm)]*2, axis=-1)
         corrected_paf = tf.where(
-            tf.greater(l_norm, t_norm),
+            condition,
             x=l_paf,     # true
             y=t_paf      # false
         )
