@@ -22,7 +22,7 @@ import tensorflow as tf
 from .core import PoseEstimatorInterface, SkeletonCorrector
 from pose_estimation.model.core.post_processor import PostProcessor
 from .postprocess_modules import TFPostProcessModule
-from .skelet_correction_modules import SkeletCorrectionNoneModule
+from .skelet_correction_modules import Identity
 from .utils.skelet_builder import SkeletBuilder
 from makiflow.core import MakiTensor, MakiModel
 from makiflow.core.inference.maki_builder import MakiBuilder
@@ -123,6 +123,8 @@ class PEModel(PoseEstimatorInterface):
             Assume that last tensor in the list, will be the main one
         postprocess_module : PostProcessor
             # TODO: add docs
+        correction_module : SkeletonCorrector
+            An instance of skeleton corrector. It is assumed that the input image will have a single person only.
         name : str
             Name of this model
         """
@@ -143,7 +145,7 @@ class PEModel(PoseEstimatorInterface):
         self._postprocess_module = postprocess_module
 
         if correction_module is None:
-            correction_module = SkeletCorrectionNoneModule()
+            correction_module = Identity()
 
         self._correction_module = correction_module
 

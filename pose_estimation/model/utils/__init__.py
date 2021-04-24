@@ -16,3 +16,4 @@
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
 from .constants import CONNECT_INDEXES_FOR_PAFF, NUMBER_OF_KEYPOINTS
+from .human import Human
