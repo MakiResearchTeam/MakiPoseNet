@@ -1,9 +1,9 @@
 from ..core import SkeletonCorrector
 
 
-class SkeletCorrectionNoneModule(SkeletonCorrector):
+class Identity(SkeletonCorrector):
     """
-    This class itself, does nothing
+    Does nothing and just returns the given skeletons.
     """
     def __call__(self, skeletons: list) -> list:
         """
