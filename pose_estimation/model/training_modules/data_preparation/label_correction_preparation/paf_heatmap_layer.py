@@ -131,17 +131,19 @@ class PHLabelCorrectionLayer:
     def __label_correction_paf(self, t_paf: tf.Tensor, l_paf: tf.Tensor) -> tf.Tensor:
         """
         Correct paf
-
         """
-        t_norm = tf.nn.l2_normalize(t_paf) # teacher
-        l_norm = tf.nn.l2_normalize(l_paf) # label
+        assert len(t_paf.get_shape()) == 5 and len(l_paf.get_shape()) == 5, \
+            f'Expected paf tensors to dimensionality of 5, but received dim(l_paf)={len(l_paf.get_shape())}, ' \
+            f'dim(t_paf)={len(t_paf.get_shape())}.'
+        l2_norm = lambda t: tf.reduce_sum(t*t, axis=-1, keepdims=True)
+        l_norm = l2_norm(l_paf)  # label
+        t_norm = l2_norm(t_paf)  # teacher
         # Apply correction
         corrected_paf = tf.where(
             tf.greater(l_norm, t_norm),
             x=l_paf,     # true
             y=t_paf      # false
         )
-
         return corrected_paf
 
     def __label_correction_heatmap(self, t_heatmap: tf.Tensor, l_heatmap: tf.Tensor) -> tf.Tensor:
