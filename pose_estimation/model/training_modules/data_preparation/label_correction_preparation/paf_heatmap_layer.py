@@ -1,3 +1,20 @@
+# Copyright (C) 2020  Igor Kilbas, Danil Gribanov
+#
+# This file is part of MakiPoseNet.
+#
+# MakiPoseNet is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# MakiPoseNet is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+
 from makiflow.core import MakiTensor
 from makiflow.tools.tf_tools import load_graph_def
 import tensorflow as tf
@@ -19,8 +36,34 @@ class PHLabelCorrectionLayer:
             paf_layer_name: str,
             heatmap_layer_name: str,
             upsample_size_tensor_name: str,
-            upsample_size: list,
-            **kwargs):
+            upsample_size: list):
+        """
+
+        Parameters
+        ----------
+        model_pb_path : str
+            Path to model in pb format.
+            Example: '/home/user/model.pb'
+        input_layer_name : str
+            Name of the input layer.
+            Example: 'Input:0'
+            NOTICE! :0 - is very important, because without it - it will be operation name, NOT tensor itself
+        paf_layer_name : str
+            Name of the paf layer.
+            Example: 'paf_stuf:0'
+            NOTICE! :0 - is very important, because without it - it will be operation name, NOT tensor itself
+        heatmap_layer_name : str
+            Name of the heatmap layer.
+            Example: 'heatmap_stuf:0'
+            NOTICE! :0 - is very important, because without it - it will be operation name, NOT tensor itself
+        upsample_size_tensor_name : str
+            Name of the upsample_size layer.
+            Example: 'upsample_size:0'
+            NOTICE! :0 - is very important, because without it - it will be operation name, NOT tensor itself
+        upsample_size : list
+            Value that will be set into `upsample_size` tensor
+
+        """
         self._model_pb_path = model_pb_path
         self._input_layer_name = input_layer_name
         self._paf_layer_name = paf_layer_name
@@ -40,8 +83,10 @@ class PHLabelCorrectionLayer:
 
         Returns
         -------
-        paf: TODO wrapper
-        heatmap : TODO wrapper
+        paf : MakiLayerWrapper
+            Final paf layer with correction
+        heatmap : MakiLayerWrapper
+            Final heatmap layer with correction
 
         """
         teacher_paf_tensor, teacher_heatmap_tensor = self.__init_teacher(input_image)
@@ -83,10 +128,14 @@ class PHLabelCorrectionLayer:
 
         return teacher_paf_tensor, teacher_heatmap_tensor
 
-    def __label_correction_paf(self, t_paf: tf.Tensor, l_paf: tf.Tensor):
-        t_norm = tf.nn.l2_normalize(t_paf)
-        l_norm = tf.nn.l2_normalize(l_paf)
+    def __label_correction_paf(self, t_paf: tf.Tensor, l_paf: tf.Tensor) -> tf.Tensor:
+        """
+        Correct paf
 
+        """
+        t_norm = tf.nn.l2_normalize(t_paf) # teacher
+        l_norm = tf.nn.l2_normalize(l_paf) # label
+        # Apply correction
         corrected_paf = tf.where(
             tf.greater(l_norm, t_norm),
             x=l_paf,     # true
@@ -95,9 +144,14 @@ class PHLabelCorrectionLayer:
 
         return corrected_paf
 
-    def __label_correction_heatmap(self, t_heatmap: tf.Tensor, l_heatmap: tf.Tensor):
+    def __label_correction_heatmap(self, t_heatmap: tf.Tensor, l_heatmap: tf.Tensor) -> tf.Tensor:
+        """
+        Correct heatmap
+
+        """
         stacked_heatmap = tf.stack([t_heatmap, l_heatmap], axis=-1)
-        # apply max
+        # Apply max
+        # So, we take best from teacher and label
         corrected_heatmap = tf.reduce_max(
             stacked_heatmap, axis=-1
         )

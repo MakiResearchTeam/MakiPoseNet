@@ -143,7 +143,7 @@ class ModelAssembler:
         paf_layer = V2PAFLayer.build(paf_config[MakiRestorable.PARAMS])
         paf = paf_layer([keypoints, masks])
 
-        # TODO: Add label correction if state and some arg to json
+        # Setup label correction stuf
         lb_config = config.get(ModelAssembler.LB_CONFIG)
         if lb_config is not None:
             print('LABEL CORRECTION IS ON   !!!')
@@ -156,7 +156,7 @@ class ModelAssembler:
                 upsample_size_tensor_name=lb_config[ModelAssembler.LB_UPSAMPLE_SIZE_NAME],
                 upsample_size=lb_config[ModelAssembler.LB_UPSAMPLE_SIZE],
             )
-
+            # Create label correction graph with teacher NN and swap paf/heatmap with new one
             paf, heatmap = paf_heatmap_l.compile(
                input_image=input_images,
                paf_label_layer=paf,
