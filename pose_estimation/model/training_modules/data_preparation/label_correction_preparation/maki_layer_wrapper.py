@@ -15,6 +15,33 @@
 # You should have received a copy of the GNU General Public License
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
-from .pe_model import PEModel
-from .training_modules import MSETrainer, BinaryHeatmapLayer, V2PAFLayer, GaussHeatmapLayer, PHLabelCorrectionLayer
-from .core import PETrainer
+import tensorflow as tf
+
+
+class MakiLayerWrapper:
+    """
+    Simple MakiLayer wrapper
+    in order to use them after we build label correction graph and hide tf.Tensor inside this class
+    And mimic MakiLayer
+    """
+
+    def __init__(self, data_tensor: tf.Tensor):
+        """
+
+        Parameters
+        ----------
+        data_tensor : tf.Tensor
+            Tensor that will be stored in this class
+
+        """
+        self._data_tensor = data_tensor
+
+    def get_data_tensor(self) -> tf.Tensor:
+        """
+        Returns
+        -------
+        tf.Tensor
+            Stored data tensor
+
+        """
+        return self._data_tensor

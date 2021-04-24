@@ -18,6 +18,9 @@
 import cv2
 import numpy as np
 from .constants import CONNECT_INDEXES
+from ...model.utils.human import Human
+
+EPSILONE = 1e-2
 
 
 def visualize_paf(
@@ -81,12 +84,17 @@ def draw_skeleton(
 
     """
     for indx in range(len(humans)):
-        human = humans[indx].to_dict(th_hold=thr_hold, skip_not_visible=True)
+        if isinstance(humans[indx], Human):
+            human = humans[indx].to_np(th_hold=thr_hold)
+        else:
+            human = np.asarray(humans[indx]).reshape(-1, 3)
+
         for indx_limb in range(len(connect_indexes)):
             single_limb = connect_indexes[indx_limb]
-            single_p1 = human.get(str(single_limb[0]))
-            single_p2 = human.get(str(single_limb[1]))
-            if single_p1 is not None and single_p2 is not None:
+            single_p1 = human[single_limb[0]]
+            single_p2 = human[single_limb[1]]
+            # if probability bigger than zero
+            if single_p1[-1] > EPSILONE and single_p2[-1] > EPSILONE:
                 p_1 = (int(single_p1[0]), int(single_p1[1]))
                 p_2 = (int(single_p2[0]), int(single_p2[1]))
                 cv2.line(image, p_1, p_2, color=color, thickness=thickness)

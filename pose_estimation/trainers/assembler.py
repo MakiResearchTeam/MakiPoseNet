@@ -17,7 +17,7 @@
 
 from ..model import PEModel, PETrainer
 from ..generators.pose_estimation import RIterator
-from pose_estimation.model import BinaryHeatmapLayer, GaussHeatmapLayer, V2PAFLayer
+from pose_estimation.model import BinaryHeatmapLayer, GaussHeatmapLayer, V2PAFLayer, PHLabelCorrectionLayer
 from makiflow.core import MakiRestorable, TrainerBuilder, MakiTensor
 from makiflow.layers import InputLayer
 from makiflow.distillation.core import DistillatorBuilder
@@ -53,6 +53,14 @@ class ModelAssembler:
     # Distillation info
     TEACHER_WEIGHTS = 'weights'
     TEACHER_ARCH = 'arch'
+    # Label Correction
+    LB_CONFIG = 'label_correction_config'
+    LB_T_PB = 'model_pb'
+    LB_INPUT_LAYER_NAME = 'input_layer_name'
+    LB_PAF_LAYER_NAME = 'paf_layer_name'
+    LB_HEATMAP_LAYER_NAME = 'heatmap_layer_name'
+    LB_UPSAMPLE_SIZE_NAME = 'upsample_size_name'
+    LB_UPSAMPLE_SIZE = 'upsample_size'
 
     # gen_layer config
     GENLAYER_CONFIG = 'genlayer_config'
@@ -135,6 +143,25 @@ class ModelAssembler:
         paf_layer = V2PAFLayer.build(paf_config[MakiRestorable.PARAMS])
         paf = paf_layer([keypoints, masks])
 
+        # Setup label correction stuf
+        lb_config = config.get(ModelAssembler.LB_CONFIG)
+        if lb_config is not None:
+            print('LABEL CORRECTION IS ON   !!!')
+            input_images = iterator[RIterator.IMAGE]
+            paf_heatmap_l = PHLabelCorrectionLayer(
+                model_pb_path=lb_config[ModelAssembler.LB_T_PB],
+                input_layer_name=lb_config[ModelAssembler.LB_INPUT_LAYER_NAME],
+                paf_layer_name=lb_config[ModelAssembler.LB_PAF_LAYER_NAME],
+                heatmap_layer_name=lb_config[ModelAssembler.LB_HEATMAP_LAYER_NAME],
+                upsample_size_tensor_name=lb_config[ModelAssembler.LB_UPSAMPLE_SIZE_NAME],
+                upsample_size=lb_config[ModelAssembler.LB_UPSAMPLE_SIZE],
+            )
+            # Create label correction graph with teacher NN and swap paf/heatmap with new one
+            paf, heatmap = paf_heatmap_l.compile(
+               input_image=input_images,
+               paf_label_layer=paf,
+               heatmap_label_layer=heatmap
+            )
         return paf, heatmap
 
     @staticmethod
