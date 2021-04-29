@@ -89,16 +89,79 @@ class CocoWholeBodyRelayout:
         self._ann_file_path = ann_file_path
         with open(ann_file_path, 'r') as fp:
             self._cocoGt_json = json.load(fp)
-        self._kp_from_keypoints = []
-        self._kp_from_foots = []
-        self._kp_from_hands = []
+        # dict
+        # indx_kp_set : indx_kp_from_whole_body
+        self._kp_from_keypoints = dict()
+        self._kp_from_foots = dict()
+        self._kp_from_hands_left = dict()
+        self._kp_from_hands_right = dict()
+        # neck params
+        self._set_is_calculate_neck = False
+        self._neck_indx = None
+        # center body params
+        self._set_is_calculate_center_body_kp = False
+        self._center_body_indx = None
+        self._is_only_center_body_kp = None
+        # mid finger params
+        self._set_is_calculate_mid_foot_kp = False
+        self._foot_mid_indx = None
+        self._is_only_mid_foot_kp = None
 
-    def setup_taken_points_from_foots(self, kp_indx):
+    def set_calculate_neck(self, is_calculate=True, kp_indx_set=0):
         """
-        Add additional points into skeleton
-        Notice! Default skeleton have 18 keypoints (kp),
-        So, `kp_indx` mean that `18 + kp_indx` - is your indx at final array (so its start from zero)
-        Don't forget about that!
+        Setup neck point
+
+        Parameters
+        ----------
+        is_calculate : bool
+            If True, then kp will be calculated
+        kp_indx_set : int
+            Index of neck point in overall array of kp
+
+        """
+        self._set_is_calculate_neck = is_calculate
+        self._neck_indx = kp_indx_set
+
+    def set_calculate_mid_foot_finger(self, kp_indx_set: list, use_only_mid_foot_kp=True):
+        """
+        Setup mid foot finger
+
+        Parameters
+        ----------
+        kp_indx_set : int
+            Indx of kp in overall array
+        use_only_mid_foot_kp : bool
+            If true, then points which are used to calculate mid finger NOT will be used
+
+        """
+        self._set_is_calculate_mid_foot_kp = True
+        self._foot_mid_indx = kp_indx_set
+        self._is_only_mid_foot_kp = use_only_mid_foot_kp
+
+    def set_calculate_center_body(self, kp_indx_set: list, use_only_center_body_kp=True):
+        """
+        Setup center body point
+
+        Parameters
+        ----------
+        kp_indx_set : int
+            Indx of kp in overall array
+        use_only_center_body_kp : bool
+            If true, then points which are used to calculate center body NOT will be used
+
+        """
+        self._set_is_calculate_center_body_kp = True
+        self._center_body_indx = kp_indx_set
+        self._is_only_center_body_kp = use_only_center_body_kp
+
+    def setup_taken_points_from_foots(self, kp_indx_stored: list, kp_indx_set: list):
+        """
+        Map kp from foot to final array of kp
+        Example:
+            kp_indx_stored = [1, 2, 10]
+            kp_kp_indx_set = [10, 11, 12]
+        Then kp from foot array with indxes: 1, 2, 10 will be taken and assign in overall array
+        With indxes 10, 11, 12
 
         Parameters
         ----------
@@ -108,14 +171,20 @@ class CocoWholeBodyRelayout:
             Index where will be assign this taken keypoint
 
         """
-        pass
+        if len(kp_indx_stored) != len(kp_indx_set):
+            raise ValueError('`kp_indx_stored` and `kp_indx_set` must be list of same lenght')
 
-    def setup_taken_points_from_left_hand(self, kp_take, kp_indx):
+        for s_indx_stored, s_indx_set in zip(kp_indx_stored, kp_indx_set):
+            self._kp_from_foots[str(s_indx_set)] = s_indx_stored
+
+    def setup_taken_points_from_left_hand(self, kp_indx_stored: list, kp_indx_set: list):
         """
-        Add additional points into skeleton
-        Notice! Default skeleton have 18 keypoints (kp),
-        So, `kp_indx` mean that `18 + kp_indx` - is your indx at final array (so its start from zero)
-        Don't forget about that!
+        Map kp from left hand to final array of kp
+        Example:
+            kp_indx_stored = [1, 2, 10]
+            kp_kp_indx_set = [10, 11, 12]
+        Then kp from foot array with indxes: 1, 2, 10 will be taken and assign in overall array
+        With indxes 10, 11, 12
 
         Parameters
         ----------
@@ -125,14 +194,20 @@ class CocoWholeBodyRelayout:
             Index where will be assign this taken keypoint
 
         """
-        pass
+        if len(kp_indx_stored) != len(kp_indx_set):
+            raise ValueError('`kp_indx_stored` and `kp_indx_set` must be list of same lenght')
 
-    def setup_taken_points_from_right_hand(self, kp_take, kp_indx):
+        for s_indx_stored, s_indx_set in zip(kp_indx_stored, kp_indx_set):
+            self._kp_from_hands_left[str(s_indx_set)] = s_indx_stored
+
+    def setup_taken_points_from_right_hand(self, kp_indx_stored: list, kp_indx_set: list):
         """
-        Add additional points into skeleton
-        Notice! Default skeleton have 18 keypoints (kp),
-        So, `kp_indx` mean that `18 + kp_indx` - is your indx at final array (so its start from zero)
-        Don't forget about that!
+        Map kp from right hand to final array of kp
+        Example:
+            kp_indx_stored = [1, 2, 10]
+            kp_kp_indx_set = [10, 11, 12]
+        Then kp from foot array with indxes: 1, 2, 10 will be taken and assign in overall array
+        With indxes 10, 11, 12
 
         Parameters
         ----------
@@ -142,7 +217,72 @@ class CocoWholeBodyRelayout:
             Index where will be assign this taken keypoint
 
         """
-        pass
+        if len(kp_indx_stored) != len(kp_indx_set):
+            raise ValueError('`kp_indx_stored` and `kp_indx_set` must be list of same lenght')
+
+        for s_indx_stored, s_indx_set in zip(kp_indx_stored, kp_indx_set):
+            self._kp_from_hands_right[str(s_indx_set)] = s_indx_stored
+
+    def setup_taken_points_from_keypoints(self, kp_indx_stored: list, kp_indx_set: list):
+        """
+        Map kp from keypoints to final array of kp
+        Example:
+            kp_indx_stored = [1, 2, 10]
+            kp_kp_indx_set = [10, 11, 12]
+        Then kp from foot array with indxes: 1, 2, 10 will be taken and assign in overall array
+        With indxes 10, 11, 12
+
+        Parameters
+        ----------
+        kp_take : int
+            Index in WholtBody json
+        kp_indx : int
+            Index where will be assign this taken keypoint
+
+        """
+        if len(kp_indx_stored) != len(kp_indx_set):
+            raise ValueError('`kp_indx_stored` and `kp_indx_set` must be list of same lenght')
+
+        for s_indx_stored, s_indx_set in zip(kp_indx_stored, kp_indx_set):
+            self._kp_from_keypoints[str(s_indx_set)] = s_indx_stored
+
+    def get_current_setup(self):
+        """
+        print current array of setup skeleton
+        and checks for correctness
+
+        """
+        # check same indx in all arrays and drop error if appears
+        # foot
+        check_indx = list(self._kp_from_foots.keys())
+        all_other_kp = list(self._kp_from_hands_right.keys()) + list(self._kp_from_hands_left.keys()) + \
+                       list(self._kp_from_keypoints.keys())
+        for single_elem in check_indx:
+            if single_elem in all_other_kp:
+                raise ValueError(f"Index {single_elem} in foot array appear in other parts of array.")
+
+        # left hand
+        check_indx = list(self._kp_from_hands_left.keys())
+        all_other_kp = list(self._kp_from_hands_right.keys()) + list(self._kp_from_foots.keys()) + \
+                       list(self._kp_from_keypoints.keys())
+        for single_elem in check_indx:
+            if single_elem in all_other_kp:
+                raise ValueError(f"Index {single_elem} in left hand array appear in other parts of array.")
+        # right hand
+        check_indx = list(self._kp_from_hands_right.keys())
+        all_other_kp = list(self._kp_from_foots.keys()) + list(self._kp_from_hands_left.keys()) + \
+                       list(self._kp_from_keypoints.keys())
+        for single_elem in check_indx:
+            if single_elem in all_other_kp:
+                raise ValueError(f"Index {single_elem} in right hand array appear in other parts of array.")
+        # keypoints
+        check_indx = list(self._kp_from_keypoints.keys())
+        all_other_kp = list(self._kp_from_hands_right.keys()) + list(self._kp_from_hands_left.keys()) + \
+                       list(self._kp_from_foots.keys())
+        for single_elem in check_indx:
+            if single_elem in all_other_kp:
+                raise ValueError(f"Index {single_elem} in keypoints array appear in other parts of array.")
+        # TODO: somehow print config???
 
     def relayout(self, path_to_save, limit_number):
         """
