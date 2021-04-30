@@ -314,7 +314,7 @@ class CocoWholeBodyRelayout:
             # take kp from single dict and print info
             # check extra points
             # mid foot
-            if self._set_is_calculate_mid_foot_kp and i in self._foot_mid_indx:
+            if self._set_is_calculate_mid_foot_kp and str(i) in self._foot_mid_indx:
                 print(f'index: {i} - mid foot kp')
                 continue
             # center body
