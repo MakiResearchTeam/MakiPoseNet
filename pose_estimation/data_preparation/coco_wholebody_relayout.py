@@ -314,7 +314,7 @@ class CocoWholeBodyRelayout:
             # check extra points
             # mid foot
             if self._set_is_calculate_mid_foot_kp and i in self._foot_mid_indx:
-                print(f'index: {self._foot_mid_indx} - mid foot kp')
+                print(f'index: {i} - mid foot kp')
                 continue
             # center body
             if self._set_is_calculate_center_body_kp and self._center_body_indx == i:
@@ -341,7 +341,7 @@ class CocoWholeBodyRelayout:
                 print(f'index: {i} taken from right hand with index: {taken_kp}')
                 continue
             # check keypoints
-            taken_kp = self._kp_from_foots.get(str(i))
+            taken_kp = self._kp_from_keypoints.get(str(i))
             if taken_kp is not None:
                 print(f'index: {i} taken from keypoints with index: {taken_kp}')
                 continue
@@ -445,7 +445,7 @@ class CocoWholeBodyRelayout:
             all_points_k += [self._center_body_indx]
 
         if self._set_is_calculate_mid_foot_kp:
-            all_points_k += [self._foot_mid_indx]
+            all_points_k += self._foot_mid_indx
 
         all_kp_single = np.zeros((len(all_points_k), 3)).astype(np.float32)
 
