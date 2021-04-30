@@ -42,34 +42,12 @@ WIDTH = 'width'
 EPS = 1e-3
 
 
-class KpAndIndexStruct:
-    """
-    Store kp (x, y and visibility value)
-    and index in array of this keypoint
-
-    """
-    def __init__(self, kp, indx):
-        """
-
-        Parameters
-        ----------
-        kp : np.ndarray
-            (x, y, v)
-        indx : int
-            Indx of this keypoints in final array of all keypoints
-
-        """
-        self.kp = kp
-        self.indx = indx
-
-
 class CocoWholeBodyRelayout:
     """
     Map CocoWHoleBody to other skeleton
     By default repo use only keypoints field in JSON data
     With this class, these points cna be modified/added/deleted
 
-    Notice! First 18 keypoints always same
     For more detail refer to `setup_taken_points_from_foots`, `setup_taken_points_from_left_hand`
     and `setup_taken_points_from_right_hand` docs of methods
 
@@ -101,11 +79,9 @@ class CocoWholeBodyRelayout:
         # center body params
         self._set_is_calculate_center_body_kp = False
         self._center_body_indx = None
-        self._is_only_center_body_kp = None
         # mid finger params
         self._set_is_calculate_mid_foot_kp = False
         self._foot_mid_indx = None
-        self._is_only_mid_foot_kp = None
 
     def set_calculate_neck(self, is_calculate=True, kp_indx_set=0):
         """
@@ -122,23 +98,21 @@ class CocoWholeBodyRelayout:
         self._set_is_calculate_neck = is_calculate
         self._neck_indx = kp_indx_set
 
-    def set_calculate_mid_foot_finger(self, kp_indx_set: list, use_only_mid_foot_kp=True):
+    def set_calculate_mid_foot_finger(self, kp_indx_set: list):
         """
         Setup mid foot finger
 
         Parameters
         ----------
-        kp_indx_set : int
-            Indx of kp in overall array
-        use_only_mid_foot_kp : bool
-            If true, then points which are used to calculate mid finger NOT will be used
+        kp_indx_set : list
+            List of indx of kp in overall array,
+            Order: left indx first, right last
 
         """
         self._set_is_calculate_mid_foot_kp = True
         self._foot_mid_indx = kp_indx_set
-        self._is_only_mid_foot_kp = use_only_mid_foot_kp
 
-    def set_calculate_center_body(self, kp_indx_set: list, use_only_center_body_kp=True):
+    def set_calculate_center_body(self, kp_indx_set: int):
         """
         Setup center body point
 
@@ -146,13 +120,10 @@ class CocoWholeBodyRelayout:
         ----------
         kp_indx_set : int
             Indx of kp in overall array
-        use_only_center_body_kp : bool
-            If true, then points which are used to calculate center body NOT will be used
 
         """
         self._set_is_calculate_center_body_kp = True
         self._center_body_indx = kp_indx_set
-        self._is_only_center_body_kp = use_only_center_body_kp
 
     def setup_taken_points_from_foots(self, kp_indx_stored: list, kp_indx_set: list):
         """
@@ -246,12 +217,18 @@ class CocoWholeBodyRelayout:
         for s_indx_stored, s_indx_set in zip(kp_indx_stored, kp_indx_set):
             self._kp_from_keypoints[str(s_indx_set)] = s_indx_stored
 
-    def get_current_setup(self):
+    def get_current_setup(self) -> bool:
         """
         print current array of setup skeleton
         and checks for correctness
 
+        Returns
+        -------
+        bool
+            If true, then final skeleton in good and can be created
+            otherwise, there is somewhere error in created skeleton
         """
+        is_all_good = True
         # check same indx in all arrays and drop error if appears
         # foot
         check_indx = list(self._kp_from_foots.keys())
@@ -282,7 +259,93 @@ class CocoWholeBodyRelayout:
         for single_elem in check_indx:
             if single_elem in all_other_kp:
                 raise ValueError(f"Index {single_elem} in keypoints array appear in other parts of array.")
-        # TODO: somehow print config???
+        # check extra points
+        # mid foot
+        if self._set_is_calculate_mid_foot_kp:
+            check_indx = self._foot_mid_indx
+            all_other_kp = list(self._kp_from_hands_right.keys()) + list(self._kp_from_hands_left.keys()) + \
+                           list(self._kp_from_foots.keys()) + list(self._kp_from_keypoints.keys())\
+                           [self._neck_indx] + [self._center_body_indx]
+            for single_elem in check_indx:
+                if single_elem in all_other_kp:
+                    raise ValueError(f"Index {single_elem} of mid foot array appear in other parts of array.")
+        # center body
+        if self._set_is_calculate_center_body_kp:
+            check_indx = [self._center_body_indx]
+            all_other_kp = list(self._kp_from_hands_right.keys()) + list(self._kp_from_hands_left.keys()) + \
+                           list(self._kp_from_foots.keys()) + list(self._kp_from_keypoints.keys())\
+                           [self._neck_indx] + self._foot_mid_indx
+            for single_elem in check_indx:
+                if single_elem in all_other_kp:
+                    raise ValueError(f"Index {single_elem} of center body array appear in other parts of array.")
+        # neck
+        if self._set_is_calculate_neck:
+            check_indx = [self._neck_indx]
+            all_other_kp = list(self._kp_from_hands_right.keys()) + list(self._kp_from_hands_left.keys()) + \
+                           list(self._kp_from_foots.keys()) + list(self._kp_from_keypoints.keys())\
+                           [self._center_body_indx] + self._foot_mid_indx
+            for single_elem in check_indx:
+                if single_elem in all_other_kp:
+                    raise ValueError(f"Index {single_elem} of neck array appear in other parts of array.")
+
+        # Check order of kp
+        all_points_k = list(self._kp_from_keypoints.keys()) + list(self._kp_from_hands_right.keys()) + \
+                       list(self._kp_from_hands_left.keys()) + list(self._kp_from_foots.keys())
+
+        if self._set_is_calculate_neck:
+            all_points_k += [self._neck_indx]
+
+        if self._set_is_calculate_center_body_kp:
+            all_points_k += [self._center_body_indx]
+
+        if self._set_is_calculate_mid_foot_kp:
+            all_points_k += self._foot_mid_indx
+
+        all_points_k = set(all_points_k)
+        print('Check index of skeletons...')
+        for i in range(len(all_points_k)):
+            if not str(i) in all_points_k:
+                print("Points with index: ", i, " not present in overall array, \nDid you mess some keypoint?")
+                is_all_good = False
+        print('Check each part...')
+        # print in order keypoints and print from which parts it is
+        for i in range(len(all_points_k)):
+            # take kp from single dict and print info
+            # check extra points
+            # mid foot
+            if self._set_is_calculate_mid_foot_kp and i in self._foot_mid_indx:
+                print(f'index: {self._foot_mid_indx} - mid foot kp')
+                continue
+            # center body
+            if self._set_is_calculate_center_body_kp and self._center_body_indx == i:
+                print(f'index: {self._center_body_indx} - center body')
+                continue
+            # neck
+            if self._set_is_calculate_neck and self._neck_indx == i:
+                print(f'index: {self._neck_indx} - neck')
+                continue
+
+            # check foot
+            taken_kp = self._kp_from_foots.get(str(i))
+            if taken_kp is not None:
+                print(f'index: {i} taken from foots with index: {taken_kp}')
+                continue
+            # check left hand
+            taken_kp = self._kp_from_hands_left.get(str(i))
+            if taken_kp is not None:
+                print(f'index: {i} taken from left hand with index: {taken_kp}')
+                continue
+            # check right hand
+            taken_kp = self._kp_from_foots.get(str(i))
+            if taken_kp is not None:
+                print(f'index: {i} taken from right hand with index: {taken_kp}')
+                continue
+            # check keypoints
+            taken_kp = self._kp_from_foots.get(str(i))
+            if taken_kp is not None:
+                print(f'index: {i} taken from keypoints with index: {taken_kp}')
+                continue
+        return is_all_good
 
     def relayout(self, path_to_save, limit_number):
         """
@@ -297,7 +360,10 @@ class CocoWholeBodyRelayout:
             If equal to None then all annotations will be loaded
 
         """
-
+        # Check final skeleton
+        if not self.get_current_setup():
+            print("Something wrong in created skeleton.\nPlease check your config")
+            return
         # Store: (image_id, image_info)
         dict_id_by_image_info = dict([(elem[ID], elem) for elem in self._cocoGt_json[IMAGES]])
         # Store: (image_id, bool)
@@ -369,81 +435,119 @@ class CocoWholeBodyRelayout:
             Array of the keypoints with shape - (24, 1, 3)
 
         """
+        all_points_k = list(self._kp_from_keypoints.keys()) + list(self._kp_from_hands_right.keys()) + \
+                       list(self._kp_from_hands_left.keys()) + list(self._kp_from_foots.keys())
+
+        if self._set_is_calculate_neck:
+            all_points_k += [self._neck_indx]
+
+        if self._set_is_calculate_center_body_kp:
+            all_points_k += [self._center_body_indx]
+
+        if self._set_is_calculate_mid_foot_kp:
+            all_points_k += [self._foot_mid_indx]
+
+        all_kp_single = np.zeros((len(all_points_k), 3)).astype(np.float32)
+
         single_anns = np.array(single_human_anns['keypoints']).reshape(17, 3)
         single_anns_hand_left = np.array(single_human_anns['lefthand_kpts']).reshape(21, 3)
         single_anns_hand_right = np.array(single_human_anns['righthand_kpts']).reshape(21, 3)
         single_anns_foot = np.array(single_human_anns['foot_kpts']).reshape(6, 3)
+        # Take kp from singlee annot
+        # keypoints
+        for k, v in self._kp_from_keypoints.items():
+            all_kp_single[int(k)] = single_anns[v]
 
-        # Check visibility of foots
-        # One
-        if single_anns_foot[0][-1] > CocoPreparator.EPSILON and single_anns_foot[1][-1] > CocoPreparator.EPSILON:
-            foot_one = (single_anns_foot[0] + single_anns_foot[1]) / 2.0
-            # Set visibility to True (i.e. 1.0)
-            foot_one[-1] = 1.0
-        else:
-            foot_one = np.zeros(3).astype(np.float32, copy=False)
-        # Two
-        if single_anns_foot[3][-1] > CocoPreparator.EPSILON and single_anns_foot[4][-1] > CocoPreparator.EPSILON:
-            foot_two = (single_anns_foot[3] + single_anns_foot[4]) / 2.0
-            # Set visibility to True (i.e. 1.0)
-            foot_two[-1] = 1.0
-        else:
-            foot_two = np.zeros(3).astype(np.float32, copy=False)
+        # left hand
+        for k, v in self._kp_from_hands_left.items():
+            all_kp_single[int(k)] = single_anns_hand_left[v]
 
-        # Check neck
-        if single_anns[5][-1] > CocoPreparator.EPSILON and single_anns[6][-1] > CocoPreparator.EPSILON:
-            chest_p = (single_anns[5] + single_anns[6]) / 2.0
+        # right hand
+        for k, v in self._kp_from_hands_right.items():
+            all_kp_single[int(k)] = single_anns_hand_right[v]
 
-            face_p = np.zeros(3).astype(np.float32, copy=False)
-            # Calculate average points position on the face using know points on it
-            div = 0
-            for i in range(len(single_anns[:5])):
-                if single_anns[i][-1] > CocoPreparator.EPSILON and single_anns[i][-1] > CocoPreparator.EPSILON:
-                    div += 1
-                    face_p += single_anns[i]
-
-            # Check whether there points on the face, ignore if there is 3 or less points
-            if div > 3:
-                face_p = face_p / div
-
-                # Calculate point which is on vector from points `chest_p` to `face_p`,
-                # We take points at the end of this vector on 1/3 of its length
-                neck = (face_p - chest_p) / 3.0 + chest_p
+        # foot
+        for k, v in self._kp_from_foots.items():
+            all_kp_single[int(k)] = single_anns_foot[v]
+        # Some extra points
+        if self._set_is_calculate_mid_foot_kp:
+            # Check visibility of foots
+            # One
+            if single_anns_foot[0][-1] > CocoPreparator.EPSILON and single_anns_foot[1][-1] > CocoPreparator.EPSILON:
+                foot_one = (single_anns_foot[0] + single_anns_foot[1]) / 2.0
                 # Set visibility to True (i.e. 1.0)
-                neck[-1] = 1.0
+                foot_one[-1] = 1.0
+            else:
+                foot_one = np.zeros(3).astype(np.float32, copy=False)
+            # Two
+            if single_anns_foot[3][-1] > CocoPreparator.EPSILON and single_anns_foot[4][-1] > CocoPreparator.EPSILON:
+                foot_two = (single_anns_foot[3] + single_anns_foot[4]) / 2.0
+                # Set visibility to True (i.e. 1.0)
+                foot_two[-1] = 1.0
+            else:
+                foot_two = np.zeros(3).astype(np.float32, copy=False)
+            all_kp_single[self._foot_mid_indx[0]] = foot_one # todo: check right and left sides
+            all_kp_single[self._foot_mid_indx[1]] = foot_two
+
+        if self._set_is_calculate_neck:
+            # Check neck
+            if single_anns[5][-1] > CocoPreparator.EPSILON and single_anns[6][-1] > CocoPreparator.EPSILON:
+                chest_p = (single_anns[5] + single_anns[6]) / 2.0
+
+                face_p = np.zeros(3).astype(np.float32, copy=False)
+                # Calculate average points position on the face using know points on it
+                div = 0
+                for i in range(len(single_anns[:5])):
+                    if single_anns[i][-1] > CocoPreparator.EPSILON and single_anns[i][-1] > CocoPreparator.EPSILON:
+                        div += 1
+                        face_p += single_anns[i]
+
+                # Check whether there points on the face, ignore if there is 3 or less points
+                if div > 3:
+                    face_p = face_p / div
+
+                    # Calculate point which is on vector from points `chest_p` to `face_p`,
+                    # We take points at the end of this vector on 1/3 of its length
+                    neck = (face_p - chest_p) / 3.0 + chest_p
+                    # Set visibility to True (i.e. 1.0)
+                    neck[-1] = 1.0
+                else:
+                    neck = np.zeros(3).astype(np.float32, copy=False)
             else:
                 neck = np.zeros(3).astype(np.float32, copy=False)
-        else:
-            neck = np.zeros(3).astype(np.float32, copy=False)
+            all_kp_single[self._neck_indx] = neck
 
-        # Middle points of the body
-        # Calculate avg points between 4 body points
-        s_p_imp = np.stack([
-            single_anns[5],
-            single_anns[6],
-            single_anns[11],
-            single_anns[12]
-        ])
-        # Making binary values on visibility dimension to calculate visible points
-        s_p_imp[..., -1:] = s_p_imp[..., -1:] > CocoPreparator.EPSILON
-        # For middle points, we must have more than 2 visible points for its calculation
-        number_vis_points = np.sum(s_p_imp[..., -1:])
+        if self._set_is_calculate_center_body_kp:
+            # Middle points of the body
+            # Calculate avg points between 4 body points
+            s_p_imp = np.stack([
+                single_anns[5],
+                single_anns[6],
+                single_anns[11],
+                single_anns[12]
+            ])
+            # Making binary values on visibility dimension to calculate visible points
+            s_p_imp[..., -1:] = s_p_imp[..., -1:] > CocoPreparator.EPSILON
+            # For middle points, we must have more than 2 visible points for its calculation
+            number_vis_points = np.sum(s_p_imp[..., -1:])
 
-        if number_vis_points >= 3:
-            # The point is visible
-            avg_body_p = np.zeros(3).astype(np.float32, copy=False)
-            div = 0
-            for i in range(len(s_p_imp)):
-                if s_p_imp[i][-1] > CocoPreparator.EPSILON and s_p_imp[i][-1] > CocoPreparator.EPSILON:
-                    div += 1
-                    avg_body_p += s_p_imp[i]
+            if number_vis_points >= 3:
+                # The point is visible
+                avg_body_p = np.zeros(3).astype(np.float32, copy=False)
+                div = 0
+                for i in range(len(s_p_imp)):
+                    if s_p_imp[i][-1] > CocoPreparator.EPSILON and s_p_imp[i][-1] > CocoPreparator.EPSILON:
+                        div += 1
+                        avg_body_p += s_p_imp[i]
 
-            avg_body_p = avg_body_p / div
-            avg_body_p[-1] = 1.0
-        else:
-            # Otherwise the point is not visible
-            avg_body_p = np.zeros(3).astype(np.float32, copy=False)
-
+                avg_body_p = avg_body_p / div
+                avg_body_p[-1] = 1.0
+            else:
+                # Otherwise the point is not visible
+                avg_body_p = np.zeros(3).astype(np.float32, copy=False)
+            all_kp_single[self._center_body_indx] = avg_body_p
+        # todo: remove
+        """
         all_kp_single = np.stack([
             avg_body_p,
             neck,
@@ -458,10 +562,7 @@ class CocoWholeBodyRelayout:
             single_anns_hand_right[4],
             single_anns_hand_right[-1],
         ])
-
+        """
         # Create bool mask for visibility of keypoints
         all_kp_single[..., -1:] = (all_kp_single[..., -1:] > CocoPreparator.EPSILON).astype(np.float32, copy=False)
-        # all_kp - shape (24, 3) ---> (24, 1, 3)
-        all_kp_single = np.expand_dims(all_kp_single, axis=1)
-
         return all_kp_single

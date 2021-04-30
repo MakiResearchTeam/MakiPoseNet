@@ -317,7 +317,7 @@ class CocoPreparator:
                 # skip this person if parts number is too low or if
                 # segmentation area is too small
                 # Shape (n_keypoints, 1, 3)
-                all_kp_single = single_person_data['keypoints']
+                all_kp_single = np.expand_dims(np.array(single_person_data['keypoints']).reshape(-1, 3), axis=1)
 
                 if np.sum(all_kp_single[:, 0, -1]) < 5 or single_person_data["area"] < 32 * 32:
                     # add mask of this person. we don't want to show the network
