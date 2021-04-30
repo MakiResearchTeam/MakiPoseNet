@@ -337,7 +337,7 @@ class CocoWholeBodyRelayout:
                 print(f'index: {i} taken from left hand with index: {taken_kp}')
                 continue
             # check right hand
-            taken_kp = self._kp_from_foots.get(str(i))
+            taken_kp = self._kp_from_hands_right.get(str(i))
             if taken_kp is not None:
                 print(f'index: {i} taken from right hand with index: {taken_kp}')
                 continue
