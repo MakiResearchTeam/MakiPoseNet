@@ -83,7 +83,7 @@ class CocoWholeBodyRelayout:
         self._set_is_calculate_mid_foot_kp = False
         self._foot_mid_indx = None
 
-    def set_calculate_neck(self, is_calculate=True, kp_indx_set=0):
+    def set_calculate_neck(self, kp_indx_set=0):
         """
         Setup neck point
 
@@ -95,7 +95,7 @@ class CocoWholeBodyRelayout:
             Index of neck point in overall array of kp
 
         """
-        self._set_is_calculate_neck = is_calculate
+        self._set_is_calculate_neck = True
         self._neck_indx = kp_indx_set
 
     def set_calculate_mid_foot_finger(self, kp_indx_set: list):
@@ -264,7 +264,7 @@ class CocoWholeBodyRelayout:
         if self._set_is_calculate_mid_foot_kp:
             check_indx = self._foot_mid_indx
             all_other_kp = list(self._kp_from_hands_right.keys()) + list(self._kp_from_hands_left.keys()) + \
-                           list(self._kp_from_foots.keys()) + list(self._kp_from_keypoints.keys())\
+                           list(self._kp_from_foots.keys()) + list(self._kp_from_keypoints.keys()) + \
                            [self._neck_indx] + [self._center_body_indx]
             for single_elem in check_indx:
                 if single_elem in all_other_kp:
@@ -273,7 +273,7 @@ class CocoWholeBodyRelayout:
         if self._set_is_calculate_center_body_kp:
             check_indx = [self._center_body_indx]
             all_other_kp = list(self._kp_from_hands_right.keys()) + list(self._kp_from_hands_left.keys()) + \
-                           list(self._kp_from_foots.keys()) + list(self._kp_from_keypoints.keys())\
+                           list(self._kp_from_foots.keys()) + list(self._kp_from_keypoints.keys()) + \
                            [self._neck_indx] + self._foot_mid_indx
             for single_elem in check_indx:
                 if single_elem in all_other_kp:
@@ -282,7 +282,7 @@ class CocoWholeBodyRelayout:
         if self._set_is_calculate_neck:
             check_indx = [self._neck_indx]
             all_other_kp = list(self._kp_from_hands_right.keys()) + list(self._kp_from_hands_left.keys()) + \
-                           list(self._kp_from_foots.keys()) + list(self._kp_from_keypoints.keys())\
+                           list(self._kp_from_foots.keys()) + list(self._kp_from_keypoints.keys()) + \
                            [self._center_body_indx] + self._foot_mid_indx
             for single_elem in check_indx:
                 if single_elem in all_other_kp:
