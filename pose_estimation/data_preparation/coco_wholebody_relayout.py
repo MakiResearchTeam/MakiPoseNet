@@ -293,15 +293,16 @@ class CocoWholeBodyRelayout:
                        list(self._kp_from_hands_left.keys()) + list(self._kp_from_foots.keys())
 
         if self._set_is_calculate_neck:
-            all_points_k += [self._neck_indx]
+            all_points_k += [str(self._neck_indx)]
 
         if self._set_is_calculate_center_body_kp:
-            all_points_k += [self._center_body_indx]
+            all_points_k += [str(self._center_body_indx)]
 
         if self._set_is_calculate_mid_foot_kp:
-            all_points_k += self._foot_mid_indx
+            all_points_k += list(map(lambda x: str(x), self._foot_mid_indx))
 
         all_points_k = set(all_points_k)
+        print(f'Number of keypoints: {len(all_points_k)}')
         print('Check index of skeletons...')
         for i in range(len(all_points_k)):
             if not str(i) in all_points_k:
