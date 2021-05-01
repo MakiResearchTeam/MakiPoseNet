@@ -44,9 +44,12 @@ EPS = 1e-3
 
 class CocoWholeBodyRelayout:
     """
-    Map CocoWHoleBody to other skeleton
-    By default repo use only keypoints field in JSON data
-    With this class, these points cna be modified/added/deleted
+    Map CocoWHoleBody to custom skeleton
+    With this class, these points cna be modified/added/deleted from COCOWholeBody JSON file
+
+    With methods of this class, custom skeleton can be build.
+    Origin COCOWholeBody have keypoints (body), foot, left hand, right hand keypoints.
+    This class provide API to build custom skeleton from these keypoints
 
     For more detail refer to `setup_taken_points_from_foots`, `setup_taken_points_from_left_hand`
     and `setup_taken_points_from_right_hand` docs of methods
@@ -418,7 +421,8 @@ class CocoWholeBodyRelayout:
     def find_image_annot(self, cocoGt_json: dict, img_id: int) -> dict:
         """
         Return annotation from `cocoGt_json` annotation according to `img_id`
-
+        None - if nothing was found
+        
         """
         for single_annot in cocoGt_json[IMAGES]:
             if single_annot[ID] == img_id:
@@ -547,23 +551,6 @@ class CocoWholeBodyRelayout:
                 # Otherwise the point is not visible
                 avg_body_p = np.zeros(3).astype(np.float32, copy=False)
             all_kp_single[self._center_body_indx] = avg_body_p
-        # todo: remove
-        """
-        all_kp_single = np.stack([
-            avg_body_p,
-            neck,
-            *list(single_anns[1:5]),
-            *list(single_anns[5:]),
-            # foot
-            foot_one,
-            foot_two,
-            # hands
-            single_anns_hand_left[4],
-            single_anns_hand_left[-1],
-            single_anns_hand_right[4],
-            single_anns_hand_right[-1],
-        ])
-        """
         # Create bool mask for visibility of keypoints
         all_kp_single[..., -1:] = (all_kp_single[..., -1:] > CocoPreparator.EPSILON).astype(np.float32, copy=False)
         return all_kp_single
