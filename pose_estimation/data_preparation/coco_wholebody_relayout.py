@@ -351,7 +351,7 @@ class CocoWholeBodyRelayout:
                 continue
         return is_all_good
 
-    def relayout(self, path_to_save, limit_number):
+    def relayout(self, path_to_save, limit_number=None):
         """
         Relayout original annotation to suitable one for further purposes
 
@@ -422,7 +422,7 @@ class CocoWholeBodyRelayout:
         """
         Return annotation from `cocoGt_json` annotation according to `img_id`
         None - if nothing was found
-        
+
         """
         for single_annot in cocoGt_json[IMAGES]:
             if single_annot[ID] == img_id:
@@ -491,7 +491,7 @@ class CocoWholeBodyRelayout:
                 foot_two[-1] = 1.0
             else:
                 foot_two = np.zeros(3).astype(np.float32, copy=False)
-            all_kp_single[self._foot_mid_indx[0]] = foot_one # todo: check right and left sides
+            all_kp_single[self._foot_mid_indx[0]] = foot_one
             all_kp_single[self._foot_mid_indx[1]] = foot_two
 
         if self._set_is_calculate_neck:
