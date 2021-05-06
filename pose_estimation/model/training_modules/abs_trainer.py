@@ -28,15 +28,24 @@ class ABSTrainer(PETrainer):
     __IDENTITY = 1.0
 
     def _build_loss(self):
-        train_paf = super().get_train_paf()
-        train_heatmap = super().get_train_heatmap()
+        train_paf, train_paf_mask = super().get_train_paf()
+        train_heatmap, train_heatmap_mask = super().get_train_heatmap()
         train_mask = super().get_train_mask()
-        train_mask_paf = tf.expand_dims(train_mask, axis=-1)
+
+        if train_paf_mask is not None:
+            train_paf_mask = train_paf_mask * tf.expand_dims(train_mask, axis=-1)
+        else:
+            train_paf_mask = tf.expand_dims(train_mask, axis=-1)
+
+        if train_heatmap_mask is not None:
+            train_heatmap_mask = train_heatmap_mask * train_mask
+        else:
+            train_heatmap_mask = train_mask
 
         paf_losses = []
         heatmap_losses = []
         for paf in super().get_paf_tensors():
-            paf_loss = Loss.abs_loss(train_paf, paf, raw_tensor=True) * train_mask_paf
+            paf_loss = Loss.abs_loss(train_paf, paf, raw_tensor=True) * train_paf_mask
 
             if self._paf_weight is not None:
                 abs_training_paf = tf.abs(train_paf)
@@ -55,7 +64,7 @@ class ABSTrainer(PETrainer):
             )
 
         for heatmap in super().get_heatmap_tensors():
-            heatmap_loss = Loss.abs_loss(train_heatmap, heatmap, raw_tensor=True) * train_mask
+            heatmap_loss = Loss.abs_loss(train_heatmap, heatmap, raw_tensor=True) * train_heatmap_mask
 
             if self._heatmap_weight is not None:
                 # Create mask for scaling loss

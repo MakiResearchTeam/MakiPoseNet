@@ -78,8 +78,8 @@ class PHLabelCorrectionLayer:
         Parameters
         ----------
         input_image : tf.Tensor
-        paf_label_layer : MakiLayer
-        heatmap_label_layer : MakiLayer
+        paf_label_layer : MakiTensor
+        heatmap_label_layer : MakiTensor
 
         Returns
         -------
