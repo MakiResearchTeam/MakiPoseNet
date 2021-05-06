@@ -77,7 +77,10 @@ class V2PAFLayer(MakiLayer):
         """
         assert resize_to is None or len(resize_to) == 2
 
-        super().__init__(name, params=[], regularize_params=[], named_params_dict={})
+        super().__init__(
+            name, params=[], regularize_params=[], named_params_dict={},
+            outputs_names=['paf', 'paf_mask']
+        )
         self.sigma = sigma
         self.resize_to = resize_to
         self.skeleton = skeleton

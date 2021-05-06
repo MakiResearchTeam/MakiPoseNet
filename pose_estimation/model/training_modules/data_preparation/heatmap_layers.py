@@ -85,7 +85,10 @@ class BinaryHeatmapLayer(MakiLayer):
         """
         assert resize_to is None or len(resize_to) == 2
 
-        super().__init__(name, params=[], regularize_params=[], named_params_dict={})
+        super().__init__(
+            name, params=[], regularize_params=[], named_params_dict={},
+            outputs_names=['heatmap', 'heatmap_mask']
+        )
         self.im_size = [im_size[1], im_size[0]]
         self.resize_to = resize_to
         self.delta = tf.convert_to_tensor(delta, dtype=tf.float32)
@@ -280,7 +283,10 @@ class GaussHeatmapLayer(MakiLayer):
         """
         assert resize_to is None or len(resize_to) == 2
 
-        super().__init__(name, params=[], regularize_params=[], named_params_dict={})
+        super().__init__(
+            name, params=[], regularize_params=[], named_params_dict={},
+            outputs_names=['heatmap', 'heatmap_mask']
+        )
         self.im_size = [im_size[1], im_size[0]]
         self.resize_to = resize_to
         self.delta = tf.convert_to_tensor(delta, dtype=tf.float32)
