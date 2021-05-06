@@ -99,7 +99,7 @@ class V2PAFLayer(MakiLayer):
 
                 pafs = self.__build_paf_batch(keypoints, masks)
 
-                masks = None
+                masks = tf.constant(None)
                 if self.compute_masks:
                     # [batch, h, w, pairs, 1]
                     magnitude = tf.reduce_sum(tf.square(pafs), axis=-1, keepdims=True)
