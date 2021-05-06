@@ -110,7 +110,7 @@ class BinaryHeatmapLayer(MakiLayer):
                 # [bs, h, w, c]
                 maps = self.__add_background_heatmap(maps)
 
-                masks = tf.constant(None)
+                masks = tf.constant(1., dtype='float32')
                 if self.compute_masks:
                     masks = tf.ones_like(maps) * tf.sign(tf.reduce_sum(maps, axis=[1, 2], keepdims=True))
 
@@ -306,7 +306,7 @@ class GaussHeatmapLayer(MakiLayer):
                 maps = self.__build_heatmap_batch(keypoints, masks, self.delta)
                 maps = self.__add_background_heatmap(maps)
 
-                masks = tf.constant(None)
+                masks = tf.constant(1., dtype='float32')
                 if self.compute_masks:
                     masks = tf.ones_like(maps) * tf.sign(tf.reduce_sum(maps, axis=[1, 2], keepdims=True))
 
