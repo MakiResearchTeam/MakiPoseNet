@@ -74,22 +74,16 @@ class BCETrainer(PETrainer):
         train_heatmap, train_heatmap_mask = super().get_train_heatmap()
         train_mask = super().get_train_mask()
 
-        if train_paf_mask is not None:
-            train_paf_mask = train_paf_mask * tf.expand_dims(train_mask, axis=-1)
-        else:
-            train_paf_mask = tf.expand_dims(train_mask, axis=-1)
-
-        if train_heatmap_mask is not None:
-            train_heatmap_mask = train_heatmap_mask * train_mask
-        else:
-            train_heatmap_mask = train_mask
-
         paf_losses = []
         heatmap_losses = []
         # --- PAF LOSS
         for paf in super().get_paf_tensors():
             # Division by 2.0 makes it similar to tf.nn.l2_loss
-            paf_loss = Loss.mse_loss(train_paf, paf, raw_tensor=True) * train_paf_mask / 2.0
+            paf_loss = Loss.mse_loss(train_paf, paf, raw_tensor=True) / 2.0
+
+            # --- LOSS MASKING
+            paf_loss = paf_loss * train_mask
+            paf_loss = paf_loss * train_paf_mask
 
             if self._paf_weight is not None:
                 abs_training_paf = tf.abs(train_paf)
@@ -115,9 +109,13 @@ class BCETrainer(PETrainer):
             heatmap_expanded = tf.expand_dims(heatmap, axis=-1)
             heatmap_loss = tf.keras.losses.binary_crossentropy(
                 y_true=train_heatmap_expanded, y_pred=heatmap_expanded, label_smoothing=self._label_smoothing
-            ) * train_heatmap_mask / 2.0
-            # heatmap_loss - [BS, H, W, C]
+            ) / 2.0
 
+            # --- LOSS MASKING
+            heatmap_loss = heatmap_loss * train_mask
+            heatmap_loss = heatmap_loss * train_heatmap_mask
+
+            # heatmap_loss - [BS, H, W, C]
             if self._is_nullify_absent_labels:
                 # [bs, 1, 1, C]
                 label_sum = tf.reduce_sum(train_heatmap * train_mask, axis=[1, 2], keepdims=True)
