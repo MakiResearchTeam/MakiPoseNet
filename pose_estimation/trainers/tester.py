@@ -16,7 +16,7 @@
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
 import tensorflow as tf
-from pose_estimation.data_preparation.coco_preparator_api import CocoPreparator
+from pose_estimation.data_preparation.coco_wholebody_relayout import KEYPOINTS
 from abc import ABC, abstractmethod
 import os
 import skimage.io as io
@@ -114,8 +114,8 @@ class Tester(ABC):
                 single_ground_truth = []
                 for i in range(len(anns)):
                     single_annot = anns[i]
-                    # return shape (n_kp, 1, 3), slice 1 dim
-                    single_ground_truth.append(CocoPreparator.take_default_skelet(single_annot)[:, 0])
+                    # take kp
+                    single_ground_truth.append(single_annot[KEYPOINTS])
 
                 self._ground_truth.append(single_ground_truth)
         else:
