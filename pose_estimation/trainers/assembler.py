@@ -177,7 +177,8 @@ class ModelAssembler:
                 PETrainer.TRAINING_HEATMAP: heatmap.get_data_tensor(),
                 PETrainer.TRAINING_PAF: paf.get_data_tensor(),
                 PETrainer.TRAINING_MASK: absent_human_masks,
-
+                PETrainer.TRAINING_HEATMAP_MASK: heatmap_mask.get_data_tensor(),
+                PETrainer.TRAINING_PAF_MASK: paf_mask.get_data_tensor()
             },
             info_dict=config_data[ModelAssembler.TRAINER_INFO]
         )
