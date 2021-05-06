@@ -27,9 +27,11 @@ class BinaryHeatmapLayer(MakiLayer):
     MAP_DTYPE = 'map_dtype'
     VECTORIZE = 'vectorize'
     SCALE_KEYPOINTS = 'scale_keypoints'
+    COMPUTE_MASKS = 'compute_masks'
 
     RESIZE_TO = 'resize_to'
     HEATMAP_RESIZE = 'heatmap_resize'
+    MASKS_RESIZE = 'masks_resize'
 
     @staticmethod
     def build(params: dict):
@@ -42,7 +44,9 @@ class BinaryHeatmapLayer(MakiLayer):
             delta=params[BinaryHeatmapLayer.DELTA],
             map_dtype=map_dtype,
             vectorize=params[BinaryHeatmapLayer.VECTORIZE],
-            resize_to=params[BinaryHeatmapLayer.RESIZE_TO]
+            resize_to=params[BinaryHeatmapLayer.RESIZE_TO],
+            # Use get for backward compatibility
+            compute_masks=params.get(BinaryHeatmapLayer.COMPUTE_MASKS)
         )
 
     def to_dict(self):
@@ -55,6 +59,7 @@ class BinaryHeatmapLayer(MakiLayer):
             map_dtype=tf.float32,
             vectorize=False,
             resize_to=None,
+            compute_masks=False,
             name='BinaryHeatmapLayer'):
         """
         Generates hard keypoint maps using highly optimized vectorization.
@@ -74,6 +79,9 @@ class BinaryHeatmapLayer(MakiLayer):
         resize_to : tuple
             Tuple of (H, W) the size to which the heatmap will be reduced or scaled,
             Using area interpolation
+        compute_masks : bool
+            If set to true, the layer will compute binary masks for each heatmap in a batch. Those masks can be used
+            to nullify loss on absent points.
         """
         assert resize_to is None or len(resize_to) == 2
 
@@ -83,6 +91,8 @@ class BinaryHeatmapLayer(MakiLayer):
         self.delta = tf.convert_to_tensor(delta, dtype=tf.float32)
         self.map_dtype = map_dtype
         self.vectorize = vectorize
+        self.compute_masks = compute_masks
+
         # Prepare the grid.
         x_grid, y_grid = np.meshgrid(np.arange(im_size[1]), np.arange(im_size[0]))
         xy_grid = np.stack([x_grid, y_grid], axis=-1)
@@ -94,7 +104,12 @@ class BinaryHeatmapLayer(MakiLayer):
                 keypoints, masks = x
 
                 maps = self.__build_heatmap_batch(keypoints, masks, self.delta)
+                # [bs, h, w, c]
                 maps = self.__add_background_heatmap(maps)
+
+                masks = None
+                if self.compute_masks:
+                    masks = tf.ones_like(maps) * tf.sign(tf.reduce_sum(maps, axis=[1, 2], keepdims=True))
 
                 if self.resize_to is not None:
                     maps = tf.image.resize_area(
@@ -103,7 +118,14 @@ class BinaryHeatmapLayer(MakiLayer):
                         align_corners=False,
                         name=self.HEATMAP_RESIZE
                     )
-        return maps
+                    if masks is not None:
+                        masks = tf.image.resize_area(
+                            masks,
+                            self.resize_to,
+                            align_corners=False,
+                            name=self.MASKS_RESIZE
+                        )
+        return maps, masks
 
     def training_forward(self, x):
         return self.forward(x)
@@ -222,6 +244,7 @@ class GaussHeatmapLayer(MakiLayer):
     DELTA = 'delta'
     VECTORIZE = 'vectorize'
     SCALE_KEYPOINTS = 'scale_keypoints'
+    COMPUTE_MASKS = 'compute_masks'
 
     RESIZE_TO = 'resize_to'
     HEATMAP_RESIZE = 'heatmap_resize'
@@ -232,10 +255,12 @@ class GaussHeatmapLayer(MakiLayer):
             im_size=params[GaussHeatmapLayer.IM_SIZE],
             delta=params[GaussHeatmapLayer.DELTA],
             vectorize=params[GaussHeatmapLayer.VECTORIZE],
-            resize_to=params[GaussHeatmapLayer.RESIZE_TO]
+            resize_to=params[GaussHeatmapLayer.RESIZE_TO],
+            # Use get for backward compatibility
+            compute_masks=params.get(GaussHeatmapLayer.COMPUTE_MASKS)
         )
 
-    def __init__(self, im_size: list, delta, vectorize=False, resize_to=None, name='GaussHeatmapLayer'):
+    def __init__(self, im_size: list, delta, vectorize=False, resize_to=None, compute_masks=False, name='GaussHeatmapLayer'):
         """
         Generates hard keypoint maps using highly optimized vectorization.
 
@@ -260,6 +285,8 @@ class GaussHeatmapLayer(MakiLayer):
         self.resize_to = resize_to
         self.delta = tf.convert_to_tensor(delta, dtype=tf.float32)
         self.vectorize = vectorize
+        self.compute_masks = compute_masks
+
         # Prepare the grid.
         x_grid, y_grid = np.meshgrid(np.arange(im_size[1]), np.arange(im_size[0]))
         xy_grid = np.stack([x_grid, y_grid], axis=-1)
@@ -273,6 +300,10 @@ class GaussHeatmapLayer(MakiLayer):
                 maps = self.__build_heatmap_batch(keypoints, masks, self.delta)
                 maps = self.__add_background_heatmap(maps)
 
+                masks = None
+                if self.compute_masks:
+                    masks = tf.ones_like(maps) * tf.sign(tf.reduce_sum(maps, axis=[1, 2], keepdims=True))
+
                 if self.resize_to is not None:
                     maps = tf.image.resize_area(
                         maps,
@@ -280,7 +311,14 @@ class GaussHeatmapLayer(MakiLayer):
                         align_corners=False,
                         name=self.HEATMAP_RESIZE
                     )
-        return maps
+                    if masks is not None:
+                        masks = tf.image.resize_area(
+                            masks,
+                            self.resize_to,
+                            align_corners=False,
+                            name=self.MASKS_RESIZE
+                        )
+        return maps, masks
 
     def training_forward(self, x):
         return self.forward(x)

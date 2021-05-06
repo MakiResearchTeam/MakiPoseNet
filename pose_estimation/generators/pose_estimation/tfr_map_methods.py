@@ -1070,3 +1070,18 @@ class BackgroundAugmentMethod(TFRPostMapMethod):
 
         element[RIterator.IMAGE] = tf.cast(new_image, dtype=tf.float32)
         return element
+
+
+class LossMaskPostMethod(TFRPostMapMethod):
+    def __init__(self):
+        super().__init__()
+
+    def read_record(self, serialized_example) -> dict:
+        element = self._parent_method.read_record(serialized_example)
+        # [bs, im_h, im_w, 1]
+        mask = element[RIterator.ABSENT_HUMAN_MASK]
+        # [bs, n_points, n_people, 1]
+        keypoints_masks = element[RIterator.KEYPOINTS_MASK]
+
+        loss_scale = tf.reduce_sum(keypoints_masks, )
+

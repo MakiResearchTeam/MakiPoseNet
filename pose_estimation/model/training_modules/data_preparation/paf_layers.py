@@ -26,9 +26,11 @@ class V2PAFLayer(MakiLayer):
     SIGMA = 'sigma'
     SKELETON = 'skeleton'
     VECTORIZE = 'vectorize'
+    COMPUTE_MASKS = 'compute_masks'
 
     RESIZE_TO = 'resize_to'
     PAF_RESIZE = 'paf_resize'
+    MASKS_RESIZE = 'paf_masks_resize'
 
     @staticmethod
     def build(params: dict):
@@ -37,7 +39,9 @@ class V2PAFLayer(MakiLayer):
             sigma=params[V2PAFLayer.SIGMA],
             skeleton=params[V2PAFLayer.SKELETON],
             vectorize=params[V2PAFLayer.VECTORIZE],
-            resize_to=params[V2PAFLayer.RESIZE_TO]
+            resize_to=params[V2PAFLayer.RESIZE_TO],
+            # Use get for backwards compatibility
+            compute_masks=params.get(V2PAFLayer.COMPUTE_MASKS)
         )
 
     # 90 degrees rotation matrix. Used for generation of orthogonal vector.
@@ -49,7 +53,7 @@ class V2PAFLayer(MakiLayer):
         dtype=tf.float32
     )
 
-    def __init__(self, im_size: list, sigma, skeleton, vectorize=False, resize_to=None, name='V2PAFLayer'):
+    def __init__(self, im_size: list, sigma, skeleton, vectorize=False, resize_to=None, compute_masks=False, name='V2PAFLayer'):
         """
         Generates part affinity fields for the given `skeleton`.
 
@@ -79,6 +83,8 @@ class V2PAFLayer(MakiLayer):
         self.skeleton = skeleton
         self.im_size = [im_size[1], im_size[0]]
         self.vectorize = vectorize
+        self.compute_masks = compute_masks
+
         x_grid, y_grid = np.meshgrid(np.arange(im_size[1]), np.arange(im_size[0]))
         xy_grid = np.stack([x_grid, y_grid], axis=-1)
         self.xy_grid = tf.convert_to_tensor(xy_grid, dtype=tf.float32)
@@ -89,6 +95,12 @@ class V2PAFLayer(MakiLayer):
                 keypoints, masks = x
 
                 pafs = self.__build_paf_batch(keypoints, masks)
+
+                masks = None
+                if self.compute_masks:
+                    # [batch, h, w, pairs, 1]
+                    magnitude = tf.reduce_sum(tf.square(pafs), axis=-1, keepdims=True)
+                    masks = tf.ones_like(magnitude) * tf.reduce_sum(magnitude, axis=[1, 2], keepdims=True)
 
                 if self.resize_to is not None:
                     # [batch, h, w, pairs, 2]
@@ -108,7 +120,16 @@ class V2PAFLayer(MakiLayer):
                     pafs_shape[2] = self.resize_to[1]
                     pafs = tf.reshape(pafs, pafs_shape)
 
-        return pafs
+                    if masks is not None:
+                        masks = tf.image.resize_area(
+                            tf.squeeze(masks, axis=-1),
+                            self.resize_to,
+                            align_corners=False,
+                            name=self.MASKS_RESIZE
+                        )
+                        masks = tf.expand_dims(masks, axis=-1)
+
+        return pafs, masks
 
     def training_forward(self, x):
         return self.forward(x)
