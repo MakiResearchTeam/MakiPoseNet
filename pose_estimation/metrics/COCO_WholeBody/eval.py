@@ -11,7 +11,7 @@ import copy
 from pycocotools.coco import COCO
 
 from .utils.eval_constants import MAKI_SKELET_K
-from .utils import KEYPOINTS
+from pose_estimation.data_preparation.coco_wholebody_relayout import KEYPOINTS
 
 
 class MYeval_wholebody:

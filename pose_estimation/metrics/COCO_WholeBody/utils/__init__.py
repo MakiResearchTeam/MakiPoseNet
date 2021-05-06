@@ -15,7 +15,4 @@
 # You should have received a copy of the GNU General Public License
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
-
-
 from .prediction_writer import create_prediction_coco_json
-from .relayout_coco_annotation import relayout_keypoints, KEYPOINTS
