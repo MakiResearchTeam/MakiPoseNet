@@ -103,7 +103,7 @@ class V2PAFLayer(MakiLayer):
                 if self.compute_masks:
                     # [batch, h, w, pairs, 1]
                     magnitude = tf.reduce_sum(tf.square(pafs), axis=-1, keepdims=True)
-                    masks = tf.ones_like(magnitude) * tf.reduce_sum(magnitude, axis=[1, 2], keepdims=True)
+                    masks = tf.sign(tf.reduce_sum(magnitude, axis=[1, 2], keepdims=True))
 
                 if self.resize_to is not None:
                     # [batch, h, w, pairs, 2]
@@ -122,15 +122,6 @@ class V2PAFLayer(MakiLayer):
                     pafs_shape[1] = self.resize_to[0]
                     pafs_shape[2] = self.resize_to[1]
                     pafs = tf.reshape(pafs, pafs_shape)
-
-                    if masks is not None:
-                        masks = tf.image.resize_area(
-                            tf.squeeze(masks, axis=-1),
-                            self.resize_to,
-                            align_corners=False,
-                            name=self.MASKS_RESIZE
-                        )
-                        masks = tf.expand_dims(masks, axis=-1)
 
         return pafs, masks
 

@@ -112,7 +112,7 @@ class BinaryHeatmapLayer(MakiLayer):
 
                 masks = tf.constant(1., dtype='float32')
                 if self.compute_masks:
-                    masks = tf.ones_like(maps) * tf.sign(tf.reduce_sum(maps, axis=[1, 2], keepdims=True))
+                    masks = tf.sign(tf.reduce_sum(maps, axis=[1, 2], keepdims=True))
 
                 if self.resize_to is not None:
                     maps = tf.image.resize_area(
@@ -121,13 +121,7 @@ class BinaryHeatmapLayer(MakiLayer):
                         align_corners=False,
                         name=self.HEATMAP_RESIZE
                     )
-                    if masks is not None:
-                        masks = tf.image.resize_area(
-                            masks,
-                            self.resize_to,
-                            align_corners=False,
-                            name=self.MASKS_RESIZE
-                        )
+
         return maps, masks
 
     def training_forward(self, x):
@@ -308,7 +302,7 @@ class GaussHeatmapLayer(MakiLayer):
 
                 masks = tf.constant(1., dtype='float32')
                 if self.compute_masks:
-                    masks = tf.ones_like(maps) * tf.sign(tf.reduce_sum(maps, axis=[1, 2], keepdims=True))
+                    masks = tf.sign(tf.reduce_sum(maps, axis=[1, 2], keepdims=True))
 
                 if self.resize_to is not None:
                     maps = tf.image.resize_area(
@@ -317,13 +311,6 @@ class GaussHeatmapLayer(MakiLayer):
                         align_corners=False,
                         name=self.HEATMAP_RESIZE
                     )
-                    if masks is not None:
-                        masks = tf.image.resize_area(
-                            masks,
-                            self.resize_to,
-                            align_corners=False,
-                            name=self.MASKS_RESIZE
-                        )
         return maps, masks
 
     def training_forward(self, x):
