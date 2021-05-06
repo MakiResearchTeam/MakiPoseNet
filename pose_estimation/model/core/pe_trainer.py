@@ -186,10 +186,6 @@ class PETrainer(MakiTrainer, ABC):
             pafs = tf.reshape(pafs, pafs_shape[:3] + [-1])
             pafs = self.__resize_training_tensor(pafs)
 
-            paf_masks = tf.squeeze(paf_masks, axis=-1)
-            paf_masks = self.__resize_training_tensor(paf_masks)
-            paf_masks = tf.expand_dims(paf_masks, axis=-1)
-
             # [batch, h, w, pairs * 2] --> [batch, h, w, pairs, 2]
             new_pafs_shape = pafs.get_shape().as_list()
             pafs_shape[1] = new_pafs_shape[1]
@@ -206,7 +202,6 @@ class PETrainer(MakiTrainer, ABC):
         if self._resize_to is not None:
             old_shape = heatmap.get_shape()
             heatmap = self.__resize_training_tensor(heatmap)
-            heatmap_masks = self.__resize_training_tensor(heatmap_masks)
             new_shape = heatmap.get_shape()
             print(f"Resized heatmap from old_shape={old_shape} to new_shape={new_shape}")
         return heatmap, heatmap_masks
