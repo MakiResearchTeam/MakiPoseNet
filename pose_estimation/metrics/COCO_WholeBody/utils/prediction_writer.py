@@ -41,7 +41,7 @@ Example of the json how to save single prediction
 
 """
 
-from .relayout_coco_annotation import IMAGE_ID, KEYPOINTS, ID
+from pose_estimation.data_preparation.coco_wholebody_relayout import IMAGE_ID, KEYPOINTS, ID
 from pose_estimation.utils import scales_image_single_dim_keep_dims
 
 CATEGORY_ID = 'category_id'

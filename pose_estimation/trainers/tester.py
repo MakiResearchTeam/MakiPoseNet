@@ -16,11 +16,11 @@
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
 import tensorflow as tf
-from pose_estimation.metrics.COCO_WholeBody import relayout_keypoints
-from pose_estimation.data_preparation.coco_preparator_api import CocoPreparator
+from pose_estimation.data_preparation.coco_wholebody_relayout import KEYPOINTS
 from abc import ABC, abstractmethod
 import os
 import skimage.io as io
+import json
 from pycocotools.coco import COCO
 
 
@@ -66,6 +66,8 @@ class Tester(ABC):
         self._sess = sess
 
         # Init stuff for measure metric
+        # TODO: somehow update this parameter or remove it
+        #       for now its does not work
         self._limit_annots = self._config[self.LIMIT_ANNOT]
 
         self._norm_div = self._config[self.NORMALIZATION_DIV]
@@ -79,11 +81,15 @@ class Tester(ABC):
         annot_gt = self._config[self.ANNOT_GT_JSON]
 
         if annot_gt is not None:
-            relayout_keypoints(
-                ann_file_path=self._config[self.ANNOT_GT_JSON],
-                path_to_save=self._path_to_relayout_annot,
-                limit_number=self._limit_annots,
-            )
+            # re-save current config in exp folder
+            with open(annot_gt, 'r') as fp:
+                annot_gt_json = json.load(fp)
+
+            with open(self._path_to_relayout_annot, 'w') as fp:
+                json.dump(annot_gt_json, fp)
+
+            # TODO: Add limit number
+            # supa-dupa magic - limit
 
             # Load ground-truth annot
             self.cocoGt = COCO(self._path_to_relayout_annot)
@@ -108,8 +114,8 @@ class Tester(ABC):
                 single_ground_truth = []
                 for i in range(len(anns)):
                     single_annot = anns[i]
-                    # return shape (n_kp, 1, 3), slice 1 dim
-                    single_ground_truth.append(CocoPreparator.take_default_skelet(single_annot)[:, 0])
+                    # take kp
+                    single_ground_truth.append(single_annot[KEYPOINTS])
 
                 self._ground_truth.append(single_ground_truth)
         else:

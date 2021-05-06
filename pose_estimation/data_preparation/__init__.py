@@ -16,4 +16,4 @@
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
 from .coco_preparator_api import CocoPreparator
-
+from .coco_wholebody_relayout import CocoWholeBodyRelayout
