@@ -74,12 +74,12 @@ class ModelAssembler:
     def assemble(config, gen_layer_fabric, sess):
         gen_layer = ModelAssembler.build_gen_layer(config[ModelAssembler.GENLAYER_CONFIG], gen_layer_fabric)
         model = ModelAssembler.setup_model(config[ModelAssembler.MODEL_CONFIG], gen_layer, sess)
-        paf, heatmap = ModelAssembler.build_paf_heatmap(config, gen_layer)
+        paf, paf_mask, heatmap, heatmap_mask = ModelAssembler.build_paf_heatmap(config, gen_layer)
         trainer = ModelAssembler.setup_trainer(
             config[ModelAssembler.TRAINER_CONFIG],
             model=model,
-            training_paf=paf,
-            training_heatmap=heatmap,
+            training_paf=(paf, paf_mask),
+            training_heatmap=(heatmap, heatmap_mask),
             gen_layer=gen_layer
         )
         return trainer, model
@@ -136,12 +136,12 @@ class ModelAssembler:
         else:
             layer = BinaryHeatmapLayer
         heatmap_layer = layer.build(heatmap_config[MakiRestorable.PARAMS])
-        heatmap = heatmap_layer([keypoints, masks])
+        heatmap, heatmap_mask = heatmap_layer([keypoints, masks])
 
         # Build paf layer
         paf_config = config[ModelAssembler.PAF_CONFIG]
         paf_layer = V2PAFLayer.build(paf_config[MakiRestorable.PARAMS])
-        paf = paf_layer([keypoints, masks])
+        paf, paf_mask = paf_layer([keypoints, masks])
 
         # Setup label correction stuf
         lb_config = config.get(ModelAssembler.LB_CONFIG)
@@ -162,19 +162,23 @@ class ModelAssembler:
                paf_label_layer=paf,
                heatmap_label_layer=heatmap
             )
-        return paf, heatmap
+        return paf, paf_mask, heatmap, heatmap_mask
 
     @staticmethod
-    def setup_trainer(config_data: dict, model: PEModel, training_paf, training_heatmap, gen_layer):
+    def setup_trainer(config_data: dict, model: PEModel, training_paf: tuple, training_heatmap: tuple, gen_layer):
+        paf, paf_mask = training_paf
+        heatmap, heatmap_mask = training_heatmap
         iterator = gen_layer.get_iterator()
         absent_human_masks = iterator[RIterator.ABSENT_HUMAN_MASK]
         trainer = TrainerBuilder.trainer_from_dict(
             model=model,
             train_inputs=[gen_layer],
             label_tensors={
-                PETrainer.TRAINING_HEATMAP: training_heatmap.get_data_tensor(),
-                PETrainer.TRAINING_PAF: training_paf.get_data_tensor(),
-                PETrainer.TRAINING_MASK: absent_human_masks
+                PETrainer.TRAINING_HEATMAP: heatmap.get_data_tensor(),
+                PETrainer.TRAINING_PAF: paf.get_data_tensor(),
+                PETrainer.TRAINING_MASK: absent_human_masks,
+                PETrainer.TRAINING_HEATMAP_MASK: heatmap_mask.get_data_tensor(),
+                PETrainer.TRAINING_PAF_MASK: paf_mask.get_data_tensor()
             },
             info_dict=config_data[ModelAssembler.TRAINER_INFO]
         )

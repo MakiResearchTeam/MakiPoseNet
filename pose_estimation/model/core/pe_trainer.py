@@ -18,6 +18,7 @@
 import tensorflow as tf
 from makiflow.core import MakiTrainer, TrainerBuilder
 from abc import ABC
+from copy import deepcopy
 
 EPS = 1e-6
 
@@ -35,7 +36,9 @@ class PETrainer(MakiTrainer, ABC):
     __IDENTITY = 1.0
 
     TRAINING_PAF = 'TRAINING_PAF'
+    TRAINING_PAF_MASK = 'TRAINING_PAF_MASK'
     TRAINING_HEATMAP = 'TRAINING_HEATMAP'
+    TRAINING_HEATMAP_MASK = 'TRAINING_HEATMAP_MASK'
     TRAINING_MASK = 'TRAINING_MASK'
 
     def to_dict(self):
@@ -130,9 +133,12 @@ class PETrainer(MakiTrainer, ABC):
 
         inference_paf = model.get_paf_makitensors()[0]
         paf_shape = inference_paf.get_shape()
+        paf_mask_shape = deepcopy(paf_shape)
+        paf_mask_shape[-1] = 1
 
         inference_heatmap = model.get_heatmap_makitensors()[0]
         heatmap_shape = inference_heatmap.get_shape()
+        heatmap_mask_shape = deepcopy(heatmap_shape)
 
         mask_shape = heatmap_shape[:-1] + [1]
         return {
@@ -141,10 +147,20 @@ class PETrainer(MakiTrainer, ABC):
                 shape=paf_shape,
                 name=PETrainer.TRAINING_PAF
             ),
+            PETrainer.TRAINING_PAF_MASK: tf.placeholder(
+                dtype='float32',
+                shape=paf_mask_shape,
+                name=PETrainer.TRAINING_PAF_MASK
+            ),
             PETrainer.TRAINING_HEATMAP: tf.placeholder(
                 dtype='float32',
                 shape=heatmap_shape,
                 name=PETrainer.TRAINING_HEATMAP
+            ),
+            PETrainer.TRAINING_HEATMAP_MASK: tf.placeholder(
+                dtype='float32',
+                shape=heatmap_mask_shape,
+                name=PETrainer.TRAINING_HEATMAP_MASK
             ),
             PETrainer.TRAINING_MASK: tf.placeholder(
                 dtype='float32',
@@ -156,6 +172,7 @@ class PETrainer(MakiTrainer, ABC):
     def get_train_paf(self):
         label_tensors = super().get_label_tensors()
         pafs = label_tensors[PETrainer.TRAINING_PAF]
+        paf_masks = label_tensors[PETrainer.TRAINING_PAF_MASK]
         if self._resize_to is not None:
             old_shape = pafs.get_shape()
             dymanic_shape = tf.shape(pafs)
@@ -176,17 +193,18 @@ class PETrainer(MakiTrainer, ABC):
             pafs = tf.reshape(pafs, pafs_shape)
             new_shape = pafs.get_shape()
             print(f"Resized heatmap from old_shape={old_shape} to new_shape={new_shape}")
-        return pafs
+        return pafs, paf_masks
 
     def get_train_heatmap(self):
         label_tensors = super().get_label_tensors()
         heatmap = label_tensors[PETrainer.TRAINING_HEATMAP]
+        heatmap_masks = label_tensors[PETrainer.TRAINING_HEATMAP_MASK]
         if self._resize_to is not None:
             old_shape = heatmap.get_shape()
             heatmap = self.__resize_training_tensor(heatmap)
             new_shape = heatmap.get_shape()
             print(f"Resized heatmap from old_shape={old_shape} to new_shape={new_shape}")
-        return heatmap
+        return heatmap, heatmap_masks
 
     def get_train_mask(self):
         label_tensors = super().get_label_tensors()
