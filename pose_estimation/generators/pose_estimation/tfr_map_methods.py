@@ -849,19 +849,23 @@ class JpegQualityPostMethod(TFRPostMapMethod):
 
     def adjust_quality(self, image):
         # tf.image.random_jpeg_quality cannot work with batches, therefore we need to use map_fn
-        batch_fn = lambda: tf.map_fn(
-            fn=lambda x: tf.image.random_jpeg_quality(
-                x,
+        def batch_fn():
+            return tf.map_fn(
+                fn=lambda x: tf.image.random_jpeg_quality(
+                    x,
+                    min_jpeg_quality=self._quality_range[0],
+                    max_jpeg_quality=self._quality_range[1]
+                ),
+                elems=image
+            )
+
+        def sample_fn():
+            return tf.image.random_jpeg_quality(
+                image,
                 min_jpeg_quality=self._quality_range[0],
                 max_jpeg_quality=self._quality_range[1]
-            ),
-            elems=image
-        )
-        sample_fn = lambda: tf.image.random_jpeg_quality(
-            image,
-            min_jpeg_quality=self._quality_range[0],
-            max_jpeg_quality=self._quality_range[1]
-        )
+            )
+
         return tf.cond(tf.equal(tf.rank(image), 4), batch_fn, sample_fn)
 
     def read_record(self, serialized_example) -> dict:
