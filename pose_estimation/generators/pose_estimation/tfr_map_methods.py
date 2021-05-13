@@ -762,6 +762,73 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
         return image
 
 
+class GammaAdjustmentPostMethod(TFRPostMapMethod):
+    def __init__(self, gamma_range=(0.5, 3.0), rate=0.5, assert_image=True):
+        """
+        Adjust image gamma. Gamma adjustment works the following way:
+        image = pow(image / 255, gamma) * 255
+        It is assumed that the image is not normalized and is in range [0, 255].
+
+        Parameters
+        ----------
+        gamma_range : tuple of floats
+            The range of gamma. Lower the gamma - brighter the image becomes, higher the gamma - darker
+            the image becomes.
+        rate : float
+            Probability of applying gamma adjustment.
+        assert_image : bool
+            When changing brightness and contrast, it will be checked whether the image is normalized.
+            If the image is normalized, an exception is thrown. The check is done via looking at the mean
+            of the image: if it greater than 3.0, then the image is unnormalized and everything is okay.
+        """
+        super(GammaAdjustmentPostMethod, self).__init__()
+        self._gamma_range = gamma_range
+        self._assert_image = assert_image
+        self._rate = rate
+
+    def adjust_gamma(self, image):
+        dtype = image.dtype
+        if dtype != tf.float32:
+            image = tf.cast(image, tf.float32)
+
+        gamma = tf.random.uniform(shape=[], minval=self._gamma_range[0], maxval=self._gamma_range[1])
+        image = tf.math.pow(image / 255., gamma) * 255.
+        image = tf.clip_by_value(image, clip_value_min=0.0, clip_value_max=255.)
+
+        if dtype != tf.float32:
+            image = tf.cast(image, dtype)
+
+        return image
+
+    def read_record(self, serialized_example) -> dict:
+        if self._parent_method is not None:
+            element = self._parent_method.read_record(serialized_example)
+        else:
+            element = serialized_example
+        image = element[RIterator.IMAGE]
+
+        if self._assert_image:
+            # Make sure the image is unnormalized
+            normalization_check = tf.assert_greater(tf.reduce_mean(image), 3.0, message=ImageAdjustPostMethod.MSG_NORM_IMAGE)
+            with tf.control_dependencies([normalization_check]):
+                image = self.adjust_image(image)
+        else:
+            image = self.adjust_image(image)
+
+        element[RIterator.IMAGE] = image
+        return element
+
+    def adjust_image(self, image):
+        def apply_transform(image, transform, rate):
+            p = tf.random.uniform(minval=0, maxval=1, shape=[])
+            true_fn = lambda: transform(image)
+            false_fn = lambda: image
+            image = tf.cond(p < rate, true_fn, false_fn)
+            return image
+
+        return apply_transform(image, self.adjust_gamma, self._rate)
+
+
 class ResizePostMethod(TFRPostMapMethod):
     _EXCEPTION_INTERPOLATION_IS_NOT_FOUND = "Interpolation {} does not exist"
 
