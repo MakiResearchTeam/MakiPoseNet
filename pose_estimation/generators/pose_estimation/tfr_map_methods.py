@@ -15,6 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 import os
+import tensorflow as tf
+import numpy as np
+import glob
+from abc import abstractmethod
 
 from makiflow.generators.pipeline.tfr.tfr_map_method import TFRMapMethod, TFRPostMapMethod
 from .data_preparation import (IMAGE_FNAME, KEYPOINTS_FNAME,
@@ -23,9 +27,7 @@ from .data_preparation import (IMAGE_FNAME, KEYPOINTS_FNAME,
 from .utils import check_bounds, apply_transformation, apply_transformation_batched, cutout_kp_in_box
 from pose_estimation.utils.nns_tools.preprocess import preprocess_input
 
-import tensorflow as tf
-import numpy as np
-import glob
+
 
 
 class RIterator:
@@ -360,7 +362,6 @@ class AugmentationPostMethod(TFRPostMapMethod):
 
 
 class NormalizePostMethod(TFRPostMapMethod):
-
     def __init__(self,
                  mode='tf',
                  divider=None,
@@ -461,125 +462,6 @@ class RGB2BGRPostMethod(TFRPostMapMethod):
         return element
 
 
-class BinaryHeatmapMethod(TFRPostMapMethod):
-    def __init__(self, im_size, radius, map_dtype=tf.int32):
-        """
-        Generates hard keypoint maps using highly optimized vectorization. May cause OOM error due to high
-        memory consumption.
-        Parameters
-        ----------
-        im_size : 2d tuple
-            Contains width and height (w, h) of the image for which to generate the map.
-        radius : int
-            Radius of a label-circle around the keypoint.
-        map_dtype : tf.dtype
-            Dtype of the generated map. Use tf.int32 for binary classification and tf.float32 for
-            regression.
-        """
-        super().__init__()
-        self.im_size = im_size
-        self.radius = tf.convert_to_tensor(radius, dtype=tf.float32)
-        self.map_dtype = map_dtype
-        # Prepare the grid.
-        x_grid, y_grid = np.meshgrid(np.arange(im_size[0]), np.arange(im_size[1]))
-        xy_grid = np.stack([x_grid, y_grid], axis=-1)
-        self.xy_grid = tf.convert_to_tensor(xy_grid, dtype=tf.float32)
-
-    def read_record(self, serialized_example) -> dict:
-        if self._parent_method is not None:
-            element = self._parent_method.read_record(serialized_example)
-        else:
-            element = serialized_example
-        keypoints = element[RIterator.KEYPOINTS]
-        # keypoints = tf.transpose(keypoints, perm=[1, 0, 2])[:, :68]
-
-        maps = self.__build_heatmap_batch(keypoints, self.xy_grid, self.radius)
-        element[RIterator.HEATMAP] = maps
-        return element
-
-    def __build_heatmap_batch(self, kp, xy_grid, radius):
-        # Build maps for keypoints of the same class for multiple people
-        # and then aggregate generated maps.
-        # [h, w]
-        fn_p = lambda kp, xy_grid, radius: tf.reduce_max(
-            BinaryHeatmapMethod.__build_heatmap_mp(
-                kp,
-                xy_grid,
-                radius,
-                destination_call=self.__build_heatmap
-            ),
-            axis=0
-        )
-        # Build maps for keypoints of multiple classes.
-        # [c, h, w]
-        fn_c = lambda kp, xy_grid, radius: BinaryHeatmapMethod.__build_heatmap_mp(
-            kp,
-            xy_grid,
-            radius,
-            destination_call=fn_p
-        )
-        # Build a batch of maps.
-        # [b, c, h, w]
-        fn_b = lambda kp, xy_grid, radius: BinaryHeatmapMethod.__build_heatmap_mp(
-            kp,
-            xy_grid,
-            radius,
-            destination_call=fn_c
-        )
-
-        # Decide whether to perform calucalation in a batch dimension.
-        # May be faster, but requires more memory.
-        if len(kp.get_shape()) == 4:  # [b, c, h, w]
-            return fn_b(kp, xy_grid, radius)
-        elif len(kp.get_shape()) == 3:  # [c, h, w]
-            return fn_c(kp, xy_grid, radius)
-        else:
-            message = f'Expected keypoints dimensionality to be 3 or 4, but got {len(kp.get_shape())}.' + \
-                      f'Keypoints shape: {kp.get_shape()}'
-            raise Exception(message)
-
-    @staticmethod
-    def __build_heatmap_mp(kp, xy_grid, radius, destination_call):
-        """
-        The hetmaps generation is factorized down to single keypoint heatmap generation.
-        Nested calls of this method allow for highly optimized vectorized computation of multiple maps.
-
-        Parameters
-        ----------
-        kp : tf.Tensor of shape [..., 2]
-            A keypoint (x, y) for which to build the heatmap.
-        xy_grid : tf.Tensor of shape [h, w, 2]
-            A coordinate grid for the image tensor.
-        radius : tf.float32
-            Radius of the classification (heat) region.
-        destination_call : method pointer
-            Used for nested calling to increase the dimensionality of the computation.
-        """
-        fn = lambda _kp: destination_call(_kp, xy_grid, radius)
-        maps = tf.vectorized_map(fn, kp)
-        return maps
-
-    def __build_heatmap(self, kp, xy_grid, radius):
-        """
-        Builds a hard classification heatmap for a single keypoint `kp`.
-        Parameters
-        ----------
-        kp : tf.Tensor of shape [2]
-            A keypoint (x, y) for which to build the heatmap.
-        xy_grid : tf.Tensor of shape [h, w, 2]
-            A coordinate grid for the image tensor.
-        radius : tf.float32
-            Radius of the classification (heat) region.
-        """
-        print(kp.get_shape())
-        grid_size = xy_grid.get_shape()[:2]
-        heatmap = tf.ones((grid_size[0], grid_size[1]), dtype=self.map_dtype)
-
-        bool_location_map = (xy_grid[..., 0] - kp[0]) ** 2 + (xy_grid[..., 1] - kp[1]) ** 2 < radius ** 2
-        bool_location_map = tf.cast(bool_location_map, dtype=self.map_dtype)
-        return heatmap * bool_location_map
-
-
 class FlipPostMethod(TFRPostMapMethod):
     def __init__(self, keypoints_map, rate=0.5):
         """
@@ -645,7 +527,42 @@ class FlipPostMethod(TFRPostMapMethod):
         return element
 
 
-class ImageAdjustPostMethod(TFRPostMapMethod):
+class ImageAdjuster(TFRPostMapMethod):
+    def __init__(self, assert_image=True):
+        self._assert_image = assert_image
+
+    def read_record(self, serialized_example) -> dict:
+        if self._parent_method is not None:
+            element = self._parent_method.read_record(serialized_example)
+        else:
+            element = serialized_example
+        image = element[RIterator.IMAGE]
+
+        if self._assert_image:
+            # Make sure the image is unnormalized
+            normalization_check = tf.assert_greater(tf.reduce_mean(image), 3.0,
+                                                    message=ImageAdjustPostMethod.MSG_NORM_IMAGE)
+            with tf.control_dependencies([normalization_check]):
+                image = self.adjust_image(image)
+        else:
+            image = self.adjust_image(image)
+
+        element[RIterator.IMAGE] = image
+        return element
+
+    @abstractmethod
+    def adjust_image(self, image):
+        pass
+
+    def apply_transform(self, image, transform, rate):
+        p = tf.random.uniform(minval=0, maxval=1, shape=[])
+        true_fn = lambda: transform(image)
+        false_fn = lambda: image
+        image = tf.cond(p < rate, true_fn, false_fn)
+        return image
+
+
+class ImageAdjustPostMethod(ImageAdjuster):
     MSG_NORM_IMAGE = "Image is normalized. Cannot change brightness and contrast."
 
     def __init__(
@@ -687,7 +604,7 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
             If the image is normalized, an exception is thrown. The check is done via looking at the mean
             of the image: if it greater than 3.0, then the image is unnormalized and everything is okay.
         """
-        super().__init__()
+        super().__init__(assert_image=assert_image)
         # --- Contrast
         self._cont_low = contrast_factor_range[0]
         if self._cont_low <= 0.0:
@@ -722,40 +639,16 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
     def adjust_brightness(self, image):
         return tf.image.random_brightness(image, max_delta=self._brightness_delta, )
 
-    def read_record(self, serialized_example) -> dict:
-        if self._parent_method is not None:
-            element = self._parent_method.read_record(serialized_example)
-        else:
-            element = serialized_example
-        image = element[RIterator.IMAGE]
-
-        if self._assert_image:
-            # Make sure the image is unnormalized
-            normalization_check = tf.assert_greater(tf.reduce_mean(image), 3.0,
-                                                    message=ImageAdjustPostMethod.MSG_NORM_IMAGE)
-            with tf.control_dependencies([normalization_check]):
-                image = self.adjust_image(image)
-        else:
-            image = self.adjust_image(image)
-
-        element[RIterator.IMAGE] = image
-        return element
-
     def adjust_image(self, image):
         # Random contrast and random brightness work only with integer values
-        image = tf.cast(image, tf.float32)
+        image = tf.cast(image, tf.uint8)
 
-        def apply_transform(image, transform, rate):
-            p = tf.random.uniform(minval=0, maxval=1, shape=[])
-            true_fn = lambda: transform(image)
-            false_fn = lambda: image
-            image = tf.cond(p < rate, true_fn, false_fn)
-            return image
-
-        image = apply_transform(image, self.adjust_contrast, self._contrast_rate)
-        image = apply_transform(image, self.adjust_saturation, self._saturation_rate)
-        image = apply_transform(image, self.adjust_hue, self._hue_rate)
-        image = apply_transform(image, self.adjust_brightness, self._brightness_rate)
+        image = self.apply_transform(image, self.adjust_contrast, self._contrast_rate)
+        # Sometimes contrast adjustment yields values outside of [0, 255] range
+        # image = tf.clip_by_value(image, clip_value_min=0, clip_value_max=255)
+        image = self.apply_transform(image, self.adjust_saturation, self._saturation_rate)
+        image = self.apply_transform(image, self.adjust_hue, self._hue_rate)
+        image = self.apply_transform(image, self.adjust_brightness, self._brightness_rate)
 
         # Cast the image back to float
         image = tf.cast(image, tf.float32)
@@ -763,7 +656,7 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
         return image
 
 
-class GammaAdjustmentPostMethod(TFRPostMapMethod):
+class GammaAdjustmentPostMethod(ImageAdjuster):
     def __init__(self, gamma_range=(0.5, 2.0), rate=0.5, assert_image=True):
         """
         Adjust image gamma. Gamma adjustment works the following way:
@@ -782,7 +675,7 @@ class GammaAdjustmentPostMethod(TFRPostMapMethod):
             If the image is normalized, an exception is thrown. The check is done via looking at the mean
             of the image: if it greater than 3.0, then the image is unnormalized and everything is okay.
         """
-        super(GammaAdjustmentPostMethod, self).__init__()
+        super().__init__(assert_image=assert_image)
         self._gamma_range = gamma_range
         self._assert_image = assert_image
         self._rate = rate
@@ -801,38 +694,12 @@ class GammaAdjustmentPostMethod(TFRPostMapMethod):
 
         return image
 
-    def read_record(self, serialized_example) -> dict:
-        if self._parent_method is not None:
-            element = self._parent_method.read_record(serialized_example)
-        else:
-            element = serialized_example
-        image = element[RIterator.IMAGE]
-
-        if self._assert_image:
-            # Make sure the image is unnormalized
-            normalization_check = tf.assert_greater(tf.reduce_mean(image), 3.0,
-                                                    message=ImageAdjustPostMethod.MSG_NORM_IMAGE)
-            with tf.control_dependencies([normalization_check]):
-                image = self.adjust_image(image)
-        else:
-            image = self.adjust_image(image)
-
-        element[RIterator.IMAGE] = image
-        return element
-
     def adjust_image(self, image):
-        def apply_transform(image, transform, rate):
-            p = tf.random.uniform(minval=0, maxval=1, shape=[])
-            true_fn = lambda: transform(image)
-            false_fn = lambda: image
-            image = tf.cond(p < rate, true_fn, false_fn)
-            return image
-
-        return apply_transform(image, self.adjust_gamma, self._rate)
+        return self.apply_transform(image, self.adjust_gamma, self._rate)
 
 
-class JpegQualityPostMethod(TFRPostMapMethod):
-    def __init__(self, quality_range=(10, 100), rate=0.5):
+class JpegQualityPostMethod(ImageAdjuster):
+    def __init__(self, quality_range=(10, 100), rate=0.5, assert_image=True):
         """
         Adjust image quality by inducing jpeg noise.
 
@@ -843,7 +710,7 @@ class JpegQualityPostMethod(TFRPostMapMethod):
         rate : float
             Probability of applying quality adjustment.
         """
-        super(JpegQualityPostMethod, self).__init__()
+        super().__init__(assert_image=assert_image)
         self._quality_range = quality_range
         self._rate = rate
 
@@ -871,27 +738,8 @@ class JpegQualityPostMethod(TFRPostMapMethod):
         else:
             return sample_fn()
 
-    def read_record(self, serialized_example) -> dict:
-        if self._parent_method is not None:
-            element = self._parent_method.read_record(serialized_example)
-        else:
-            element = serialized_example
-        image = element[RIterator.IMAGE]
-
-        image = self.adjust_image(image)
-
-        element[RIterator.IMAGE] = image
-        return element
-
     def adjust_image(self, image):
-        def apply_transform(image, transform, rate):
-            p = tf.random.uniform(minval=0, maxval=1, shape=[])
-            true_fn = lambda: transform(image)
-            false_fn = lambda: image
-            image = tf.cond(p < rate, true_fn, false_fn)
-            return image
-
-        return apply_transform(image, self.adjust_quality, self._rate)
+        return self.apply_transform(image, self.adjust_quality, self._rate)
 
 
 class ResizePostMethod(TFRPostMapMethod):
