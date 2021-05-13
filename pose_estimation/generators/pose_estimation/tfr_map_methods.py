@@ -652,7 +652,7 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
             self,
             contrast_factor_range=(0.5, 2.0),
             saturation_factor_range=(0.25, 3.0),
-            brightness_delta=0.35,
+            brightness_delta=0.3,
             hue_delta=0.1,
             contrast_rate=0.5,
             saturation_rate=0.5,
@@ -661,7 +661,7 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
             assert_image=True
     ):
         """
-        Does contrast and brightness adjustment.
+        Does contrast, saturation, hue and brightness adjustment.
 
         Parameters
         ----------
@@ -763,7 +763,7 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
 
 
 class GammaAdjustmentPostMethod(TFRPostMapMethod):
-    def __init__(self, gamma_range=(0.5, 3.0), rate=0.5, assert_image=True):
+    def __init__(self, gamma_range=(0.5, 2.0), rate=0.5, assert_image=True):
         """
         Adjust image gamma. Gamma adjustment works the following way:
         image = pow(image / 255, gamma) * 255
