@@ -137,7 +137,7 @@ class RandomCropMethod(TFRPostMapMethod):
         self._image_mask_crop_size = [crop_h, crop_w, 1]
 
         self._image_crop_size_tf = tf.constant(np.array([crop_h, crop_w, image_last_dimension], dtype=np.int32))
-        self._image_mask_crop_size_tf  = tf.constant(np.array([crop_h, crop_w, 1], dtype=np.int32))
+        self._image_mask_crop_size_tf = tf.constant(np.array([crop_h, crop_w, 1], dtype=np.int32))
 
     def read_record(self, serialized_example) -> dict:
         element = self._parent_method.read_record(serialized_example)
@@ -731,7 +731,8 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
 
         if self._assert_image:
             # Make sure the image is unnormalized
-            normalization_check = tf.assert_greater(tf.reduce_mean(image), 3.0, message=ImageAdjustPostMethod.MSG_NORM_IMAGE)
+            normalization_check = tf.assert_greater(tf.reduce_mean(image), 3.0,
+                                                    message=ImageAdjustPostMethod.MSG_NORM_IMAGE)
             with tf.control_dependencies([normalization_check]):
                 image = self.adjust_image(image)
         else:
@@ -809,7 +810,8 @@ class GammaAdjustmentPostMethod(TFRPostMapMethod):
 
         if self._assert_image:
             # Make sure the image is unnormalized
-            normalization_check = tf.assert_greater(tf.reduce_mean(image), 3.0, message=ImageAdjustPostMethod.MSG_NORM_IMAGE)
+            normalization_check = tf.assert_greater(tf.reduce_mean(image), 3.0,
+                                                    message=ImageAdjustPostMethod.MSG_NORM_IMAGE)
             with tf.control_dependencies([normalization_check]):
                 image = self.adjust_image(image)
         else:
@@ -846,9 +848,21 @@ class JpegQualityPostMethod(TFRPostMapMethod):
         self._rate = rate
 
     def adjust_quality(self, image):
-        return tf.image.random_jpeg_quality(
-            image, min_jpeg_quality=self._quality_range[0], max_jpeg_quality=self._quality_range[1]
+        # tf.image.random_jpeg_quality cannot work with batches, therefore we need to use map_fn
+        batch_fn = lambda: tf.map_fn(
+            fn=lambda x: tf.image.random_jpeg_quality(
+                x,
+                min_jpeg_quality=self._quality_range[0],
+                max_jpeg_quality=self._quality_range[1]
+            ),
+            elems=image
         )
+        sample_fn = lambda: tf.image.random_jpeg_quality(
+            image,
+            min_jpeg_quality=self._quality_range[0],
+            max_jpeg_quality=self._quality_range[1]
+        )
+        return tf.cond(tf.equal(tf.rank(image), 4), batch_fn, sample_fn)
 
     def read_record(self, serialized_example) -> dict:
         if self._parent_method is not None:
@@ -980,7 +994,6 @@ class ApplyMaskToImagePostMethod(TFRPostMapMethod):
 
 
 class DropBlockPostMethod(TFRPostMapMethod):
-
     ZERO = 0
     COLOR_DIMS_DEFAULT = 3
 
@@ -1024,13 +1037,13 @@ class DropBlockPostMethod(TFRPostMapMethod):
             raise ValueError("Wrong value for `min_size_box` at 0 index (Height). "
                              f"Value must be lower than `max_size_box[0]`, i.e. max Height, "
                              f"but {max_size_box[0]} were given."
-            )
+                             )
 
         if min_size_box[1] > max_size_box[1]:
             raise ValueError("Wrong value for `min_size_box` at 1 index (Width). "
                              f"Value must be lower than `max_size_box[1]`, i.e. max Width, "
                              f"but {max_size_box[1]} were given."
-            )
+                             )
 
         self.__min_size_box = min_size_box
         self.__max_size_box = max_size_box
@@ -1062,7 +1075,7 @@ class DropBlockPostMethod(TFRPostMapMethod):
         box_size = tf.expand_dims(tf.expand_dims(tf.stack([box_w, box_h], axis=-1), axis=1), axis=1)
         # Generate left corner of position where should be started cutout op
         h = tf.map_fn(lambda x: tf.random.uniform([], DropBlockPostMethod.ZERO, height - x, tf.int32), box_h)
-        w = tf.map_fn(lambda x: tf.random.uniform([], DropBlockPostMethod.ZERO, width  - x, tf.int32), box_w)
+        w = tf.map_fn(lambda x: tf.random.uniform([], DropBlockPostMethod.ZERO, width - x, tf.int32), box_w)
         wh_tf = tf.expand_dims(tf.expand_dims(tf.stack([w, h], axis=-1), axis=1), axis=1)
         # Generate grid for cutout
         x_grid, y_grid = tf.meshgrid(tf.range(width), tf.range(height))
@@ -1094,15 +1107,16 @@ class DropBlockPostMethod(TFRPostMapMethod):
         p = tf.random.uniform(minval=0, maxval=1, shape=[])
         final_image = tf.cond(
             p < self.__prob_rate,
-            get_cutout_image, # True
-            lambda: image,    # False
+            get_cutout_image,  # True
+            lambda: image,  # False
         )
 
         element[RIterator.IMAGE] = final_image
         if not self.__show_kp_under_dropblock:
             keypoints = element[RIterator.KEYPOINTS]
             keypoints_mask = element[RIterator.KEYPOINTS_MASK]
-            element[RIterator.KEYPOINTS_MASK] = keypoints_mask * tf.expand_dims(cutout_kp_in_box(keypoints, wh_tf, box_size), axis=-1)
+            element[RIterator.KEYPOINTS_MASK] = keypoints_mask * tf.expand_dims(
+                cutout_kp_in_box(keypoints, wh_tf, box_size), axis=-1)
         return element
 
 
@@ -1126,7 +1140,7 @@ class NoisePostMethod(TFRPostMapMethod):
         if prob_rate < 0.0 or prob_rate > 1.0:
             raise ValueError(f"Wrong value for `prob_rate`. Value must be in range (0, 1), "
                              f"but {prob_rate} were given"
-            )
+                             )
 
         self.__std = std
         self.__mean = mean
@@ -1146,8 +1160,8 @@ class NoisePostMethod(TFRPostMapMethod):
         p = tf.random.uniform(minval=0, maxval=1, shape=[])
         final_image = tf.cond(
             p < self.__prob_rate,
-            apply_image_noised, # True
-            lambda: image,      # False
+            apply_image_noised,  # True
+            lambda: image,  # False
         )
 
         element[RIterator.IMAGE] = final_image
@@ -1155,7 +1169,6 @@ class NoisePostMethod(TFRPostMapMethod):
 
 
 class BackgroundAugmentMethod(TFRPostMapMethod):
-
     MAX_VALUE_IMAGE = 255
 
     def __init__(self, backpool_path: str, crop_h: int, crop_w: int):
