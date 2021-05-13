@@ -829,6 +829,50 @@ class GammaAdjustmentPostMethod(TFRPostMapMethod):
         return apply_transform(image, self.adjust_gamma, self._rate)
 
 
+class JpegQualityPostMethod(TFRPostMapMethod):
+    def __init__(self, quality_range=(10, 100), rate=0.5):
+        """
+        Adjust image quality by inducing jpeg noise.
+
+        Parameters
+        ----------
+        quality_range : tuple of integers
+            Determines the percentage of original quality preservation. Numbers must be in range [0, 100].
+        rate : float
+            Probability of applying quality adjustment.
+        """
+        super(JpegQualityPostMethod, self).__init__()
+        self._quality_range = quality_range
+        self._rate = rate
+
+    def adjust_quality(self, image):
+        return tf.image.random_jpeg_quality(
+            image, min_jpeg_quality=self._quality_range[0], max_jpeg_quality=self._quality_range[1]
+        )
+
+    def read_record(self, serialized_example) -> dict:
+        if self._parent_method is not None:
+            element = self._parent_method.read_record(serialized_example)
+        else:
+            element = serialized_example
+        image = element[RIterator.IMAGE]
+
+        image = self.adjust_image(image)
+
+        element[RIterator.IMAGE] = image
+        return element
+
+    def adjust_image(self, image):
+        def apply_transform(image, transform, rate):
+            p = tf.random.uniform(minval=0, maxval=1, shape=[])
+            true_fn = lambda: transform(image)
+            false_fn = lambda: image
+            image = tf.cond(p < rate, true_fn, false_fn)
+            return image
+
+        return apply_transform(image, self.adjust_quality, self._rate)
+
+
 class ResizePostMethod(TFRPostMapMethod):
     _EXCEPTION_INTERPOLATION_IS_NOT_FOUND = "Interpolation {} does not exist"
 
