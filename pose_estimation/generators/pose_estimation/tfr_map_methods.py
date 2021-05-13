@@ -866,7 +866,10 @@ class JpegQualityPostMethod(TFRPostMapMethod):
                 max_jpeg_quality=self._quality_range[1]
             )
 
-        return tf.cond(tf.equal(tf.rank(image), 4), batch_fn, sample_fn)
+        if len(image.shape) == 4:
+            return batch_fn()
+        else:
+            return sample_fn()
 
     def read_record(self, serialized_example) -> dict:
         if self._parent_method is not None:
