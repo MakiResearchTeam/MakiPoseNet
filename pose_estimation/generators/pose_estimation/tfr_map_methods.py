@@ -648,42 +648,79 @@ class FlipPostMethod(TFRPostMapMethod):
 class ImageAdjustPostMethod(TFRPostMapMethod):
     MSG_NORM_IMAGE = "Image is normalized. Cannot change brightness and contrast."
 
-    def __init__(self, contrast_factor_range=(0.5, 2.0), max_delta=0.4, contrast_rate=0.5, brightness_rate=0.5, assert_image=True):
+    def __init__(
+            self,
+            contrast_factor_range=(0.5, 2.0),
+            saturation_factor_range=(0.25, 3.0),
+            brightness_delta=0.3,
+            hue_delta=0.1,
+            contrast_rate=0.5,
+            saturation_rate=0.5,
+            brightness_rate=0.5,
+            hue_rate=0.5,
+            assert_image=True
+    ):
         """
-        Does contrast and brightness adjustment.
+        Does contrast, saturation, hue and brightness adjustment.
 
         Parameters
         ----------
-        contrast_factor_range : tuple
-        max_delta : tuple
+        contrast_factor_range : tuple of floats
+            Determines the range of contrast change. It is recommended to use default values.
+        saturation_factor_range : tuple of floats
+            Determines the range of saturation change. It is recommended to use default values.
+        brightness_delta : float
+            A random float from range (-brightness_delta, brightness_delta) will be added to the normalized image in
+            range [0, 1].
+        hue_delta : float
+            Controls the strength of hue change. It is nor recommended to set the `hue_delta` to values larger than 0.1.
+        saturation_rate : float
+            Probability of changing saturation.
         contrast_rate : float
             Probability of changing contrast.
         brightness_rate : float
             Probability of changing brightness.
+        hue_rate : float
+            Probability of changing hue.
         assert_image : bool
             When changing brightness and contrast, it will be checked whether the image is normalized.
             If the image is normalized, an exception is thrown. The check is done via looking at the mean
             of the image: if it greater than 3.0, then the image is unnormalized and everything is okay.
         """
         super().__init__()
+        # --- Contrast
         self._cont_low = contrast_factor_range[0]
         if self._cont_low <= 0.0:
             raise ValueError(f'The lowest value for contrast factor must be positive, received {self._cont_low}')
-
         self._cont_high = contrast_factor_range[1]
-        self._max_delta = max_delta
-        if self._max_delta <= 0.0:
-            raise ValueError(f'The max_delta value for brightness must be positive, received {self._max_delta}')
+        # --- Saturation
+        self._saturation_range = saturation_factor_range
+        # --- Brightness
+        self._brightness_delta = brightness_delta
+        if self._brightness_delta <= 0.0:
+            raise ValueError(f'The max_delta value for brightness must be positive, received {self._brightness_delta}')
+        # --- Hue
+        self._hue_delta = hue_delta
 
+        # --- Probabilities of applying the transformations
         self._contrast_rate = contrast_rate
+        self._saturation_rate = saturation_rate
         self._brightness_rate = brightness_rate
+        self._hue_rate = hue_rate
+
         self._assert_image = assert_image
 
     def adjust_contrast(self, image):
         return tf.image.random_contrast(image, lower=self._cont_low, upper=self._cont_high)
 
+    def adjust_saturation(self, image):
+        return tf.image.random_saturation(image, lower=self._saturation_range[0], upper=self._saturation_range[1])
+
+    def adjust_hue(self, image):
+        return tf.image.random_hue(image, max_delta=self._hue_delta)
+
     def adjust_brightness(self, image):
-        return tf.image.random_brightness(image, max_delta=self._max_delta,)
+        return tf.image.random_brightness(image, max_delta=self._brightness_delta, )
 
     def read_record(self, serialized_example) -> dict:
         if self._parent_method is not None:
@@ -705,22 +742,135 @@ class ImageAdjustPostMethod(TFRPostMapMethod):
 
     def adjust_image(self, image):
         # Random contrast and random brightness work only with integer values
-        image = tf.cast(image, tf.uint8)
+        image = tf.cast(image, tf.float32)
 
-        p = tf.random.uniform(minval=0, maxval=1, shape=[])
-        true_fn = lambda: self.adjust_contrast(image)
-        false_fn = lambda: image
-        image = tf.cond(p < self._contrast_rate, true_fn, false_fn)
+        def apply_transform(image, transform, rate):
+            p = tf.random.uniform(minval=0, maxval=1, shape=[])
+            true_fn = lambda: transform(image)
+            false_fn = lambda: image
+            image = tf.cond(p < rate, true_fn, false_fn)
+            return image
 
-        p = tf.random.uniform(minval=0, maxval=1, shape=[])
-        true_fn = lambda: self.adjust_brightness(image)
-        false_fn = lambda: image
-        image = tf.cond(p < self._brightness_rate, true_fn, false_fn)
+        image = apply_transform(image, self.adjust_contrast, self._contrast_rate)
+        image = apply_transform(image, self.adjust_saturation, self._saturation_rate)
+        image = apply_transform(image, self.adjust_hue, self._hue_rate)
+        image = apply_transform(image, self.adjust_brightness, self._brightness_rate)
 
         # Cast the image back to float
         image = tf.cast(image, tf.float32)
 
         return image
+
+
+class GammaAdjustmentPostMethod(TFRPostMapMethod):
+    def __init__(self, gamma_range=(0.5, 2.0), rate=0.5, assert_image=True):
+        """
+        Adjust image gamma. Gamma adjustment works the following way:
+        image = pow(image / 255, gamma) * 255
+        It is assumed that the image is not normalized and is in range [0, 255].
+
+        Parameters
+        ----------
+        gamma_range : tuple of floats
+            The range of gamma. Lower the gamma - brighter the image becomes, higher the gamma - darker
+            the image becomes.
+        rate : float
+            Probability of applying gamma adjustment.
+        assert_image : bool
+            When changing brightness and contrast, it will be checked whether the image is normalized.
+            If the image is normalized, an exception is thrown. The check is done via looking at the mean
+            of the image: if it greater than 3.0, then the image is unnormalized and everything is okay.
+        """
+        super(GammaAdjustmentPostMethod, self).__init__()
+        self._gamma_range = gamma_range
+        self._assert_image = assert_image
+        self._rate = rate
+
+    def adjust_gamma(self, image):
+        dtype = image.dtype
+        if dtype != tf.float32:
+            image = tf.cast(image, tf.float32)
+
+        gamma = tf.random.uniform(shape=[], minval=self._gamma_range[0], maxval=self._gamma_range[1])
+        image = tf.math.pow(image / 255., gamma) * 255.
+        image = tf.clip_by_value(image, clip_value_min=0.0, clip_value_max=255.)
+
+        if dtype != tf.float32:
+            image = tf.cast(image, dtype)
+
+        return image
+
+    def read_record(self, serialized_example) -> dict:
+        if self._parent_method is not None:
+            element = self._parent_method.read_record(serialized_example)
+        else:
+            element = serialized_example
+        image = element[RIterator.IMAGE]
+
+        if self._assert_image:
+            # Make sure the image is unnormalized
+            normalization_check = tf.assert_greater(tf.reduce_mean(image), 3.0, message=ImageAdjustPostMethod.MSG_NORM_IMAGE)
+            with tf.control_dependencies([normalization_check]):
+                image = self.adjust_image(image)
+        else:
+            image = self.adjust_image(image)
+
+        element[RIterator.IMAGE] = image
+        return element
+
+    def adjust_image(self, image):
+        def apply_transform(image, transform, rate):
+            p = tf.random.uniform(minval=0, maxval=1, shape=[])
+            true_fn = lambda: transform(image)
+            false_fn = lambda: image
+            image = tf.cond(p < rate, true_fn, false_fn)
+            return image
+
+        return apply_transform(image, self.adjust_gamma, self._rate)
+
+
+class JpegQualityPostMethod(TFRPostMapMethod):
+    def __init__(self, quality_range=(10, 100), rate=0.5):
+        """
+        Adjust image quality by inducing jpeg noise.
+
+        Parameters
+        ----------
+        quality_range : tuple of integers
+            Determines the percentage of original quality preservation. Numbers must be in range [0, 100].
+        rate : float
+            Probability of applying quality adjustment.
+        """
+        super(JpegQualityPostMethod, self).__init__()
+        self._quality_range = quality_range
+        self._rate = rate
+
+    def adjust_quality(self, image):
+        return tf.image.random_jpeg_quality(
+            image, min_jpeg_quality=self._quality_range[0], max_jpeg_quality=self._quality_range[1]
+        )
+
+    def read_record(self, serialized_example) -> dict:
+        if self._parent_method is not None:
+            element = self._parent_method.read_record(serialized_example)
+        else:
+            element = serialized_example
+        image = element[RIterator.IMAGE]
+
+        image = self.adjust_image(image)
+
+        element[RIterator.IMAGE] = image
+        return element
+
+    def adjust_image(self, image):
+        def apply_transform(image, transform, rate):
+            p = tf.random.uniform(minval=0, maxval=1, shape=[])
+            true_fn = lambda: transform(image)
+            false_fn = lambda: image
+            image = tf.cond(p < rate, true_fn, false_fn)
+            return image
+
+        return apply_transform(image, self.adjust_quality, self._rate)
 
 
 class ResizePostMethod(TFRPostMapMethod):
