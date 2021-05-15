@@ -556,8 +556,13 @@ class ImageAdjuster(TFRPostMapMethod):
 
     def apply_transform(self, image, transform, rate):
         p = tf.random.uniform(minval=0, maxval=1, shape=[])
-        true_fn = lambda: transform(image)
-        false_fn = lambda: image
+
+        def true_fn():
+            return transform(image)
+
+        def false_fn():
+            return image
+
         image = tf.cond(p < rate, true_fn, false_fn)
         return image
 
@@ -715,22 +720,27 @@ class JpegQualityPostMethod(ImageAdjuster):
         self._rate = rate
 
     def adjust_quality(self, image):
+        # Work properly only with int values
+        old_dtype = image.dtype
+        image = tf.cast(image, tf.uint8)
         # tf.image.random_jpeg_quality cannot work with batches, therefore we need to use map_fn
         def batch_fn():
             return tf.map_fn(
-                fn=lambda x: tf.image.random_jpeg_quality(
+                fn=lambda x: tf.cast(tf.image.random_jpeg_quality(
                     x,
                     min_jpeg_quality=self._quality_range[0],
                     max_jpeg_quality=self._quality_range[1]
-                ),
+                ), dtype=old_dtype),
                 elems=image
             )
 
         def sample_fn():
-            return tf.image.random_jpeg_quality(
-                image,
-                min_jpeg_quality=self._quality_range[0],
-                max_jpeg_quality=self._quality_range[1]
+            return tf.cast(tf.image.random_jpeg_quality(
+                    image,
+                    min_jpeg_quality=self._quality_range[0],
+                    max_jpeg_quality=self._quality_range[1]
+                ),
+                dtype=old_dtype
             )
 
         if len(image.shape) == 4:
@@ -1028,7 +1038,6 @@ class BackgroundAugmentMethod(TFRPostMapMethod):
 
     def __init__(self, backpool_path: str, crop_h: int, crop_w: int):
         """
-        TODO: add docs
 
         Parameters
         ----------
