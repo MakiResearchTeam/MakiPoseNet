@@ -726,27 +726,26 @@ class JpegQualityPostMethod(ImageAdjuster):
         # tf.image.random_jpeg_quality cannot work with batches, therefore we need to use map_fn
         def batch_fn():
             return tf.map_fn(
-                fn=lambda x: tf.cast(tf.image.random_jpeg_quality(
+                fn=lambda x: tf.image.random_jpeg_quality(
                     x,
                     min_jpeg_quality=self._quality_range[0],
                     max_jpeg_quality=self._quality_range[1]
-                ), dtype=old_dtype),
+                ),
                 elems=image
             )
 
         def sample_fn():
-            return tf.cast(tf.image.random_jpeg_quality(
-                    image,
-                    min_jpeg_quality=self._quality_range[0],
-                    max_jpeg_quality=self._quality_range[1]
-                ),
-                dtype=old_dtype
-            )
+            return tf.image.random_jpeg_quality(
+                image,
+                min_jpeg_quality=self._quality_range[0],
+                max_jpeg_quality=self._quality_range[1]
+            ),
+
 
         if len(image.shape) == 4:
-            return batch_fn()
+            return tf.cast(batch_fn(), dtype=old_dtype)
         else:
-            return sample_fn()
+            return tf.cast(sample_fn(), dtype=old_dtype)
 
     def adjust_image(self, image):
         return self.apply_transform(image, self.adjust_quality, self._rate)
