@@ -556,8 +556,13 @@ class ImageAdjuster(TFRPostMapMethod):
 
     def apply_transform(self, image, transform, rate):
         p = tf.random.uniform(minval=0, maxval=1, shape=[])
-        true_fn = lambda: transform(image)
-        false_fn = lambda: image
+
+        def true_fn():
+            return transform(image)
+
+        def false_fn():
+            return image
+
         image = tf.cond(p < rate, true_fn, false_fn)
         return image
 
@@ -567,9 +572,9 @@ class ImageAdjustPostMethod(ImageAdjuster):
 
     def __init__(
             self,
-            contrast_factor_range=(0.5, 2.0),
+            contrast_factor_range=(0.5, 1.5),
             saturation_factor_range=(0.25, 3.0),
-            brightness_delta=0.3,
+            brightness_delta=None,
             hue_delta=0.1,
             contrast_rate=0.5,
             saturation_rate=0.5,
@@ -589,6 +594,8 @@ class ImageAdjustPostMethod(ImageAdjuster):
         brightness_delta : float
             A random float from range (-brightness_delta, brightness_delta) will be added to the normalized image in
             range [0, 1].
+            Its better to use GammaAdjustmentPostMethod class, its do same thing, but more flexible in configuration,
+            So, by default value equal to None, i.e. not will be used
         hue_delta : float
             Controls the strength of hue change. It is nor recommended to set the `hue_delta` to values larger than 0.1.
         saturation_rate : float
@@ -606,15 +613,18 @@ class ImageAdjustPostMethod(ImageAdjuster):
         """
         super().__init__(assert_image=assert_image)
         # --- Contrast
-        self._cont_low = contrast_factor_range[0]
-        if self._cont_low <= 0.0:
-            raise ValueError(f'The lowest value for contrast factor must be positive, received {self._cont_low}')
-        self._cont_high = contrast_factor_range[1]
+        if contrast_factor_range is not None:
+            self._cont_low = contrast_factor_range[0]
+            if self._cont_low <= 0.0:
+                raise ValueError(f'The lowest value for contrast factor must be positive, received {self._cont_low}')
+            self._cont_high = contrast_factor_range[1]
+        else:
+            self._cont_low, self._cont_high = None, None
         # --- Saturation
         self._saturation_range = saturation_factor_range
         # --- Brightness
         self._brightness_delta = brightness_delta
-        if self._brightness_delta <= 0.0:
+        if self._brightness_delta is not None and self._brightness_delta <= 0.0:
             raise ValueError(f'The max_delta value for brightness must be positive, received {self._brightness_delta}')
         # --- Hue
         self._hue_delta = hue_delta
@@ -643,12 +653,18 @@ class ImageAdjustPostMethod(ImageAdjuster):
         # Random contrast and random brightness work only with integer values
         image = tf.cast(image, tf.uint8)
 
-        image = self.apply_transform(image, self.adjust_contrast, self._contrast_rate)
+        if self._cont_low is not None:
+            image = self.apply_transform(image, self.adjust_contrast, self._contrast_rate)
         # Sometimes contrast adjustment yields values outside of [0, 255] range
         # image = tf.clip_by_value(image, clip_value_min=0, clip_value_max=255)
-        image = self.apply_transform(image, self.adjust_saturation, self._saturation_rate)
-        image = self.apply_transform(image, self.adjust_hue, self._hue_rate)
-        image = self.apply_transform(image, self.adjust_brightness, self._brightness_rate)
+        if self._saturation_range is not None:
+            image = self.apply_transform(image, self.adjust_saturation, self._saturation_rate)
+
+        if self._hue_delta is not None:
+            image = self.apply_transform(image, self.adjust_hue, self._hue_rate)
+
+        if self._brightness_delta is not None:
+            image = self.apply_transform(image, self.adjust_brightness, self._brightness_rate)
 
         # Cast the image back to float
         image = tf.cast(image, tf.float32)
@@ -657,7 +673,7 @@ class ImageAdjustPostMethod(ImageAdjuster):
 
 
 class GammaAdjustmentPostMethod(ImageAdjuster):
-    def __init__(self, gamma_range=(0.5, 2.0), rate=0.5, assert_image=True):
+    def __init__(self, gamma_range=(0.5, 1.4), rate=0.5, assert_image=True):
         """
         Adjust image gamma. Gamma adjustment works the following way:
         image = pow(image / 255, gamma) * 255
@@ -699,7 +715,7 @@ class GammaAdjustmentPostMethod(ImageAdjuster):
 
 
 class JpegQualityPostMethod(ImageAdjuster):
-    def __init__(self, quality_range=(10, 100), rate=0.5, assert_image=True):
+    def __init__(self, quality_range=(50, 100), rate=0.5, assert_image=True):
         """
         Adjust image quality by inducing jpeg noise.
 
@@ -715,6 +731,9 @@ class JpegQualityPostMethod(ImageAdjuster):
         self._rate = rate
 
     def adjust_quality(self, image):
+        # Work properly only with int values
+        old_dtype = image.dtype
+        image = tf.cast(image, tf.uint8)
         # tf.image.random_jpeg_quality cannot work with batches, therefore we need to use map_fn
         def batch_fn():
             return tf.map_fn(
@@ -731,12 +750,13 @@ class JpegQualityPostMethod(ImageAdjuster):
                 image,
                 min_jpeg_quality=self._quality_range[0],
                 max_jpeg_quality=self._quality_range[1]
-            )
+            ),
+
 
         if len(image.shape) == 4:
-            return batch_fn()
+            return tf.cast(batch_fn(), dtype=old_dtype)
         else:
-            return sample_fn()
+            return tf.cast(sample_fn(), dtype=old_dtype)
 
     def adjust_image(self, image):
         return self.apply_transform(image, self.adjust_quality, self._rate)
@@ -977,7 +997,7 @@ class DropBlockPostMethod(TFRPostMapMethod):
 
 class NoisePostMethod(TFRPostMapMethod):
 
-    def __init__(self, std=1.0, mean=0.0, prob_rate=0.5):
+    def __init__(self, std=1.0, mean=0.0, prob_rate=0.5, clip_max=None, clip_min=None):
         """
         Add noise to image
 
@@ -990,6 +1010,14 @@ class NoisePostMethod(TFRPostMapMethod):
         prob_rate : float
             Probability to apply noise to image.
             Must be in range (0, 1)
+        clip_max : float
+            After adding noise, values of images can be more than, for example, pixel in image 255,
+            Its better to clip it
+            If equal to None, clip not will be used
+        clip_min : float
+            After adding noise, values of images can be lower than, for example, pixel in image 0,
+            Its better to clip it
+            If equal to None, clip not will be used
 
         """
         if prob_rate < 0.0 or prob_rate > 1.0:
@@ -1000,6 +1028,9 @@ class NoisePostMethod(TFRPostMapMethod):
         self.__std = std
         self.__mean = mean
         self.__prob_rate = prob_rate
+
+        self._clip_max = clip_max
+        self._clip_min = clip_min
         super().__init__()
 
     def read_record(self, serialized_example) -> dict:
@@ -1010,7 +1041,16 @@ class NoisePostMethod(TFRPostMapMethod):
         image = element[RIterator.IMAGE]
 
         noise = tf.random_normal(shape=tf.shape(image), mean=self.__mean, stddev=self.__std, dtype=tf.float32)
-        apply_image_noised = lambda: tf.add(tf.cast(image, dtype=tf.float32), noise)
+
+        def apply_image_noised():
+            final_image = tf.add(tf.cast(image, dtype=tf.float32), noise)
+            if self._clip_min is not None and self._clip_max is not None:
+                final_image = tf.clip_by_value(
+                    final_image,
+                    clip_value_min=self._clip_min,
+                    clip_value_max=self._clip_max
+                )
+            return final_image
 
         p = tf.random.uniform(minval=0, maxval=1, shape=[])
         final_image = tf.cond(
@@ -1028,7 +1068,6 @@ class BackgroundAugmentMethod(TFRPostMapMethod):
 
     def __init__(self, backpool_path: str, crop_h: int, crop_w: int):
         """
-        TODO: add docs
 
         Parameters
         ----------
