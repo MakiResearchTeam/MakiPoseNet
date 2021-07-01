@@ -554,3 +554,17 @@ class CocoWholeBodyRelayout:
         # Create bool mask for visibility of keypoints
         all_kp_single[..., -1:] = (all_kp_single[..., -1:] > CocoPreparator.EPSILON).astype(np.float32, copy=False)
         return all_kp_single
+
+    def setup_default_pose(self):
+        """
+        Setup default pose of our repo
+
+        """
+        self.set_calculate_neck(1)
+        self.set_calculate_mid_foot_finger([18, 19])
+        self.set_calculate_center_body(0)
+        self.setup_taken_points_from_left_hand(kp_indx_stored=[5, 17], kp_indx_set=[20, 21])
+        self.setup_taken_points_from_right_hand(kp_indx_stored=[5, 17], kp_indx_set=[22, 23])
+        self.setup_taken_points_from_keypoints(kp_indx_stored=list(range(1, 17)), kp_indx_set=list(range(2, 18)))
+        self.get_current_setup()
+
