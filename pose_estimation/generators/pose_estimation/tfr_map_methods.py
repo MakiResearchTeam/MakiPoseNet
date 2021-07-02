@@ -190,8 +190,8 @@ class AugmentationPostMethod(TFRPostMapMethod):
                  dy_max=None,
                  use_zoom=True,
                  zoom_min=0.9,
-                 zoom_max=1.1
-                 ):
+                 zoom_max=1.1,
+                 border_value=0):
         """
         Perform augmentation of images (rotation, shift, zoom)
 
@@ -278,6 +278,7 @@ class AugmentationPostMethod(TFRPostMapMethod):
 
         self.zoom_min = zoom_min
         self.zoom_max = zoom_max
+        self.border_value = border_value
 
     def read_record(self, serialized_example) -> dict:
         if self._parent_method is not None:
@@ -309,9 +310,10 @@ class AugmentationPostMethod(TFRPostMapMethod):
 
             if self.use_zoom:
                 zoom = tf.random.uniform([], minval=self.zoom_min, maxval=self.zoom_max, dtype='float32')
-
-            transformed_image_and_mask, transformed_keypoints = apply_transformation(
-                [image, image_mask],
+            # Mask in order to assign border values
+            image_aug_mask = tf.ones_like(image, dtype=tf.float32)
+            transformed_inputs, transformed_keypoints = apply_transformation(
+                [image, image_mask, image_aug_mask],
                 keypoints,
                 use_rotation=self.use_rotation,
                 angle=angle,
@@ -321,8 +323,18 @@ class AugmentationPostMethod(TFRPostMapMethod):
                 use_zoom=self.use_zoom,
                 zoom_scale=zoom
             )
-            transformed_image = transformed_image_and_mask[0]
-            transformed_image_mask = transformed_image_and_mask[1]
+            transformed_image, transformed_image_mask, transformed_image_aug_mask = (
+                transformed_inputs[0],
+                transformed_inputs[1],
+                transformed_inputs[2],
+            )
+            # Convert to binary view so 1 - border, 0 - image itself
+            # Border assign value - self.border_values, otherwise value of image
+            transformed_image = tf.where(
+                transformed_image_aug_mask < 0.5,
+                transformed_image,
+                tf.ones_like(transformed_image) * self.border_value
+            )
             # Check which keypoints are beyond the image
             correct_keypoints_mask = keypoints_mask * check_bounds(transformed_keypoints, image_shape)
         else:
@@ -338,8 +350,10 @@ class AugmentationPostMethod(TFRPostMapMethod):
             if self.use_zoom:
                 zoom = tf.random.uniform([N], minval=self.zoom_min, maxval=self.zoom_max, dtype='float32')
 
-            transformed_image_and_mask, transformed_keypoints = apply_transformation_batched(
-                [image, image_mask],
+            # Mask in order to assign border values
+            image_aug_mask = tf.ones_like(image, dtype=tf.float32)
+            transformed_inputs, transformed_keypoints = apply_transformation_batched(
+                [image, image_mask, image_aug_mask],
                 keypoints,
                 use_rotation=self.use_rotation,
                 angle_batched=angle,
@@ -349,8 +363,18 @@ class AugmentationPostMethod(TFRPostMapMethod):
                 use_zoom=self.use_zoom,
                 zoom_scale_batched=zoom
             )
-            transformed_image = transformed_image_and_mask[0]
-            transformed_image_mask = transformed_image_and_mask[1]
+            transformed_image, transformed_image_mask, transformed_image_aug_mask = (
+                transformed_inputs[0],
+                transformed_inputs[1],
+                transformed_inputs[2],
+            )
+            # Convert to binary view so 1 - border, 0 - image itself
+            # Border assign value - self.border_values, otherwise value of image
+            transformed_image = tf.where(
+                transformed_image_aug_mask < 0.5,
+                transformed_image,
+                tf.ones_like(transformed_image) * self.border_value
+            )
             # Check which keypoints are beyond the image
             correct_keypoints_mask = keypoints_mask * check_bounds(transformed_keypoints, image_shape[1:])
 
