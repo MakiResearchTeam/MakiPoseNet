@@ -331,12 +331,10 @@ class AugmentationPostMethod(TFRPostMapMethod):
             # Convert to binary view so 1 - border, 0 - image itself
             # Border assign value - self.border_values, otherwise value of image
             transformed_image = tf.where(
-                transformed_image_aug_mask < 128.0,
+                transformed_image_aug_mask > 128.0,
                 transformed_image,
                 tf.ones_like(transformed_image) * self.border_value
             )
-            # TODO: Delete line below
-            self._debug_transformed_image = transformed_image_aug_mask
             # Check which keypoints are beyond the image
             correct_keypoints_mask = keypoints_mask * check_bounds(transformed_keypoints, image_shape)
         else:
@@ -373,12 +371,10 @@ class AugmentationPostMethod(TFRPostMapMethod):
             # Convert to binary view so 1 - border, 0 - image itself
             # Border assign value - self.border_values, otherwise value of image
             transformed_image = tf.where(
-                transformed_image_aug_mask < 128.0,
+                transformed_image_aug_mask > 128.0,
                 transformed_image,
                 tf.ones_like(transformed_image) * self.border_value
             )
-            # TODO: Delete line below
-            self._debug_transformed_image = transformed_image_aug_mask
             # Check which keypoints are beyond the image
             correct_keypoints_mask = keypoints_mask * check_bounds(transformed_keypoints, image_shape[1:])
 
