@@ -219,7 +219,9 @@ class AugmentationPostMethod(TFRPostMapMethod):
             Minimum zoom coeff of the random zoom
         zoom_max : float
             Maximum zoom of the random zoom
-
+        border_value : float
+            Number which will be assign to values outside of the image, by default equal 0
+        
         """
         super().__init__()
         self.use_rotation = use_rotation
