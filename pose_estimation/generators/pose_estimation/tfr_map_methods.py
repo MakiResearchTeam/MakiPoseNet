@@ -351,7 +351,7 @@ class AugmentationPostMethod(TFRPostMapMethod):
                 zoom = tf.random.uniform([N], minval=self.zoom_min, maxval=self.zoom_max, dtype='float32')
 
             # Mask in order to assign border values
-            image_aug_mask = tf.ones_like(image, dtype=tf.float32)
+            image_aug_mask = tf.ones_like(image, dtype=tf.float32) * 255.0
             transformed_inputs, transformed_keypoints = apply_transformation_batched(
                 [image, image_mask, image_aug_mask],
                 keypoints,
@@ -371,10 +371,12 @@ class AugmentationPostMethod(TFRPostMapMethod):
             # Convert to binary view so 1 - border, 0 - image itself
             # Border assign value - self.border_values, otherwise value of image
             transformed_image = tf.where(
-                transformed_image_aug_mask < 0.5,
+                transformed_image_aug_mask < 128.0,
                 transformed_image,
                 tf.ones_like(transformed_image) * self.border_value
             )
+            # TODO: Delete line below
+            self._debug_transformed_image = transformed_image_aug_mask
             # Check which keypoints are beyond the image
             correct_keypoints_mask = keypoints_mask * check_bounds(transformed_keypoints, image_shape[1:])
 
