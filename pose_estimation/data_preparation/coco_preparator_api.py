@@ -208,7 +208,7 @@ class CocoPreparator:
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
 
             image_mask = np.ones((*image.shape[:2], 1)).astype(np.float32, copy=False)
-
+            all_kp = all_kp.astype(np.float32, copy=False)
             image, all_kp, image_mask, alpha_mask = self.__rescale_image(image, all_kp, image_mask, alpha_mask)
 
             keypoints_tensors.append(all_kp[..., :2].astype(np.float32, copy=False))
@@ -380,6 +380,7 @@ class CocoPreparator:
             else:
                 image_mask = np.ones((*image.shape[:2], 1)).astype(np.float32, copy=False)
 
+            all_kp = all_kp.astype(np.float32, copy=False)
             image, all_kp, image_mask, alpha_mask = self.__rescale_image(image, all_kp, image_mask, alpha_mask)
             keypoints_tensors.append(all_kp[..., :2].astype(np.float32, copy=False))
             keypoints_mask_tensors.append(all_kp[..., -1:].astype(np.float32, copy=False))
