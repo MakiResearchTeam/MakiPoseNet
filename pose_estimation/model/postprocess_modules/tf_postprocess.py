@@ -250,6 +250,7 @@ class TFPostProcessModule(PostProcessor):
 
         """
         if self._fast_mode:
+            # --- DONE -> PeakExtractionFast
             heatmap_tf = self._up_heatmap[0]
             heatmap_tf = tf.where(
                 tf.less(heatmap_tf, self._threash_hold_peaks),
