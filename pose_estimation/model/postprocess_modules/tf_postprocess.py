@@ -168,6 +168,7 @@ class TFPostProcessModule(PostProcessor):
         self._build_heatmap_graph()
         self._build_peaks_graph()
 
+    # --- DONE -> PafResize
     def _build_paf_graph(self):
         """
         Build tf graph in order to process paf tensor.
@@ -198,6 +199,7 @@ class TFPostProcessModule(PostProcessor):
         Main purpose - get suitable heatmap in order to takes from it peaks and indices of keypoints
 
         """
+        # --- DONE -> HeatmapResize
         main_heatmap = super().get_heatmap_tensor()
         if self._ignore_last_dim_inference:
             main_heatmap = main_heatmap[..., :-1]
@@ -218,6 +220,7 @@ class TFPostProcessModule(PostProcessor):
         )
         num_keypoints = main_heatmap.get_shape().as_list()[-1]
 
+        # --- DONE -> Blur
         if self._use_blur:
             self._smoother = Smoother(
                 self._resized_heatmap,
