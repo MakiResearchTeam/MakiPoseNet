@@ -1091,9 +1091,8 @@ class NoisePostMethod(TFRPostMapMethod):
 
 class BackgroundAugmentMethod(TFRPostMapMethod):
     MAX_VALUE_IMAGE = 255
-    LOWER_VALUE_IMAGE = 0
 
-    def __init__(self, backpool_path: str, crop_h: int, crop_w: int):
+    def __init__(self, backpool_path: str, crop_h: int, crop_w: int, cut_low_values: int = 10):
         """
 
         Parameters
@@ -1104,6 +1103,13 @@ class BackgroundAugmentMethod(TFRPostMapMethod):
             Height of the crop.
         crop_w : int
             Width of the crop.
+        cut_low_values : int
+            Some masks can be very noise, so in order to make them binary,
+            we binaries masks as:
+                mask = (image_mask > `cut_low_values`).astype(np.int32)
+            Where:
+                mask - mask which will be applied
+                image_mask - stored mask in records
 
         """
         super().__init__()
@@ -1114,6 +1120,7 @@ class BackgroundAugmentMethod(TFRPostMapMethod):
         )
         self._image_crop_size = [crop_h, crop_w, 3]
         self._image_crop_size_tf = tf.constant(np.array([crop_h, crop_w, 3], dtype=np.int32))
+        self._cut_low_values = cut_low_values
 
     def pick_background(self) -> tf.Tensor:
         random_index = tf.random_uniform(
@@ -1147,7 +1154,7 @@ class BackgroundAugmentMethod(TFRPostMapMethod):
         # Original dtype of alpha_mask is float32,
         # Convert it to binary mask with int32 dtype
         alpha_image = tf.cast(
-            element[RIterator.ALPHA_MASK] > BackgroundAugmentMethod.LOWER_VALUE_IMAGE,
+            element[RIterator.ALPHA_MASK] > self._cut_low_values,
             dtype=tf.int32
         )
 
