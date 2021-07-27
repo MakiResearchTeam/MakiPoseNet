@@ -26,7 +26,7 @@ class IndicesScoreExtraction(mf.core.MakiLayer):
 
         peaks = tf.gather(flat_peaks, peaks_coords)
 
-        indices = tf.transpose(tf.unravel_index(peaks_coords, dims=tf.shape(peaks)), [1, 0])
+        indices = tf.transpose(tf.unravel_index(peaks_coords, dims=tf.shape(x)), [1, 0])
         return indices, peaks
 
     def training_forward(self, x):
