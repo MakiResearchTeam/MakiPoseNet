@@ -285,6 +285,7 @@ class TFPostProcessModule(PostProcessor):
                     (heatmap_center > heatmap_down)
             self._peaks = tf.cast(peaks, tf.float32)
         else:
+            # --- DONE -> PeakExtraction
             # Apply NMS (Non maximum suppression)
             # Apply max pool operation to heatmap
             max_pooled_heatmap = tf.nn.max_pool(
